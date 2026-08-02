@@ -1,0 +1,61 @@
+﻿generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  meetings     Meeting[]
+
+  @@map("users")
+}
+
+model Meeting {
+  id            String        @id @default(cuid())
+  organizerId   String        @map("organizer_id")
+  organizer     User          @relation(fields: [organizerId], references: [id])
+  title         String
+  description   String?
+  slug          String        @unique
+  timezone      String
+  startDate     DateTime      @map("start_date")
+  endDate       DateTime      @map("end_date")
+  workdayStart  String        @map("workday_start")
+  workdayEnd    String        @map("workday_end")
+  finalized     Boolean       @default(false)
+  finalSlotAt   DateTime?     @map("final_slot_at")
+  responseDeadline DateTime?  @map("response_deadline")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  participants  Participant[]
+
+  @@map("meetings")
+}
+
+model Participant {
+  id            String         @id @default(cuid())
+  meetingId     String         @map("meeting_id")
+  meeting       Meeting        @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  displayName   String         @map("display_name")
+  joinedAt      DateTime       @default(now()) @map("joined_at")
+  availabilities Availability[]
+
+  @@unique([meetingId, displayName], map: "uniq_meeting_display_name")
+  @@map("participants")
+}
+
+model Availability {
+  id            String      @id @default(cuid())
+  participantId String      @map("participant_id")
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  datetimeStart DateTime    @map("datetime_start")
+  datetimeEnd   DateTime    @map("datetime_end")
+
+  @@map("availabilities")
+}
