@@ -1,28 +1,81 @@
-import { CalendarDays } from "lucide-react";
-import type { MeetingDto } from "@meet-planner/shared-types";
+import { ArrowRight, CalendarDays, UsersRound } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
-
-// Placeholder until real meetings come from the API (proves shared-types wiring).
-const exampleMeeting: Pick<MeetingDto, "title" | "timezone"> = {
-  title: "INSAT Robotics Weekly Meeting",
-  timezone: "Africa/Tunis",
-};
 
 export default function Home() {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-8 px-6 text-center">
-      <div className="flex items-center gap-3">
-        <CalendarDays className="size-10 text-primary" />
-        <h1 className="text-4xl font-semibold tracking-tight">Meet Planner</h1>
-      </div>
-      <p className="max-w-md text-lg text-muted-foreground">
-        Create an availability poll, share one link, and find the time that
-        works for everyone — no accounts needed for participants.
-      </p>
-      <Button size="lg">Create Meeting</Button>
-      <p className="text-sm text-muted-foreground">
-        e.g. {exampleMeeting.title} · {exampleMeeting.timezone}
-      </p>
-    </div>
+    <main className="relative flex min-h-svh flex-col overflow-hidden px-5 sm:px-8">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,oklch(0.65_0.29_25_/_0.12),transparent_38%)]" />
+      <nav className="relative mx-auto flex w-full max-w-6xl items-center justify-between border-b border-white/10 py-5">
+        <Link className="flex items-center gap-3" href="/">
+          <Image
+            alt=""
+            className="brand-neon-red size-11 rounded-xl"
+            height={72}
+            priority
+            src="/logo.png"
+            width={72}
+          />
+          <span className="text-xl font-semibold tracking-tight">Calendra</span>
+        </Link>
+        <div className="flex items-center gap-2">
+          <Button render={<Link href="/login" />} variant="ghost">
+            Log in
+          </Button>
+          <Button render={<Link href="/signup" />}>Sign up</Button>
+        </div>
+      </nav>
+
+      <section className="relative mx-auto grid w-full max-w-6xl flex-1 items-center gap-12 py-14 lg:grid-cols-[1.08fr_0.92fr] lg:py-20">
+        <div>
+          <p className="mb-5 flex items-center gap-2 text-sm font-medium text-primary">
+            <span className="size-1.5 rounded-full bg-primary shadow-[0_0_10px_var(--primary)]" />
+            Scheduling without the back-and-forth
+          </p>
+          <h1 className="max-w-3xl text-5xl font-semibold leading-[1.02] tracking-[-0.045em] sm:text-6xl lg:text-7xl">
+            Find the time that works for everyone.
+          </h1>
+          <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
+            Create an availability poll, share one secure link, and see the
+            perfect overlap. Participants never need an account.
+          </p>
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+            <Button
+              className="h-11 px-5 shadow-[0_0_30px_oklch(0.68_0.29_25_/_0.28)]"
+              render={<Link href="/signup" />}
+            >
+              Create your first poll <ArrowRight />
+            </Button>
+            <Button
+              className="h-11 px-5"
+              render={<Link href="/login" />}
+              variant="outline"
+            >
+              Organizer login
+            </Button>
+          </div>
+          <div className="mt-10 flex flex-wrap gap-6 text-sm text-muted-foreground">
+            <span className="flex items-center gap-2">
+              <CalendarDays className="size-4 text-primary" /> Visual
+              availability
+            </span>
+            <span className="flex items-center gap-2">
+              <UsersRound className="size-4 text-primary" /> No participant
+              accounts
+            </span>
+          </div>
+        </div>
+
+        <Image
+          alt="Calendra — Find time. Together."
+          className="brand-neon-red mx-auto h-auto w-full max-w-lg"
+          height={1020}
+          priority
+          src="/logo+slogan.png"
+          width={1020}
+        />
+      </section>
+    </main>
   );
 }
