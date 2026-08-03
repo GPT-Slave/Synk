@@ -1,4 +1,4 @@
-﻿export interface MeetingDto {
+export interface MeetingDto {
   id: string;
   title: string;
   description?: string;

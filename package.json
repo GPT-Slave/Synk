@@ -1,9 +1,11 @@
-﻿{
+{
   "name": "meet-planner",
   "private": true,
   "version": "0.1.0",
+  "packageManager": "pnpm@10.15.0",
   "description": "Meet Planner (Calendra) - availability polling & scheduling app",
   "scripts": {
+    "calendra": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/calendra.ps1",
     "dev:web": "pnpm --filter web dev",
     "dev:api": "pnpm --filter api start:dev",
     "build": "pnpm --filter web build && pnpm --filter api build",
@@ -11,6 +13,9 @@
     "prisma:migrate": "pnpm --filter api exec prisma migrate dev",
     "prisma:studio": "pnpm --filter api exec prisma studio",
     "lint": "pnpm --filter web lint && pnpm --filter api lint"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
   },
   "engines": {
     "node": ">=18"

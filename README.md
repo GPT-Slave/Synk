@@ -1,4 +1,4 @@
-﻿# Meet Planner (Calendra)
+# Meet Planner (Calendra)
 
 Availability-polling / scheduling app. No account required for participants;
 organizers authenticate to create and manage meetings.
