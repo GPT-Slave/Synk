@@ -7,12 +7,13 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  passwordHash  String         @map("password_hash")
-  createdAt     DateTime       @default(now()) @map("created_at")
-  meetings      Meeting[]
-  refreshTokens RefreshToken[]
+  id                 String         @id @default(cuid())
+  email              String         @unique
+  passwordHash       String         @map("password_hash")
+  createdAt          DateTime       @default(now()) @map("created_at")
+  meetings           Meeting[]
+  refreshTokens      RefreshToken[]
+  organizerResponses Participant[]  @relation("OrganizerResponses")
 
   @@map("users")
 }
@@ -30,23 +31,25 @@ model RefreshToken {
 }
 
 model Meeting {
-  id               String        @id @default(cuid())
-  organizerId      String        @map("organizer_id")
-  organizer        User          @relation(fields: [organizerId], references: [id])
-  title            String
-  description      String?
-  slug             String        @unique
-  timezone         String
-  startDate        DateTime      @map("start_date")
-  endDate          DateTime      @map("end_date")
-  workdayStart     String        @map("workday_start")
-  workdayEnd       String        @map("workday_end")
-  slotIntervalMinutes Int        @default(60) @map("slot_interval_minutes")
-  finalized        Boolean       @default(false)
-  finalSlotAt      DateTime?     @map("final_slot_at")
-  responseDeadline DateTime?     @map("response_deadline")
-  createdAt        DateTime      @default(now()) @map("created_at")
-  participants     Participant[]
+  id                  String        @id @default(cuid())
+  organizerId         String        @map("organizer_id")
+  organizer           User          @relation(fields: [organizerId], references: [id])
+  title               String
+  description         String?
+  slug                String        @unique
+  timezone            String
+  startDate           DateTime      @map("start_date")
+  endDate             DateTime      @map("end_date")
+  workdayStart        String        @map("workday_start")
+  workdayEnd          String        @map("workday_end")
+  slotIntervalMinutes Int           @default(60) @map("slot_interval_minutes")
+  finalized           Boolean       @default(false)
+  locked              Boolean       @default(false)
+  finalSlotAt         DateTime?     @map("final_slot_at")
+  finalSlotEnd        DateTime?     @map("final_slot_end")
+  responseDeadline    DateTime?     @map("response_deadline")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  participants        Participant[]
 
   @@index([organizerId])
   @@map("meetings")
@@ -58,13 +61,16 @@ model Participant {
   meeting               Meeting        @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   displayName           String         @map("display_name")
   displayNameNormalized String         @map("display_name_normalized")
-  sessionTokenHash      String         @unique @map("session_token_hash")
+  sessionTokenHash      String?        @unique @map("session_token_hash")
+  organizerId           String?        @map("organizer_id")
+  organizer             User?          @relation("OrganizerResponses", fields: [organizerId], references: [id], onDelete: Cascade)
   comment               String?
   respondedAt           DateTime?      @map("responded_at")
   joinedAt              DateTime       @default(now()) @map("joined_at")
   availabilities        Availability[]
 
   @@unique([meetingId, displayNameNormalized], map: "uniq_meeting_display_name_normalized")
+  @@unique([meetingId, organizerId], map: "uniq_meeting_organizer_response")
   @@index([meetingId])
   @@map("participants")
 }

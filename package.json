@@ -1,11 +1,12 @@
 {
-  "name": "meet-planner",
+  "name": "synk",
   "private": true,
   "version": "0.1.0",
   "packageManager": "pnpm@10.15.0",
-  "description": "Meet Planner (Calendra) - availability polling & scheduling app",
+  "description": "Synk - modern availability polling and meeting scheduling",
   "scripts": {
-    "calendra": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/calendra.ps1",
+    "synk": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/calendra.ps1",
+    "calendra": "pnpm run synk",
     "dev:web": "pnpm --filter web dev",
     "dev:api": "pnpm --filter api start:dev",
     "build": "pnpm --filter web build && pnpm --filter api build",

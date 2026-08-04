@@ -24,13 +24,17 @@ export interface MeetingInput {
 }
 
 export interface OrganizerMeetingDetail extends OrganizerMeetingDto {
+  acceptingResponses: boolean;
+  closedReason?: string;
   participants: Array<{
     id: string;
     displayName: string;
     joinedAt: string;
     responded: boolean;
     comment?: string;
+    isOrganizer?: boolean;
   }>;
+  organizerAvailability: ParticipantSessionDto;
   dates: MeetingGridDateDto[];
   slots: MeetingGridSlotDto[];
   heatmap: HeatmapCellDto[];
@@ -65,6 +69,39 @@ export function updateMeeting(id: string, input: MeetingInput) {
 
 export function deleteMeeting(id: string) {
   return authenticatedRequest<void>(`/meetings/${id}`, { method: "DELETE" });
+}
+
+export function saveOrganizerAvailability(
+  id: string,
+  response: { slots: AvailabilitySlotDto[]; comment?: string },
+) {
+  return authenticatedRequest<ParticipantSessionDto>(
+    `/meetings/${id}/availability`,
+    {
+      method: "PUT",
+      body: JSON.stringify(response),
+    },
+  );
+}
+
+export function finalizeMeeting(id: string, finalSlot: AvailabilitySlotDto) {
+  return authenticatedRequest<MeetingDto>(`/meetings/${id}/finalize`, {
+    method: "POST",
+    body: JSON.stringify(finalSlot),
+  });
+}
+
+export function setMeetingLocked(id: string, locked: boolean) {
+  return authenticatedRequest<MeetingDto>(`/meetings/${id}/lock`, {
+    method: "PATCH",
+    body: JSON.stringify({ locked }),
+  });
+}
+
+export function reopenMeeting(id: string) {
+  return authenticatedRequest<MeetingDto>(`/meetings/${id}/reopen`, {
+    method: "POST",
+  });
 }
 
 export function getPublicMeeting(token: string) {

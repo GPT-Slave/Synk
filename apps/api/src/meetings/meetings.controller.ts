@@ -8,13 +8,17 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   UseGuards,
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthUser } from '../auth/auth.types';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
+import { FinalizeMeetingDto } from './dto/finalize-meeting.dto';
+import { LockMeetingDto } from './dto/lock-meeting.dto';
 import { UpdateMeetingDto } from './dto/update-meeting.dto';
+import { UpdateAvailabilityDto } from '../availability/dto/update-availability.dto';
 import { MeetingsService } from './meetings.service';
 
 @Controller('meetings')
@@ -50,6 +54,38 @@ export class MeetingsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.meetings.remove(user.id, id);
+  }
+
+  @Put(':id/availability')
+  saveOrganizerAvailability(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateAvailabilityDto,
+  ) {
+    return this.meetings.saveOrganizerAvailability(user, id, dto);
+  }
+
+  @Post(':id/finalize')
+  finalize(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: FinalizeMeetingDto,
+  ) {
+    return this.meetings.finalize(user.id, id, dto);
+  }
+
+  @Patch(':id/lock')
+  setLocked(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: LockMeetingDto,
+  ) {
+    return this.meetings.setLocked(user.id, id, dto.locked);
+  }
+
+  @Post(':id/reopen')
+  reopen(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.meetings.reopen(user.id, id);
   }
 }
 

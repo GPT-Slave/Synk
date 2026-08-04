@@ -29,7 +29,7 @@ describe('AuthController', () => {
 
     expect(cookie).toHaveBeenNthCalledWith(
       1,
-      'calendra_access',
+      'synk_access',
       session.accessToken,
       expect.objectContaining({
         httpOnly: true,
@@ -40,7 +40,7 @@ describe('AuthController', () => {
     );
     expect(cookie).toHaveBeenNthCalledWith(
       2,
-      'calendra_refresh',
+      'synk_refresh',
       session.refreshToken,
       expect.objectContaining({
         httpOnly: true,

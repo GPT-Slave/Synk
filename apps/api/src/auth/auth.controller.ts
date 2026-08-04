@@ -20,6 +20,8 @@ import { AuthRateLimitGuard } from './guards/auth-rate-limit.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import {
   ACCESS_TOKEN_COOKIE,
+  LEGACY_ACCESS_TOKEN_COOKIE,
+  LEGACY_REFRESH_TOKEN_COOKIE,
   REFRESH_TOKEN_COOKIE,
   type AuthUser,
   type SessionTokens,
@@ -61,7 +63,8 @@ export class AuthController {
   @AuthRateLimit({ limit: 30, windowMs: 60_000 })
   async refresh(@Res({ passthrough: true }) response: Response) {
     const session = await this.auth.refresh(
-      readCookie(response.req.headers.cookie, REFRESH_TOKEN_COOKIE),
+      readCookie(response.req.headers.cookie, REFRESH_TOKEN_COOKIE) ??
+        readCookie(response.req.headers.cookie, LEGACY_REFRESH_TOKEN_COOKIE),
     );
     this.setSessionCookies(response, session);
     return { user: session.user };
@@ -72,10 +75,16 @@ export class AuthController {
   @AuthRateLimit({ limit: 30, windowMs: 60_000 })
   async logout(@Res({ passthrough: true }) response: Response) {
     await this.auth.logout(
-      readCookie(response.req.headers.cookie, REFRESH_TOKEN_COOKIE),
+      readCookie(response.req.headers.cookie, REFRESH_TOKEN_COOKIE) ??
+        readCookie(response.req.headers.cookie, LEGACY_REFRESH_TOKEN_COOKIE),
     );
     response.clearCookie(ACCESS_TOKEN_COOKIE, this.cookieOptions('/'));
     response.clearCookie(REFRESH_TOKEN_COOKIE, this.cookieOptions('/auth'));
+    response.clearCookie(LEGACY_ACCESS_TOKEN_COOKIE, this.cookieOptions('/'));
+    response.clearCookie(
+      LEGACY_REFRESH_TOKEN_COOKIE,
+      this.cookieOptions('/auth'),
+    );
   }
 
   @Get('session')

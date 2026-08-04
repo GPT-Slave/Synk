@@ -33,7 +33,9 @@ function savedMeeting(overrides: Partial<Meeting> = {}): Meeting {
     workdayEnd: '20:00',
     slotIntervalMinutes: 60,
     finalized: false,
+    locked: false,
     finalSlotAt: null,
+    finalSlotEnd: null,
     responseDeadline: null,
     createdAt: new Date('2026-08-04T00:00:00.000Z'),
     ...overrides,
@@ -43,7 +45,12 @@ function savedMeeting(overrides: Partial<Meeting> = {}): Meeting {
 describe('MeetingsService', () => {
   const transaction = {
     meeting: { update: jest.fn() },
-    availability: { deleteMany: jest.fn() },
+    availability: { deleteMany: jest.fn(), createMany: jest.fn() },
+    participant: {
+      upsert: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+    },
   };
   const prisma = {
     $transaction: jest.fn((callback) => callback(transaction)),
@@ -56,7 +63,14 @@ describe('MeetingsService', () => {
       delete: jest.fn(),
     },
   };
-  const service = new MeetingsService(prisma as unknown as PrismaService);
+  const realtime = {
+    availabilityChanged: jest.fn(),
+    meetingStateChanged: jest.fn(),
+  };
+  const service = new MeetingsService(
+    prisma as unknown as PrismaService,
+    realtime as never,
+  );
 
   beforeEach(() => jest.clearAllMocks());
 
@@ -131,6 +145,10 @@ describe('MeetingsService', () => {
     expect(transaction.availability.deleteMany).toHaveBeenCalledWith({
       where: { participant: { meetingId: 'meeting-1' } },
     });
+    expect(transaction.participant.updateMany).toHaveBeenCalledWith({
+      where: { meetingId: 'meeting-1' },
+      data: { respondedAt: null },
+    });
     expect(transaction.meeting.update).toHaveBeenCalledWith({
       where: { id: 'meeting-1' },
       data: expect.objectContaining({ responseDeadline: null }),
@@ -154,5 +172,117 @@ describe('MeetingsService', () => {
     expect(prisma.meeting.delete).toHaveBeenCalledWith({
       where: { id: 'meeting-1' },
     });
+  });
+
+  it('finalizes an owned meeting with a contiguous grid window', async () => {
+    prisma.meeting.findFirst.mockResolvedValue(savedMeeting());
+    prisma.meeting.update.mockResolvedValue(
+      savedMeeting({
+        finalized: true,
+        locked: true,
+        finalSlotAt: new Date('2026-08-12T07:00:00.000Z'),
+        finalSlotEnd: new Date('2026-08-12T08:00:00.000Z'),
+      }),
+    );
+
+    const result = await service.finalize('user-1', 'meeting-1', {
+      datetimeStart: '2026-08-12T07:00:00.000Z',
+      datetimeEnd: '2026-08-12T08:00:00.000Z',
+    });
+
+    expect(result).toMatchObject({
+      finalized: true,
+      locked: true,
+      finalSlot: {
+        datetimeStart: '2026-08-12T07:00:00.000Z',
+        datetimeEnd: '2026-08-12T08:00:00.000Z',
+      },
+    });
+    expect(realtime.meetingStateChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a final time that is not aligned to the grid', async () => {
+    prisma.meeting.findFirst.mockResolvedValue(savedMeeting());
+
+    await expect(
+      service.finalize('user-1', 'meeting-1', {
+        datetimeStart: '2026-08-12T07:15:00.000Z',
+        datetimeEnd: '2026-08-12T08:15:00.000Z',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('locks responses independently and re-opens a finalized meeting', async () => {
+    prisma.meeting.findFirst
+      .mockResolvedValueOnce(savedMeeting())
+      .mockResolvedValueOnce(savedMeeting({ finalized: true, locked: true }));
+    prisma.meeting.update
+      .mockResolvedValueOnce(savedMeeting({ locked: true }))
+      .mockResolvedValueOnce(savedMeeting());
+
+    await service.setLocked('user-1', 'meeting-1', true);
+    await service.reopen('user-1', 'meeting-1');
+
+    expect(prisma.meeting.update).toHaveBeenNthCalledWith(1, {
+      where: { id: 'meeting-1' },
+      data: { locked: true },
+    });
+    expect(prisma.meeting.update).toHaveBeenNthCalledWith(2, {
+      where: { id: 'meeting-1' },
+      data: {
+        finalized: false,
+        locked: false,
+        finalSlotAt: null,
+        finalSlotEnd: null,
+      },
+    });
+  });
+
+  it('treats locked and finalized meetings as closed to responses', () => {
+    expect(service.closedReason(savedMeeting({ locked: true }))).toBe(
+      'The organizer has paused responses.',
+    );
+    expect(service.closedReason(savedMeeting({ finalized: true }))).toBe(
+      'This meeting has been finalized.',
+    );
+  });
+
+  it('stores organizer availability as an overlap participant', async () => {
+    prisma.meeting.findFirst.mockResolvedValue(savedMeeting());
+    transaction.participant.upsert.mockResolvedValue({
+      id: 'participant-organizer',
+      organizerId: 'user-1',
+      displayName: 'Organizer',
+      joinedAt: new Date('2026-08-04T00:00:00.000Z'),
+    });
+
+    const result = await service.saveOrganizerAvailability(
+      { id: 'user-1', email: 'organizer@example.com' },
+      'meeting-1',
+      {
+        slots: [
+          {
+            datetimeStart: '2026-08-12T07:00:00.000Z',
+            datetimeEnd: '2026-08-12T08:00:00.000Z',
+          },
+        ],
+      },
+    );
+
+    expect(transaction.participant.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          meetingId_organizerId: {
+            meetingId: 'meeting-1',
+            organizerId: 'user-1',
+          },
+        },
+      }),
+    );
+    expect(result.participant).toMatchObject({
+      displayName: 'You (organizer)',
+      isOrganizer: true,
+    });
+    expect(realtime.availabilityChanged).toHaveBeenCalledTimes(1);
   });
 });

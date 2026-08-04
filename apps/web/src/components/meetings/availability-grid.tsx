@@ -17,6 +17,7 @@ import {
 import {
   PointerEvent,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -28,11 +29,14 @@ import { saveAvailability } from "@/lib/meeting-api";
 interface AvailabilityGridProps {
   meeting: PublicMeetingDto;
   participantSession: ParticipantSessionDto;
-  sessionToken: string;
-  token: string;
+  sessionToken?: string;
+  token?: string;
+  mode?: "organizer" | "participant";
+  onSave?: (response: AvailabilityResponse) => Promise<unknown>;
+  saveScope?: string;
 }
 
-interface AvailabilityResponse {
+export interface AvailabilityResponse {
   slots: AvailabilitySlotDto[];
   comment?: string;
 }
@@ -44,7 +48,11 @@ export function AvailabilityGrid({
   participantSession,
   sessionToken,
   token,
+  mode = "participant",
+  onSave,
+  saveScope,
 }: AvailabilityGridProps) {
+  const commentId = useId();
   const [selected, setSelected] = useState(
     () =>
       new Set(
@@ -84,9 +92,18 @@ export function AvailabilityGrid({
   const lastSavedKey = useRef(responseKey);
 
   const mutation = useMutation({
-    mutationFn: (nextResponse: AvailabilityResponse) =>
-      saveAvailability(token, sessionToken, nextResponse),
-    scope: { id: `availability:${token}:${participantSession.participant.id}` },
+    mutationFn: async (nextResponse: AvailabilityResponse) => {
+      if (onSave) return onSave(nextResponse);
+      if (!token || !sessionToken) {
+        throw new Error("Availability session is missing.");
+      }
+      return saveAvailability(token, sessionToken, nextResponse);
+    },
+    scope: {
+      id:
+        saveScope ??
+        `availability:${token}:${participantSession.participant.id}`,
+    },
     onMutate: () => setSaveState("saving"),
     onSuccess: (_saved, variables) => {
       const savedKey = availabilityKey(variables);
@@ -116,10 +133,7 @@ export function AvailabilityGrid({
   }, []);
 
   useEffect(() => {
-    if (
-      !meeting.acceptingResponses ||
-      responseKey === lastSavedKey.current
-    ) {
+    if (!meeting.acceptingResponses || responseKey === lastSavedKey.current) {
       return;
     }
     setSaveState("dirty");
@@ -174,16 +188,18 @@ export function AvailabilityGrid({
     : undefined;
 
   return (
-    <section className="mt-8">
+    <section className={mode === "participant" ? "mt-8" : ""}>
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <p className="text-sm text-muted-foreground">Responding as</p>
+          <p className="text-sm text-muted-foreground">
+            {mode === "organizer" ? "Your availability" : "Responding as"}
+          </p>
           <h2 className="mt-1 text-xl font-semibold">
             {participantSession.participant.displayName}
           </h2>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Click or paint across the grid. Touch a cell and drag on mobile;
-            use the headers to scroll horizontally.
+            Tap one square or paint across several. Drag sideways to see more
+            days on smaller screens.
           </p>
           <p className="mt-2 flex items-center gap-2 text-xs text-blue-200/75">
             <ClockBadge /> Times are fixed to {meeting.timezone} (meeting
@@ -216,19 +232,19 @@ export function AvailabilityGrid({
         </p>
       )}
 
-      <div className="mt-6 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
+      <div className="schedule-scroll mt-6 max-h-[68svh] overflow-auto rounded-2xl border border-white/10 bg-white/[0.02] overscroll-contain">
         <div
           className="grid min-w-max select-none"
           onPointerMove={continueDrag}
           style={{
-            gridTemplateColumns: `5rem repeat(${meeting.dates.length}, minmax(7.5rem, 1fr))`,
+            gridTemplateColumns: `4.75rem repeat(${meeting.dates.length}, minmax(8.5rem, 1fr))`,
             touchAction: isDragging ? "none" : "pan-x",
           }}
         >
-          <div className="sticky left-0 z-20 border-b border-r border-white/10 bg-card/95" />
+          <div className="sticky left-0 top-0 z-30 border-b border-r border-white/10 bg-card/95 backdrop-blur-xl" />
           {meeting.dates.map((date) => (
             <div
-              className="border-b border-r border-white/10 px-3 py-3 text-center text-xs font-medium last:border-r-0"
+              className="sticky top-0 z-20 border-b border-r border-white/10 bg-card/95 px-3 py-3 text-center text-xs font-medium backdrop-blur-xl last:border-r-0"
               key={date.date}
             >
               {date.label}
@@ -253,14 +269,14 @@ export function AvailabilityGrid({
       <div className="mt-5 space-y-2">
         <label
           className="flex items-center gap-2 text-sm font-medium"
-          htmlFor="availability-comment"
+          htmlFor={commentId}
         >
           <MessageSquareText className="size-4 text-primary" /> Optional note
         </label>
         <textarea
           className="min-h-24 w-full resize-y rounded-2xl border border-input bg-white/[0.035] px-4 py-3 text-sm outline-none transition duration-200 placeholder:text-muted-foreground/70 hover:border-white/20 focus:border-primary focus:ring-3 focus:ring-primary/15"
           disabled={!meeting.acceptingResponses}
-          id="availability-comment"
+          id={commentId}
           maxLength={1000}
           onChange={(event) => setComment(event.target.value)}
           placeholder="For example: I can join 15 minutes late on Wednesday."
@@ -297,7 +313,7 @@ function GridRow({
 }) {
   return (
     <>
-      <div className="sticky left-0 z-10 border-b border-r border-white/10 bg-card/95 px-3 py-4 text-xs text-muted-foreground">
+      <div className="sticky left-0 z-10 border-b border-r border-white/10 bg-card/95 px-3 py-5 text-xs text-muted-foreground backdrop-blur-xl">
         {time}
       </div>
       {dates.map((date) => {
@@ -308,7 +324,7 @@ function GridRow({
           <button
             aria-label={`${active ? "Remove" : "Select"} ${date.label} at ${time}`}
             aria-pressed={active}
-            className={`min-h-12 touch-none border-b border-r border-white/10 transition duration-200 last:border-r-0 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-primary ${
+            className={`min-h-14 touch-none border-b border-r border-white/10 transition duration-200 last:border-r-0 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-primary ${
               active
                 ? "bg-primary/75 shadow-[inset_0_0_0_1px_oklch(0.9_0.11_240_/_0.5)] hover:bg-primary/85"
                 : "bg-transparent hover:bg-white/[0.06]"
@@ -332,7 +348,10 @@ function SaveIndicator({ state }: { state: SaveState }) {
   const contents = {
     idle: { icon: <Cloud />, label: "Autosave ready" },
     dirty: { icon: <Cloud />, label: "Changes pending" },
-    saving: { icon: <LoaderCircle className="animate-spin" />, label: "Saving…" },
+    saving: {
+      icon: <LoaderCircle className="animate-spin" />,
+      label: "Saving…",
+    },
     saved: { icon: <CheckCircle2 />, label: "Saved" },
     error: { icon: <CloudOff />, label: "Not saved" },
   }[state];

@@ -23,7 +23,7 @@ describe('JwtAuthGuard', () => {
       { sub: 'user-1', email: 'organizer@example.com', type: 'access' },
       { secret: 'test-access-secret', expiresIn: 60 },
     );
-    const { request, executionContext } = context(`calendra_access=${token}`);
+    const { request, executionContext } = context(`synk_access=${token}`);
     const guard = new JwtAuthGuard(jwt, config);
 
     await expect(guard.canActivate(executionContext)).resolves.toBe(true);

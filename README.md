@@ -1,4 +1,4 @@
-# Calendra (meet planner)
+# Synk
 
 Availability-polling / scheduling app. No account required for participants;
 organizers authenticate to create and manage meetings.
@@ -41,11 +41,13 @@ pnpm dev:web
 
 ## Scripts
 
-| Command | Description |
-|---|---|
-| `pnpm dev:web` | Start Next.js dev server |
-| `pnpm dev:api` | Start NestJS dev server (watch mode) |
-| `pnpm prisma:generate` | Generate Prisma client |
-| `pnpm prisma:migrate` | Run dev migrations |
-| `pnpm prisma:studio` | Open Prisma Studio |
-| `pnpm build` | Build both apps |
+| Command                | Description                             |
+| ---------------------- | --------------------------------------- |
+| `pnpm synk`            | Start PostgreSQL, migrate, and run Synk |
+| `pnpm calendra`        | Legacy alias for `pnpm synk`            |
+| `pnpm dev:web`         | Start Next.js dev server                |
+| `pnpm dev:api`         | Start NestJS dev server (watch mode)    |
+| `pnpm prisma:generate` | Generate Prisma client                  |
+| `pnpm prisma:migrate`  | Run dev migrations                      |
+| `pnpm prisma:studio`   | Open Prisma Studio                      |
+| `pnpm build`           | Build both apps                         |

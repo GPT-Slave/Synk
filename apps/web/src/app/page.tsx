@@ -17,7 +17,7 @@ export default function Home() {
             src="/logo.png"
             width={72}
           />
-          <span className="text-xl font-semibold tracking-tight">Calendra</span>
+          <span className="text-xl font-semibold tracking-tight">Synk</span>
         </Link>
         <div className="flex items-center gap-2">
           <Button render={<Link href="/login" />} variant="ghost">
@@ -67,14 +67,25 @@ export default function Home() {
           </div>
         </div>
 
-        <Image
-          alt="Calendra — Find time. Together."
-          className="brand-neon-blue mx-auto h-auto w-full max-w-lg"
-          height={1020}
-          priority
-          src="/logo+slogan.png"
-          width={1020}
-        />
+        <div className="relative mx-auto grid aspect-square w-full max-w-md place-items-center rounded-[2.5rem] border border-primary/20 bg-primary/[0.045] shadow-[0_0_100px_-38px_oklch(0.72_0.19_250)]">
+          <div className="pointer-events-none absolute inset-8 rounded-[2rem] border border-white/[0.06]" />
+          <div className="relative text-center">
+            <Image
+              alt=""
+              className="brand-neon-blue mx-auto size-40 rounded-[2rem] sm:size-52"
+              height={360}
+              priority
+              src="/logo.png"
+              width={360}
+            />
+            <p className="mt-7 text-5xl font-semibold tracking-[-0.06em] sm:text-6xl">
+              Synk
+            </p>
+            <p className="mt-2 text-sm tracking-[0.18em] text-blue-100/60 uppercase">
+              Find time. Together.
+            </p>
+          </div>
+        </div>
       </section>
     </main>
   );

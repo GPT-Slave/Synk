@@ -1,5 +1,5 @@
 <#
-  Calendra launcher — run via `pnpm run calendra` from the repo root.
+  Synk launcher — run via `pnpm run synk` from the repo root.
   Verifies prerequisites, sets up the environment, then starts api + web.
 #>
 
@@ -125,7 +125,7 @@ Write-Ok "Web typecheck passed"
 # ---------------------------------------------------------------------------
 # 7. Launch
 # ---------------------------------------------------------------------------
-Write-Step "Starting Calendra"
+Write-Step "Starting Synk"
 Write-Host "    API -> http://localhost:4000" -ForegroundColor Gray
 Write-Host "    Web -> http://localhost:3000" -ForegroundColor Gray
 Write-Host "    Press Ctrl+C to stop both.`n" -ForegroundColor Gray

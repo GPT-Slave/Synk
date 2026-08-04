@@ -46,24 +46,53 @@ export function aggregateAvailability(
     };
   });
 
+  const cellsPerMatch = Math.max(
+    1,
+    Math.ceil(60 / meeting.slotIntervalMinutes),
+  );
   const bestTimes = heatmap
-    .filter((cell) => cell.availableCount > 0)
+    .map((cell, index, cells) => {
+      const window = cells.slice(index, index + cellsPerMatch);
+      if (
+        window.length !== cellsPerMatch ||
+        window.some((next) => next.date !== cell.date) ||
+        window.some(
+          (next, windowIndex) =>
+            windowIndex > 0 &&
+            window[windowIndex - 1].datetimeEnd !== next.datetimeStart,
+        )
+      ) {
+        return undefined;
+      }
+
+      const participantNames = cell.participantNames.filter((name) =>
+        window.every((next) => next.participantNames.includes(name)),
+      );
+      const availableCount = participantNames.length;
+      const percentage = totalParticipants
+        ? Math.round((availableCount / totalParticipants) * 100)
+        : 0;
+      return {
+        datetimeStart: cell.datetimeStart,
+        datetimeEnd: window.at(-1)!.datetimeEnd,
+        date: cell.date,
+        timeLabel: cell.timeLabel,
+        availableCount,
+        totalParticipants,
+        percentage,
+        participantNames,
+      };
+    })
+    .filter((match): match is NonNullable<typeof match> =>
+      Boolean(match && match.availableCount > 0),
+    )
     .sort(
       (left, right) =>
+        right.percentage - left.percentage ||
         right.availableCount - left.availableCount ||
         left.datetimeStart.localeCompare(right.datetimeStart),
     )
-    .slice(0, 5)
-    .map((cell) => ({
-      datetimeStart: cell.datetimeStart,
-      datetimeEnd: cell.datetimeEnd,
-      date: cell.date,
-      timeLabel: cell.timeLabel,
-      availableCount: cell.availableCount,
-      totalParticipants: cell.totalParticipants,
-      percentage: cell.percentage,
-      participantNames: cell.participantNames,
-    }));
+    .slice(0, 5);
 
   return { ...grid, heatmap, bestTimes };
 }

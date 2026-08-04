@@ -80,7 +80,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const serverError = mutation.error
     ? mutation.error instanceof ApiError
       ? mutation.error.message
-      : "Unable to connect to Calendra. Is the API running?"
+      : "Unable to connect to Synk. Is the API running?"
     : null;
 
   return (
@@ -164,7 +164,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
       </Button>
 
       <p className="text-center text-sm text-muted-foreground">
-        {isSignup ? "Already organizing with Calendra?" : "New to Calendra?"}{" "}
+        {isSignup ? "Already organizing with Synk?" : "New to Synk?"}{" "}
         <Link
           className="font-medium text-primary hover:underline"
           href={isSignup ? "/login" : "/signup"}

@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Calendra — Find time. Together.",
+  title: "Synk — Find time. Together.",
   description: "Availability polling and meeting scheduling made effortless.",
 };
 
@@ -28,7 +28,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} dark h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+      <body className="flex min-h-full flex-col bg-background text-foreground">
         <QueryProvider>{children}</QueryProvider>
       </body>
     </html>

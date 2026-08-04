@@ -14,15 +14,19 @@ export function AuthShell({
     <main className="relative grid min-h-svh overflow-hidden lg:grid-cols-[1.05fr_0.95fr]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_75%_25%,oklch(0.72_0.19_250_/_0.15),transparent_36%)]" />
       <section className="relative hidden items-center justify-center border-r border-white/10 p-12 lg:flex">
-        <Link aria-label="Calendra home" href="/">
+        <Link className="text-center" aria-label="Synk home" href="/">
           <Image
-            alt="Calendra — Find time. Together."
-            className="brand-neon-blue h-auto w-[min(34rem,42vw)]"
-            height={1020}
+            alt=""
+            className="brand-neon-blue mx-auto size-56 rounded-[2.5rem]"
+            height={420}
             priority
-            src="/logo+slogan.png"
-            width={1020}
+            src="/logo.png"
+            width={420}
           />
+          <p className="mt-8 text-6xl font-semibold tracking-[-0.06em]">Synk</p>
+          <p className="mt-3 text-sm tracking-[0.2em] text-blue-100/60 uppercase">
+            Find time. Together.
+          </p>
         </Link>
       </section>
 
@@ -30,7 +34,7 @@ export function AuthShell({
         <div className="w-full max-w-md">
           <Link className="mb-8 flex justify-center lg:hidden" href="/">
             <Image
-              alt="Calendra"
+              alt="Synk"
               className="brand-neon-blue size-20 rounded-2xl"
               height={112}
               priority

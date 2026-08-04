@@ -6,8 +6,13 @@ import {
 } from '@nestjs/common';
 import { Prisma, type Meeting } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
+import type { AuthUser } from '../auth/auth.types';
+import { validateAvailabilitySlots } from '../availability/availability-validation';
+import type { UpdateAvailabilityDto } from '../availability/dto/update-availability.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { MeetingsRealtimeGateway } from '../realtime/meetings-realtime.gateway';
 import type { CreateMeetingDto } from './dto/create-meeting.dto';
+import type { FinalizeMeetingDto } from './dto/finalize-meeting.dto';
 import type { UpdateMeetingDto } from './dto/update-meeting.dto';
 import { aggregateAvailability } from './availability-aggregation';
 import {
@@ -19,7 +24,10 @@ import {
 
 @Injectable()
 export class MeetingsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly realtime: MeetingsRealtimeGateway,
+  ) {}
 
   async create(organizerId: string, dto: CreateMeetingDto) {
     const data = this.validatedData(dto);
@@ -76,9 +84,15 @@ export class MeetingsService {
     });
     if (!meeting) throw new NotFoundException('Meeting not found.');
     const availability = aggregateAvailability(meeting, meeting.participants);
+    const organizerResponse = meeting.participants.find(
+      (participant) => participant.organizerId === organizerId,
+    );
+    const closedReason = this.closedReason(meeting);
 
     return {
       ...this.serialize(meeting),
+      acceptingResponses: !closedReason,
+      ...(closedReason ? { closedReason } : {}),
       status: this.status(meeting),
       participantCount: meeting.participants.length,
       responseCount: meeting.participants.filter(
@@ -88,9 +102,32 @@ export class MeetingsService {
         id: participant.id,
         displayName: participant.displayName,
         joinedAt: participant.joinedAt.toISOString(),
+        isOrganizer: Boolean(participant.organizerId),
         responded: Boolean(participant.respondedAt),
         ...(participant.comment ? { comment: participant.comment } : {}),
       })),
+      organizerAvailability: organizerResponse
+        ? {
+            participant: this.serializeParticipant(organizerResponse),
+            availabilities: organizerResponse.availabilities.map(
+              (availability) => ({
+                datetimeStart: availability.datetimeStart.toISOString(),
+                datetimeEnd: availability.datetimeEnd.toISOString(),
+              }),
+            ),
+            ...(organizerResponse.comment
+              ? { comment: organizerResponse.comment }
+              : {}),
+          }
+        : {
+            participant: {
+              id: `organizer:${meeting.id}`,
+              displayName: 'You (organizer)',
+              joinedAt: meeting.createdAt.toISOString(),
+              isOrganizer: true,
+            },
+            availabilities: [],
+          },
       ...availability,
     };
   }
@@ -135,6 +172,10 @@ export class MeetingsService {
         await transaction.availability.deleteMany({
           where: { participant: { meetingId: meeting.id } },
         });
+        await transaction.participant.updateMany({
+          where: { meetingId: meeting.id },
+          data: { respondedAt: null },
+        });
       }
       return result;
     });
@@ -144,6 +185,122 @@ export class MeetingsService {
   async remove(organizerId: string, id: string): Promise<void> {
     const meeting = await this.findOwned(organizerId, id);
     await this.prisma.meeting.delete({ where: { id: meeting.id } });
+  }
+
+  async saveOrganizerAvailability(
+    user: AuthUser,
+    id: string,
+    dto: UpdateAvailabilityDto,
+  ) {
+    const meeting = await this.findOwned(user.id, id);
+    const closedReason = this.closedReason(meeting);
+    if (closedReason) throw new ConflictException(closedReason);
+
+    const slots = validateAvailabilitySlots(meeting, dto.slots);
+    const comment = dto.comment?.trim() || null;
+    const result = await this.prisma.$transaction(async (transaction) => {
+      const participant = await transaction.participant.upsert({
+        where: {
+          meetingId_organizerId: {
+            meetingId: meeting.id,
+            organizerId: user.id,
+          },
+        },
+        create: {
+          meetingId: meeting.id,
+          organizerId: user.id,
+          displayName: 'Organizer',
+          displayNameNormalized: `__organizer__:${user.id}`,
+        },
+        update: {},
+      });
+
+      await transaction.availability.deleteMany({
+        where: { participantId: participant.id },
+      });
+      if (slots.length > 0) {
+        await transaction.availability.createMany({
+          data: slots.map((slot) => ({
+            participantId: participant.id,
+            ...slot,
+          })),
+        });
+      }
+      await transaction.participant.update({
+        where: { id: participant.id },
+        data: { comment, respondedAt: new Date() },
+      });
+      return participant;
+    });
+
+    const availabilities = slots.map((slot) => ({
+      datetimeStart: slot.datetimeStart.toISOString(),
+      datetimeEnd: slot.datetimeEnd.toISOString(),
+    }));
+    this.realtime.availabilityChanged({
+      meetingId: meeting.id,
+      participantId: result.id,
+      displayName: result.displayName,
+      availabilities,
+      ...(comment ? { comment } : {}),
+    });
+
+    return {
+      participant: this.serializeParticipant(result),
+      availabilities,
+      ...(comment ? { comment } : {}),
+    };
+  }
+
+  async finalize(organizerId: string, id: string, dto: FinalizeMeetingDto) {
+    const meeting = await this.findOwned(organizerId, id);
+    if (meeting.finalized) {
+      throw new ConflictException(
+        'Re-open the meeting before choosing a different final time.',
+      );
+    }
+    const finalSlot = this.validateFinalSlot(meeting, dto);
+    const updated = await this.prisma.meeting.update({
+      where: { id: meeting.id },
+      data: {
+        finalized: true,
+        locked: true,
+        finalSlotAt: finalSlot.datetimeStart,
+        finalSlotEnd: finalSlot.datetimeEnd,
+      },
+    });
+    this.broadcastMeetingState(updated);
+    return this.serialize(updated);
+  }
+
+  async setLocked(organizerId: string, id: string, locked: boolean) {
+    const meeting = await this.findOwned(organizerId, id);
+    if (meeting.finalized) {
+      throw new ConflictException(
+        'Re-open the finalized meeting before changing its response lock.',
+      );
+    }
+    const updated = await this.prisma.meeting.update({
+      where: { id: meeting.id },
+      data: { locked },
+    });
+    this.broadcastMeetingState(updated);
+    return this.serialize(updated);
+  }
+
+  async reopen(organizerId: string, id: string) {
+    const meeting = await this.findOwned(organizerId, id);
+    const updated = await this.prisma.meeting.update({
+      where: { id: meeting.id },
+      data: {
+        finalized: false,
+        locked: false,
+        finalSlotAt: null,
+        finalSlotEnd: null,
+      },
+    });
+    this.broadcastMeetingState(updated);
+    return this.serialize(updated);
   }
 
   async publicMeeting(slug: string) {
@@ -165,6 +322,7 @@ export class MeetingsService {
 
   closedReason(meeting: Meeting): string | undefined {
     if (meeting.finalized) return 'This meeting has been finalized.';
+    if (meeting.locked) return 'The organizer has paused responses.';
     if (meeting.responseDeadline && meeting.responseDeadline <= new Date()) {
       return 'The response deadline has passed.';
     }
@@ -177,6 +335,60 @@ export class MeetingsService {
     });
     if (!meeting) throw new NotFoundException('Meeting not found.');
     return meeting;
+  }
+
+  private validateFinalSlot(meeting: Meeting, dto: FinalizeMeetingDto) {
+    const requestedStart = new Date(dto.datetimeStart);
+    const requestedEnd = new Date(dto.datetimeEnd);
+    if (
+      Number.isNaN(requestedStart.getTime()) ||
+      Number.isNaN(requestedEnd.getTime()) ||
+      requestedEnd <= requestedStart
+    ) {
+      throw new BadRequestException('Choose a valid meeting time.');
+    }
+
+    const endByStart = new Map(
+      meetingGrid(meeting).slots.map((slot) => [
+        slot.datetimeStart,
+        slot.datetimeEnd,
+      ]),
+    );
+    let cursor = requestedStart.toISOString();
+    const target = requestedEnd.toISOString();
+    let traversed = 0;
+    while (cursor < target && traversed <= endByStart.size) {
+      const next = endByStart.get(cursor);
+      if (!next) {
+        throw new BadRequestException(
+          'The final time must be a contiguous part of the meeting grid.',
+        );
+      }
+      cursor = next;
+      traversed += 1;
+    }
+    if (cursor !== target) {
+      throw new BadRequestException(
+        'The final time must align to the meeting grid.',
+      );
+    }
+    return { datetimeStart: requestedStart, datetimeEnd: requestedEnd };
+  }
+
+  private broadcastMeetingState(meeting: Meeting) {
+    this.realtime.meetingStateChanged({
+      meetingId: meeting.id,
+      finalized: meeting.finalized,
+      locked: meeting.locked,
+      ...(meeting.finalSlotAt && meeting.finalSlotEnd
+        ? {
+            finalSlot: {
+              datetimeStart: meeting.finalSlotAt.toISOString(),
+              datetimeEnd: meeting.finalSlotEnd.toISOString(),
+            },
+          }
+        : {}),
+    });
   }
 
   private validatedData(dto: CreateMeetingDto) {
@@ -238,10 +450,35 @@ export class MeetingsService {
       workdayEnd: meeting.workdayEnd,
       slotIntervalMinutes: meeting.slotIntervalMinutes,
       finalized: meeting.finalized,
+      locked: meeting.locked,
+      ...(meeting.finalSlotAt && meeting.finalSlotEnd
+        ? {
+            finalSlot: {
+              datetimeStart: meeting.finalSlotAt.toISOString(),
+              datetimeEnd: meeting.finalSlotEnd.toISOString(),
+            },
+          }
+        : {}),
       ...(meeting.responseDeadline
         ? { responseDeadline: meeting.responseDeadline.toISOString() }
         : {}),
       createdAt: meeting.createdAt.toISOString(),
+    };
+  }
+
+  private serializeParticipant(participant: {
+    id: string;
+    displayName: string;
+    joinedAt: Date;
+    organizerId?: string | null;
+  }) {
+    return {
+      id: participant.id,
+      displayName: participant.organizerId
+        ? 'You (organizer)'
+        : participant.displayName,
+      joinedAt: participant.joinedAt.toISOString(),
+      ...(participant.organizerId ? { isOrganizer: true } : {}),
     };
   }
 }

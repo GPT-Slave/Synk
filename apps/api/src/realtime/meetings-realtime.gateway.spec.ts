@@ -17,7 +17,7 @@ describe('MeetingsRealtimeGateway', () => {
     config as unknown as ConfigService,
   );
 
-  function socket(cookie = 'calendra_access=access-token') {
+  function socket(cookie = 'synk_access=access-token') {
     return {
       nsp: { name: '/meetings/meeting-1' },
       handshake: { headers: { cookie } },

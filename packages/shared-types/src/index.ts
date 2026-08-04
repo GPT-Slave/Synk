@@ -10,6 +10,8 @@ export interface MeetingDto {
   workdayEnd: string;
   slotIntervalMinutes: 30 | 60;
   finalized: boolean;
+  locked: boolean;
+  finalSlot?: AvailabilitySlotDto;
   responseDeadline?: string;
   createdAt: string;
 }
@@ -43,6 +45,7 @@ export interface ParticipantDto {
   id: string;
   displayName: string;
   joinedAt: string;
+  isOrganizer?: boolean;
 }
 
 export interface ParticipantSessionDto {

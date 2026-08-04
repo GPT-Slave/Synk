@@ -1,14 +1,14 @@
-# Calendra — Product Specification
+# Synk — Product Specification
 
 ## Project Name
 
-**Meet Planner** *(working title)*
+**Synk**
 
 ---
 
 # 1. Overview
 
-Meet Planner is a web application that allows a meeting organizer to create an availability poll by selecting a date range and sharing a unique invitation link.
+Synk is a web application that allows a meeting organizer to create an availability poll by selecting a date range and sharing a unique invitation link.
 
 Participants do **not** need an account. They simply open the invitation link, choose a unique display name, and mark the times they are available.
 

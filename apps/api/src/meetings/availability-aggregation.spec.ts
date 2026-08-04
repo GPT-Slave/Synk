@@ -14,7 +14,9 @@ const meeting = {
   workdayEnd: '10:00',
   slotIntervalMinutes: 30,
   finalized: false,
+  locked: false,
   finalSlotAt: null,
+  finalSlotEnd: null,
   responseDeadline: null,
   createdAt: new Date('2026-08-04T00:00:00.000Z'),
 } satisfies Meeting;
@@ -46,11 +48,15 @@ describe('aggregateAvailability', () => {
     expect(result.heatmap[1].tier).toBe(0);
   });
 
-  it('ranks populated slots by overlap and then chronologically', () => {
+  it('ranks contiguous one-hour matches by overlap and then chronologically', () => {
     const result = aggregateAvailability(meeting, [
       {
         displayName: 'Alice',
         availabilities: [
+          {
+            datetimeStart: new Date('2026-08-12T07:00:00.000Z'),
+            datetimeEnd: new Date('2026-08-12T07:30:00.000Z'),
+          },
           {
             datetimeStart: new Date('2026-08-12T07:30:00.000Z'),
             datetimeEnd: new Date('2026-08-12T08:00:00.000Z'),
@@ -65,6 +71,10 @@ describe('aggregateAvailability', () => {
         displayName: 'Bob',
         availabilities: [
           {
+            datetimeStart: new Date('2026-08-12T07:30:00.000Z'),
+            datetimeEnd: new Date('2026-08-12T08:00:00.000Z'),
+          },
+          {
             datetimeStart: new Date('2026-08-12T08:00:00.000Z'),
             datetimeEnd: new Date('2026-08-12T08:30:00.000Z'),
           },
@@ -73,12 +83,13 @@ describe('aggregateAvailability', () => {
     ]);
 
     expect(result.bestTimes.map((slot) => slot.timeLabel)).toEqual([
-      '09:00',
       '08:30',
+      '08:00',
     ]);
     expect(result.bestTimes[0]).toMatchObject({
       availableCount: 2,
       percentage: 100,
+      datetimeEnd: '2026-08-12T08:30:00.000Z',
     });
   });
 });

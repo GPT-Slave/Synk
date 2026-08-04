@@ -10,6 +10,7 @@ import type { Request } from 'express';
 import { readCookie } from '../cookies';
 import {
   ACCESS_TOKEN_COOKIE,
+  LEGACY_ACCESS_TOKEN_COOKIE,
   type AccessTokenPayload,
   type AuthenticatedRequest,
 } from '../auth.types';
@@ -48,6 +49,9 @@ export class JwtAuthGuard implements CanActivate {
     const [scheme, bearerToken] =
       request.headers.authorization?.split(' ') ?? [];
     if (scheme === 'Bearer' && bearerToken) return bearerToken;
-    return readCookie(request.headers.cookie, ACCESS_TOKEN_COOKIE);
+    return (
+      readCookie(request.headers.cookie, ACCESS_TOKEN_COOKIE) ??
+      readCookie(request.headers.cookie, LEGACY_ACCESS_TOKEN_COOKIE)
+    );
   }
 }

@@ -10,11 +10,7 @@ interface TooltipState {
   y: number;
 }
 
-export function HeatmapGrid({
-  meeting,
-}: {
-  meeting: OrganizerMeetingDetail;
-}) {
+export function HeatmapGrid({ meeting }: { meeting: OrganizerMeetingDetail }) {
   const [tooltip, setTooltip] = useState<TooltipState>();
   const times = useMemo(
     () => Array.from(new Set(meeting.heatmap.map((cell) => cell.timeLabel))),
@@ -23,10 +19,7 @@ export function HeatmapGrid({
   const cellByGridPosition = useMemo(
     () =>
       new Map(
-        meeting.heatmap.map((cell) => [
-          `${cell.date}:${cell.timeLabel}`,
-          cell,
-        ]),
+        meeting.heatmap.map((cell) => [`${cell.date}:${cell.timeLabel}`, cell]),
       ),
     [meeting.heatmap],
   );
@@ -43,9 +36,15 @@ export function HeatmapGrid({
             ? "Hover or focus a square to see who is available."
             : "The heatmap will fill as participants respond."}
         </p>
-        <div className="flex flex-wrap items-center gap-2" aria-label="Heatmap legend">
+        <div
+          className="flex flex-wrap items-center gap-2"
+          aria-label="Heatmap legend"
+        >
           {([0, 20, 40, 60, 80, 100] as const).map((tier) => (
-            <span className="flex items-center gap-1 text-[0.65rem] text-muted-foreground" key={tier}>
+            <span
+              className="flex items-center gap-1 text-[0.65rem] text-muted-foreground"
+              key={tier}
+            >
               <span className={`size-2.5 rounded-sm ${tierClass(tier)}`} />
               {tier}%
             </span>
@@ -53,17 +52,17 @@ export function HeatmapGrid({
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-white/10 bg-black/10">
+      <div className="schedule-scroll max-h-[68svh] overflow-auto rounded-2xl border border-white/10 bg-black/10 overscroll-contain">
         <div
           className="grid min-w-max"
           style={{
-            gridTemplateColumns: `5rem repeat(${meeting.dates.length}, minmax(6.5rem, 1fr))`,
+            gridTemplateColumns: `4.75rem repeat(${meeting.dates.length}, minmax(8.5rem, 1fr))`,
           }}
         >
-          <div className="sticky left-0 z-20 border-b border-r border-white/10 bg-card/95" />
+          <div className="sticky left-0 top-0 z-30 border-b border-r border-white/10 bg-card/95 backdrop-blur-xl" />
           {meeting.dates.map((date) => (
             <div
-              className="border-b border-r border-white/10 px-2 py-3 text-center text-xs font-medium last:border-r-0"
+              className="sticky top-0 z-20 border-b border-r border-white/10 bg-card/95 px-2 py-3 text-center text-xs font-medium backdrop-blur-xl last:border-r-0"
               key={date.date}
             >
               {date.label}
@@ -90,7 +89,8 @@ export function HeatmapGrid({
           style={{ left: tooltip.x, top: tooltip.y }}
         >
           <p className="font-medium text-blue-50">
-            {tooltip.cell.availableCount} / {tooltip.cell.totalParticipants} available
+            {tooltip.cell.availableCount} / {tooltip.cell.totalParticipants}{" "}
+            available
           </p>
           <p className="mt-1 text-muted-foreground">
             {tooltip.cell.participantNames.length
@@ -118,7 +118,7 @@ function HeatmapRow({
 }) {
   return (
     <>
-      <div className="sticky left-0 z-10 border-b border-r border-white/10 bg-card/95 px-3 py-4 text-xs text-muted-foreground">
+      <div className="sticky left-0 z-10 border-b border-r border-white/10 bg-card/95 px-3 py-5 text-xs text-muted-foreground backdrop-blur-xl">
         {time}
       </div>
       {dates.map((date) => {
@@ -127,20 +127,16 @@ function HeatmapRow({
         return (
           <button
             aria-label={`${date.label} at ${time}: ${cell.availableCount} of ${cell.totalParticipants} available${cell.participantNames.length ? ` — ${cell.participantNames.join(", ")}` : ""}`}
-            className={`grid min-h-12 place-items-center border-b border-r border-white/10 text-[0.68rem] font-semibold tabular-nums outline-none transition duration-200 last:border-r-0 hover:brightness-125 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary ${tierClass(cell.tier)}`}
+            className={`grid min-h-14 place-items-center border-b border-r border-white/10 text-[0.68rem] font-semibold tabular-nums outline-none transition duration-200 last:border-r-0 hover:brightness-125 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary ${tierClass(cell.tier)}`}
             key={date.date}
             onBlur={onHide}
             onFocus={(event) => {
               const box = event.currentTarget.getBoundingClientRect();
               onShow(cell, box.left + box.width / 2, box.top);
             }}
-            onMouseEnter={(event) =>
-              onShow(cell, event.clientX, event.clientY)
-            }
+            onMouseEnter={(event) => onShow(cell, event.clientX, event.clientY)}
             onMouseLeave={onHide}
-            onMouseMove={(event) =>
-              onShow(cell, event.clientX, event.clientY)
-            }
+            onMouseMove={(event) => onShow(cell, event.clientX, event.clientY)}
             type="button"
           >
             {cell.availableCount}/{cell.totalParticipants}

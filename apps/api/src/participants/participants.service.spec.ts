@@ -19,7 +19,9 @@ const meeting = {
   workdayEnd: '10:00',
   slotIntervalMinutes: 60,
   finalized: false,
+  locked: false,
   finalSlotAt: null,
+  finalSlotEnd: null,
   responseDeadline: null,
   createdAt: new Date('2026-08-04T00:00:00.000Z'),
 } satisfies Meeting;
@@ -92,6 +94,30 @@ describe('ParticipantsService', () => {
         code: 'NAME_TAKEN',
         suggestions: ['ALICE 2', 'ALICE Team', 'ALICE-Dev'],
       }),
+    });
+    expect(transaction.participant.findUnique).toHaveBeenCalledWith({
+      where: {
+        meetingId_displayNameNormalized: {
+          meetingId: meeting.id,
+          displayNameNormalized: 'alice',
+        },
+      },
+    });
+  });
+
+  it('uses Unicode compatibility normalization for name uniqueness', async () => {
+    transaction.participant.findUnique.mockResolvedValue({ id: 'existing' });
+
+    await expect(service.join(meeting.slug, 'Ａlice')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    expect(transaction.participant.findUnique).toHaveBeenCalledWith({
+      where: {
+        meetingId_displayNameNormalized: {
+          meetingId: meeting.id,
+          displayNameNormalized: 'alice',
+        },
+      },
     });
   });
 

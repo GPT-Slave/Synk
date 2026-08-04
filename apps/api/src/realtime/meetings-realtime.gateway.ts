@@ -9,6 +9,7 @@ import {
 import type { Namespace, Socket } from 'socket.io';
 import {
   ACCESS_TOKEN_COOKIE,
+  LEGACY_ACCESS_TOKEN_COOKIE,
   type AccessTokenPayload,
 } from '../auth/auth.types';
 import { readCookie } from '../auth/cookies';
@@ -36,6 +37,16 @@ export interface AvailabilityChangedEvent {
   comment?: string;
 }
 
+export interface MeetingStateChangedEvent {
+  meetingId: string;
+  finalized: boolean;
+  locked: boolean;
+  finalSlot?: {
+    datetimeStart: string;
+    datetimeEnd: string;
+  };
+}
+
 @Injectable()
 @WebSocketGateway({
   namespace: /^\/meetings\/[A-Za-z0-9_-]+$/,
@@ -58,10 +69,9 @@ export class MeetingsRealtimeGateway implements OnGatewayConnection<Socket> {
   async handleConnection(client: Socket): Promise<void> {
     try {
       const meetingId = client.nsp.name.replace('/meetings/', '');
-      const token = readCookie(
-        client.handshake.headers.cookie,
-        ACCESS_TOKEN_COOKIE,
-      );
+      const token =
+        readCookie(client.handshake.headers.cookie, ACCESS_TOKEN_COOKIE) ??
+        readCookie(client.handshake.headers.cookie, LEGACY_ACCESS_TOKEN_COOKIE);
       if (!token || !meetingId) throw new Error('Authentication required');
 
       const payload = await this.jwt.verifyAsync<AccessTokenPayload>(token, {
@@ -95,6 +105,12 @@ export class MeetingsRealtimeGateway implements OnGatewayConnection<Socket> {
     this.child(event.meetingId)
       .to(AUTHORIZED_ROOM)
       .emit('availability:changed', event);
+  }
+
+  meetingStateChanged(event: MeetingStateChangedEvent): void {
+    this.child(event.meetingId)
+      .to(AUTHORIZED_ROOM)
+      .emit('meeting:state-changed', event);
   }
 
   private child(meetingId: string): Namespace {

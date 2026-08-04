@@ -3,10 +3,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { io } from "socket.io-client";
 import { useEffect, useState } from "react";
-import {
-  refreshOrganizerSession,
-  SOCKET_URL,
-} from "@/lib/auth-api";
+import { refreshOrganizerSession, SOCKET_URL } from "@/lib/auth-api";
 
 export type RealtimeStatus = "connecting" | "live" | "offline";
 
@@ -39,6 +36,7 @@ export function useMeetingRealtime(meetingId: string): RealtimeStatus {
     });
     socket.on("participant:joined", () => void resync());
     socket.on("availability:changed", () => void resync());
+    socket.on("meeting:state-changed", () => void resync());
     socket.on("disconnect", () => {
       if (!disposed) setStatus("offline");
     });

@@ -81,7 +81,7 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
   const serverError = mutation.error
     ? mutation.error instanceof ApiError
       ? mutation.error.message
-      : "Unable to reach Calendra. Is the API running?"
+      : "Unable to reach Synk. Is the API running?"
     : undefined;
 
   return (
