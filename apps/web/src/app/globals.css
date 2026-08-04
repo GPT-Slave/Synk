@@ -183,24 +183,6 @@
     border-radius: 999px;
   }
 
-  .schedule-scroll {
-    scrollbar-color: oklch(0.82 0.18 245 / 0.52) transparent;
-    scrollbar-width: thin;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .schedule-scroll::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-
-  .schedule-scroll::-webkit-scrollbar-thumb {
-    border: 2px solid transparent;
-    border-radius: 999px;
-    background: oklch(0.82 0.18 245 / 0.52);
-    background-clip: padding-box;
-  }
-
   @media (pointer: coarse) {
     [data-slot-start] {
       min-height: 3.75rem;

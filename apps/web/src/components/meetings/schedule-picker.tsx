@@ -215,22 +215,31 @@ function Month({
         ))}
       </div>
       <div className="grid grid-cols-7 gap-y-1">
-        {days.map(({ date, outside }) => {
+        {days.map(({ date, outside }, index) => {
           const disabled = outside || Boolean(minDate && date < minDate);
-          const endpoint = date === rangeStart || date === rangeEnd;
+          const rangeStartDate = date === rangeStart;
+          const rangeEndDate = date === rangeEnd;
+          const endpoint = !outside && (rangeStartDate || rangeEndDate);
           const inside = Boolean(
             rangeStart && rangeEnd && date > rangeStart && date < rangeEnd,
           );
+          const inRange = !outside && (endpoint || inside);
+          const singleSelectedDate = rangeStartDate && !rangeEnd;
+          const startsVisibleSegment =
+            inRange && (rangeStartDate || index % 7 === 0);
+          const endsVisibleSegment =
+            inRange &&
+            (rangeEndDate || singleSelectedDate || index % 7 === 6);
           return (
             <motion.button
               aria-label={new Intl.DateTimeFormat("en", {
                 dateStyle: "full",
               }).format(parseDate(date)!)}
-              aria-pressed={endpoint || inside}
+              aria-pressed={inRange}
               className={`relative h-11 text-sm outline-none transition duration-200 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary ${
-                inside ? "bg-primary/14 text-foreground" : ""
-              } ${date === rangeStart ? "rounded-l-xl" : ""} ${
-                date === rangeEnd ? "rounded-r-xl" : ""
+                inRange ? "bg-primary/16 text-foreground" : ""
+              } ${startsVisibleSegment ? "rounded-l-xl" : ""} ${
+                endsVisibleSegment ? "rounded-r-xl" : ""
               } ${disabled ? "cursor-default text-white/20" : "hover:bg-white/[0.07]"}`}
               disabled={disabled}
               key={date}

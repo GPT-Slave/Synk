@@ -260,8 +260,8 @@ export function AvailabilityGrid({
             {participantSession.participant.displayName}
           </h2>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Tap one square or paint across several. Drag sideways to see more
-            days on smaller screens.
+            Tap one square or paint across several. The complete timetable is
+            always shown below.
           </p>
           <p className="mt-2 flex items-center gap-2 text-xs text-primary/65">
             <ClockBadge /> Times are fixed to {meeting.timezone} (meeting
@@ -304,19 +304,20 @@ export function AvailabilityGrid({
         </p>
       )}
 
-      <div className="schedule-scroll mt-6 max-h-[68svh] overflow-auto rounded-2xl border border-white/10 bg-white/[0.02] overscroll-x-contain overscroll-y-auto">
+      <div className="mt-6 w-full">
         <div
-          className="grid min-w-max select-none"
+          className="grid w-full min-w-0 select-none"
           onPointerMove={continueDrag}
           style={{
-            gridTemplateColumns: `4.25rem repeat(${meeting.dates.length}, minmax(6.75rem, 1fr))`,
+            gridTemplateColumns: `4.25rem repeat(${meeting.dates.length}, minmax(0, 1fr))`,
           }}
         >
-          <div className="sticky left-0 top-0 z-30 border-b border-r border-white/10 bg-card/95 backdrop-blur-xl" />
+          <div />
           {meeting.dates.map((date) => (
             <div
-              className="sticky top-0 z-20 border-b border-r border-white/10 bg-card/95 px-3 py-3 text-center text-xs font-medium backdrop-blur-xl last:border-r-0"
+              className="min-w-0 truncate px-1 py-3 text-center text-[0.68rem] font-medium leading-tight text-muted-foreground sm:text-xs"
               key={date.date}
+              title={date.label}
             >
               {date.label}
             </div>
@@ -385,7 +386,7 @@ function GridRow({
   const reduceMotion = useReducedMotion();
   return (
     <>
-      <div className="sticky left-0 z-10 border-b border-r border-white/10 bg-card/95 px-3 py-5 text-xs text-muted-foreground backdrop-blur-xl">
+      <div className="px-2 py-5 text-xs text-muted-foreground">
         {time}
       </div>
       {dates.map((date) => {
@@ -394,7 +395,7 @@ function GridRow({
         const active = selected.has(slot.datetimeStart);
         return (
           <div
-            className="min-h-14 border-b border-r border-white/10 p-1.5 last:border-r-0"
+            className="min-h-14 p-1"
             key={date.date}
           >
             <motion.button

@@ -72,18 +72,19 @@ export function HeatmapGrid({
         </div>
       </div>
 
-      <div className="schedule-scroll max-h-[68svh] overflow-auto rounded-2xl border border-white/10 bg-black/10 overscroll-x-contain overscroll-y-auto">
+      <div className="w-full">
         <div
-          className="grid min-w-max"
+          className="grid w-full min-w-0"
           style={{
-            gridTemplateColumns: `4.25rem repeat(${meeting.dates.length}, minmax(6.75rem, 1fr))`,
+            gridTemplateColumns: `4.25rem repeat(${meeting.dates.length}, minmax(0, 1fr))`,
           }}
         >
-          <div className="sticky left-0 top-0 z-30 border-b border-r border-white/10 bg-card/95 backdrop-blur-xl" />
+          <div />
           {meeting.dates.map((date) => (
             <div
-              className="sticky top-0 z-20 border-b border-r border-white/10 bg-card/95 px-2 py-3 text-center text-xs font-medium backdrop-blur-xl last:border-r-0"
+              className="min-w-0 truncate px-1 py-3 text-center text-[0.68rem] font-medium leading-tight text-muted-foreground sm:text-xs"
               key={date.date}
+              title={date.label}
             >
               {date.label}
             </div>
@@ -148,7 +149,7 @@ function HeatmapRow({
   const reduceMotion = useReducedMotion();
   return (
     <>
-      <div className="sticky left-0 z-10 border-b border-r border-white/10 bg-card/95 px-3 py-5 text-xs text-muted-foreground backdrop-blur-xl">
+      <div className="px-2 py-5 text-xs text-muted-foreground">
         {time}
       </div>
       {dates.map((date) => {
@@ -162,7 +163,7 @@ function HeatmapRow({
         );
         return (
           <div
-            className="min-h-14 border-b border-r border-white/10 p-1.5 last:border-r-0"
+            className="min-h-14 p-1"
             key={date.date}
           >
             <motion.button
