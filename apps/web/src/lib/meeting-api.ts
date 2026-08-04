@@ -6,6 +6,7 @@ import type {
   MeetingGridDateDto,
   MeetingGridSlotDto,
   OrganizerMeetingDto,
+  OrganizerMeetingPageDto,
   ParticipantSessionDto,
   PublicMeetingDto,
 } from "@meet-planner/shared-types";
@@ -45,8 +46,12 @@ export interface JoinedParticipantSession extends ParticipantSessionDto {
   sessionToken: string;
 }
 
-export function listMeetings() {
-  return authenticatedRequest<OrganizerMeetingDto[]>("/meetings");
+export function listMeetings(cursor?: string) {
+  const query = new URLSearchParams({ limit: "24" });
+  if (cursor) query.set("cursor", cursor);
+  return authenticatedRequest<OrganizerMeetingPageDto>(
+    `/meetings?${query.toString()}`,
+  );
 }
 
 export function getMeeting(id: string) {

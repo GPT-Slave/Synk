@@ -1,5 +1,7 @@
 import type { BestMatchDto } from "@meet-planner/shared-types";
+import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, CalendarCheck2, Sparkles, UsersRound } from "lucide-react";
+import { StatePanel } from "@/components/ui/state-panel";
 
 export function BestTimeSuggestions({
   matches,
@@ -10,11 +12,15 @@ export function BestTimeSuggestions({
   onSelect?: (match: BestMatchDto) => void;
   timezone: string;
 }) {
+  const reduceMotion = useReducedMotion();
   if (matches.length === 0) {
     return (
-      <p className="text-sm leading-relaxed text-muted-foreground">
-        Suggestions appear as soon as someone saves availability.
-      </p>
+      <StatePanel
+        className="min-h-36"
+        description="Suggestions appear as soon as someone saves availability."
+        icon={<Sparkles />}
+        title="No matches yet"
+      />
     );
   }
 
@@ -22,11 +28,13 @@ export function BestTimeSuggestions({
     <ol className="space-y-3">
       {matches.map((match, index) => (
         <li key={match.datetimeStart}>
-          <button
+          <motion.button
             className="group flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-black/10 p-3 text-left transition duration-200 hover:border-primary/40 hover:bg-primary/[0.07] focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-default disabled:hover:border-white/10 disabled:hover:bg-black/10 sm:gap-4 sm:p-4"
             disabled={!onSelect}
             onClick={() => onSelect?.(match)}
             type="button"
+            whileHover={reduceMotion || !onSelect ? undefined : { y: -2 }}
+            whileTap={reduceMotion || !onSelect ? undefined : { scale: 0.985 }}
           >
             <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/12 text-sm font-semibold text-primary">
               {index + 1}
@@ -54,12 +62,12 @@ export function BestTimeSuggestions({
                 </p>
               )}
               {onSelect && (
-                <p className="mt-1 flex items-center justify-end gap-1 text-[0.65rem] text-blue-100/70 transition group-hover:text-blue-100">
+                <p className="mt-1 flex items-center justify-end gap-1 text-[0.65rem] text-primary/65 transition group-hover:text-primary">
                   <CalendarCheck2 className="size-3" /> Select
                 </p>
               )}
             </div>
-          </button>
+          </motion.button>
         </li>
       ))}
     </ol>

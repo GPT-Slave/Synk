@@ -1,11 +1,13 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, LockKeyhole } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { MeetingForm } from "@/components/meetings/meeting-form";
 import { OrganizerShell } from "@/components/organizer-shell";
+import { Skeleton } from "@/components/ui/skeleton";
+import { StatePanel } from "@/components/ui/state-panel";
 import { getMeeting } from "@/lib/meeting-api";
 
 export default function EditMeetingPage() {
@@ -35,17 +37,37 @@ function EditMeeting() {
         Edit meeting
       </h1>
       {meeting.isPending && (
-        <div className="mt-10 h-96 animate-pulse rounded-2xl bg-white/5" />
+        <div className="mt-10 space-y-4" role="status">
+          <Skeleton className="h-14" />
+          <Skeleton className="h-44" />
+          <Skeleton className="h-52" />
+          <span className="sr-only">Loading meeting form…</span>
+        </div>
       )}
       {meeting.isError && (
-        <p className="mt-10 text-sm text-blue-200">
-          This meeting could not be loaded or is no longer available.
-        </p>
+        <StatePanel
+          className="mt-10"
+          description="It may have been deleted, or it belongs to another organizer."
+          kind="error"
+          onRetry={() => void meeting.refetch()}
+          title="Meeting could not be loaded"
+        />
       )}
       {meeting.data?.finalized && (
-        <p className="mt-10 rounded-xl border border-primary/30 bg-primary/10 p-4 text-sm text-blue-100">
-          Finalized meetings cannot be edited.
-        </p>
+        <StatePanel
+          action={
+            <Link
+              className="text-sm font-medium text-primary hover:underline"
+              href={`/dashboard/meetings/${id}`}
+            >
+              Return to meeting
+            </Link>
+          }
+          className="mt-10"
+          description="Re-open the meeting from its dashboard before changing the schedule."
+          icon={<LockKeyhole />}
+          title="This meeting is finalized"
+        />
       )}
       {meeting.data && !meeting.data.finalized && (
         <div className="mt-10">

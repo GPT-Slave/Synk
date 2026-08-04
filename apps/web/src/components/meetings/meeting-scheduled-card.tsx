@@ -1,5 +1,6 @@
 import type { MeetingDto } from "@meet-planner/shared-types";
 import { CalendarCheck2, CheckCircle2, Clock3 } from "lucide-react";
+import { MotionPanel } from "@/components/ui/motion-panel";
 
 export function MeetingScheduledCard({
   meeting,
@@ -12,12 +13,12 @@ export function MeetingScheduledCard({
   const end = meeting.finalSlot?.datetimeEnd;
 
   return (
-    <section
+    <MotionPanel
       className={`relative overflow-hidden rounded-3xl border border-primary/30 bg-primary/[0.09] ${compact ? "p-5 sm:p-6" : "mt-10 p-6 sm:p-8"}`}
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_15%,oklch(0.72_0.19_250_/_0.22),transparent_42%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_15%,oklch(0.86_0.24_145_/_0.2),transparent_42%)]" />
       <div className="relative">
-        <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-blue-100">
+        <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary/90">
           <CheckCircle2 className="size-3.5 text-primary" /> Confirmed
         </span>
         <h2 className="mt-5 text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -56,7 +57,7 @@ export function MeetingScheduledCard({
           </p>
         )}
       </div>
-    </section>
+    </MotionPanel>
   );
 }
 

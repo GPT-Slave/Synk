@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 export default function Home() {
   return (
     <main className="relative flex min-h-svh flex-col overflow-hidden px-5 sm:px-8">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,oklch(0.72_0.19_250_/_0.16),transparent_38%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,oklch(0.86_0.24_145_/_0.14),transparent_38%)]" />
       <nav className="relative mx-auto flex w-full max-w-6xl items-center justify-between border-b border-white/10 py-5">
         <Link className="flex items-center gap-3" href="/">
           <Image
             alt=""
-            className="brand-neon-blue size-11 rounded-xl"
+            className="brand-neon-green size-11 rounded-lg"
             height={72}
             priority
             src="/logo.png"
@@ -42,7 +42,7 @@ export default function Home() {
           </p>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
             <Button
-              className="h-11 px-5 shadow-[0_0_30px_oklch(0.72_0.19_250_/_0.32)]"
+              className="h-11 px-5 shadow-glow"
               render={<Link href="/signup" />}
             >
               Create your first poll <ArrowRight />
@@ -67,12 +67,12 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="relative mx-auto grid aspect-square w-full max-w-md place-items-center rounded-[2.5rem] border border-primary/20 bg-primary/[0.045] shadow-[0_0_100px_-38px_oklch(0.72_0.19_250)]">
+        <div className="relative mx-auto grid aspect-square w-full max-w-md place-items-center rounded-lg border border-primary/20 bg-primary/[0.045] shadow-[0_0_100px_-38px_oklch(0.86_0.24_145)]">
           <div className="pointer-events-none absolute inset-8 rounded-[2rem] border border-white/[0.06]" />
           <div className="relative text-center">
             <Image
               alt=""
-              className="brand-neon-blue mx-auto size-40 rounded-[2rem] sm:size-52"
+              className="brand-neon-green mx-auto size-40 rounded-lg sm:size-52"
               height={360}
               priority
               src="/logo.png"
@@ -81,7 +81,7 @@ export default function Home() {
             <p className="mt-7 text-5xl font-semibold tracking-[-0.06em] sm:text-6xl">
               Synk
             </p>
-            <p className="mt-2 text-sm tracking-[0.18em] text-blue-100/60 uppercase">
+            <p className="mt-2 text-sm tracking-[0.18em] text-primary/60 uppercase">
               Find time. Together.
             </p>
           </div>

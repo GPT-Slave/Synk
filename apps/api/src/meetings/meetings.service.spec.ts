@@ -62,6 +62,9 @@ describe('MeetingsService', () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
+    participant: {
+      groupBy: jest.fn(),
+    },
   };
   const realtime = {
     availabilityChanged: jest.fn(),
@@ -115,6 +118,73 @@ describe('MeetingsService', () => {
         workdayStart: '08:30',
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('bounds the meeting date range to protect grid performance', async () => {
+    await expect(
+      service.create('user-1', {
+        ...baseDto,
+        startDate: '2026-08-01',
+        endDate: '2026-09-01',
+      }),
+    ).rejects.toThrow(
+      'Meeting schedules are limited to 31 days and 1,000 time slots.',
+    );
+  });
+
+  it('bounds the total generated slot count', async () => {
+    await expect(
+      service.create('user-1', {
+        ...baseDto,
+        startDate: '2026-08-01',
+        endDate: '2026-08-31',
+        workdayStart: '00:00',
+        workdayEnd: '24:00',
+        slotIntervalMinutes: 30,
+      }),
+    ).rejects.toThrow(
+      'Meeting schedules are limited to 31 days and 1,000 time slots.',
+    );
+  });
+
+  it('paginates meeting summaries without loading participant rows', async () => {
+    prisma.meeting.findMany.mockResolvedValue([
+      { ...savedMeeting({ id: 'meeting-3' }), _count: { participants: 3 } },
+      { ...savedMeeting({ id: 'meeting-2' }), _count: { participants: 2 } },
+      { ...savedMeeting({ id: 'meeting-1' }), _count: { participants: 1 } },
+    ]);
+    prisma.participant.groupBy.mockResolvedValue([
+      { meetingId: 'meeting-3', _count: { _all: 2 } },
+    ]);
+
+    const result = await service.list('user-1', {
+      cursor: 'meeting-4',
+      limit: 2,
+    });
+
+    expect(prisma.meeting.findMany).toHaveBeenCalledWith({
+      where: { organizerId: 'user-1' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: 3,
+      cursor: { id: 'meeting-4' },
+      skip: 1,
+      include: { _count: { select: { participants: true } } },
+    });
+    expect(prisma.participant.groupBy).toHaveBeenCalledWith({
+      by: ['meetingId'],
+      where: {
+        meetingId: { in: ['meeting-3', 'meeting-2'] },
+        respondedAt: { not: null },
+      },
+      _count: { _all: true },
+    });
+    expect(result).toMatchObject({
+      items: [
+        { id: 'meeting-3', participantCount: 3, responseCount: 2 },
+        { id: 'meeting-2', participantCount: 2, responseCount: 0 },
+      ],
+      nextCursor: 'meeting-2',
+    });
   });
 
   it('blocks updates after finalization', async () => {

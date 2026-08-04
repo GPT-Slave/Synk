@@ -69,6 +69,13 @@ if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "pnpm install failed." }
 Pop-Location
 Write-Ok "Dependencies installed"
 
+Write-Step "Running security audit"
+Push-Location $Root
+pnpm run security:audit
+if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "Security audit failed." }
+Pop-Location
+Write-Ok "Security audit passed"
+
 # ---------------------------------------------------------------------------
 # 4. Database (Postgres via Docker)
 # ---------------------------------------------------------------------------

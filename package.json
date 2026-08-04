@@ -13,7 +13,8 @@
     "prisma:generate": "pnpm --filter api exec prisma generate",
     "prisma:migrate": "pnpm --filter api exec prisma migrate dev",
     "prisma:studio": "pnpm --filter api exec prisma studio",
-    "lint": "pnpm --filter web lint && pnpm --filter api lint"
+    "lint": "pnpm --filter web lint && pnpm --filter api lint",
+    "security:audit": "node scripts/security-audit.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

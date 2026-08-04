@@ -1,11 +1,7 @@
 "use client";
 
-import {
-  CalendarRange,
-  ChevronLeft,
-  ChevronRight,
-  Clock3,
-} from "lucide-react";
+import { CalendarRange, ChevronLeft, ChevronRight, Clock3 } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -37,7 +33,7 @@ export function SchedulePicker({
   workdayStart,
 }: SchedulePickerProps) {
   return (
-    <section className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.025] shadow-[0_24px_80px_-44px_oklch(0.68_0.18_245_/_0.45)]">
+    <section className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.025] shadow-lg">
       <div className="border-b border-white/10 px-5 py-5 sm:px-7">
         <p className="text-xs font-medium uppercase tracking-[0.2em] text-primary">
           Schedule window
@@ -88,11 +84,7 @@ function DateRangeCalendar({
   startDate,
 }: Pick<
   SchedulePickerProps,
-  | "endDate"
-  | "minDate"
-  | "onEndDateChange"
-  | "onStartDateChange"
-  | "startDate"
+  "endDate" | "minDate" | "onEndDateChange" | "onStartDateChange" | "startDate"
 >) {
   const [visibleMonth, setVisibleMonth] = useState(() =>
     firstOfMonth(parseDate(startDate) ?? new Date()),
@@ -132,12 +124,18 @@ function DateRangeCalendar({
           <div>
             <p className="text-sm font-medium">Date range</p>
             <p className="text-xs text-muted-foreground">
-              {selectingEnd ? "Now choose the last day" : "Choose the first day"}
+              {selectingEnd
+                ? "Now choose the last day"
+                : "Choose the first day"}
             </p>
           </div>
         </div>
         <div className="grid grid-cols-2 overflow-hidden rounded-2xl border border-white/10 bg-black/10">
-          <RangeSummary label="Start" value={startDate} active={!selectingEnd} />
+          <RangeSummary
+            label="Start"
+            value={startDate}
+            active={!selectingEnd}
+          />
           <RangeSummary label="End" value={endDate} active={selectingEnd} />
         </div>
       </div>
@@ -200,6 +198,7 @@ function Month({
   rangeStart: string;
 }) {
   const days = useMemo(() => monthDays(month), [month]);
+  const reduceMotion = useReducedMotion();
   return (
     <div>
       <h3 className="mb-4 text-center text-sm font-semibold">
@@ -223,13 +222,13 @@ function Month({
             rangeStart && rangeEnd && date > rangeStart && date < rangeEnd,
           );
           return (
-            <button
+            <motion.button
               aria-label={new Intl.DateTimeFormat("en", {
                 dateStyle: "full",
               }).format(parseDate(date)!)}
               aria-pressed={endpoint || inside}
               className={`relative h-11 text-sm outline-none transition duration-200 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary ${
-                inside ? "bg-primary/14 text-blue-50" : ""
+                inside ? "bg-primary/14 text-foreground" : ""
               } ${date === rangeStart ? "rounded-l-xl" : ""} ${
                 date === rangeEnd ? "rounded-r-xl" : ""
               } ${disabled ? "cursor-default text-white/20" : "hover:bg-white/[0.07]"}`}
@@ -239,17 +238,18 @@ function Month({
               onMouseEnter={() => onHover(date)}
               onMouseLeave={() => onHover(undefined)}
               type="button"
+              whileTap={reduceMotion ? undefined : { scale: 0.92 }}
             >
               <span
                 className={`relative z-10 grid size-9 place-items-center rounded-xl transition duration-200 ${
                   endpoint
-                    ? "bg-primary font-semibold text-primary-foreground shadow-[0_0_24px_-8px_oklch(0.72_0.18_245)]"
+                    ? "bg-primary font-semibold text-primary-foreground shadow-glow"
                     : ""
                 }`}
               >
                 {Number(date.slice(-2))}
               </span>
-            </button>
+            </motion.button>
           );
         })}
       </div>
@@ -272,10 +272,12 @@ function TimeRangeGrid({
   rangeEnd: string;
   rangeStart: string;
 }) {
+  const reduceMotion = useReducedMotion();
   const [selectingEnd, setSelectingEnd] = useState(false);
   const [hoveredMinute, setHoveredMinute] = useState<number>();
   const slots = useMemo(
-    () => Array.from({ length: 1_440 / interval }, (_, index) => index * interval),
+    () =>
+      Array.from({ length: 1_440 / interval }, (_, index) => index * interval),
     [interval],
   );
   const savedStart = minutesFromLabel(rangeStart);
@@ -308,35 +310,38 @@ function TimeRangeGrid({
           <div>
             <p className="text-sm font-medium">Daily working hours</p>
             <p className="text-xs text-muted-foreground">
-              {selectingEnd ? "Choose the last time square" : "Choose the first time square"}
+              {selectingEnd
+                ? "Choose the last time square"
+                : "Choose the first time square"}
             </p>
           </div>
         </div>
         <div className="flex rounded-xl border border-white/10 bg-black/10 p-1">
           {([30, 60] as const).map((value) => (
-            <button
+            <motion.button
               aria-pressed={interval === value}
               className={`rounded-lg px-3 py-2 text-xs font-medium transition duration-200 ${
                 interval === value
-                  ? "bg-primary text-primary-foreground shadow-[0_0_18px_-8px_oklch(0.72_0.18_245)]"
+                  ? "bg-primary text-primary-foreground shadow-glow"
                   : "text-muted-foreground hover:text-foreground"
               }`}
               key={value}
               onClick={() => onIntervalChange(value)}
               type="button"
+              whileTap={reduceMotion ? undefined : { scale: 0.94 }}
             >
               {value} min
-            </button>
+            </motion.button>
           ))}
         </div>
       </div>
 
       <div className="mt-5 flex flex-wrap items-center gap-2 text-sm">
-        <span className="rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-blue-50">
+        <span className="rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-foreground">
           {rangeStart}
         </span>
         <span className="text-muted-foreground">to</span>
-        <span className="rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-blue-50">
+        <span className="rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-foreground">
           {rangeEnd}
         </span>
         <span className="text-xs text-muted-foreground">
@@ -353,23 +358,24 @@ function TimeRangeGrid({
           const endpoint =
             minute === preview.start || minute + interval === preview.end;
           return (
-            <button
+            <motion.button
               aria-label={`Select ${labelFromMinutes(minute)}`}
               aria-pressed={active}
               className={`min-h-11 rounded-xl border px-1 py-2 text-xs tabular-nums outline-none transition duration-200 focus-visible:ring-2 focus-visible:ring-primary ${
                 endpoint
-                  ? "border-primary bg-primary text-primary-foreground shadow-[0_0_20px_-9px_oklch(0.72_0.18_245)]"
+                  ? "border-primary bg-primary text-primary-foreground shadow-glow"
                   : active
-                    ? "border-primary/30 bg-primary/15 text-blue-50"
+                    ? "border-primary/30 bg-primary/15 text-foreground"
                     : "border-white/[0.07] bg-white/[0.02] text-muted-foreground hover:border-white/20 hover:bg-white/[0.06] hover:text-foreground"
               }`}
               key={minute}
               onClick={() => selectTime(minute)}
               onMouseEnter={() => setHoveredMinute(minute)}
               type="button"
+              whileTap={reduceMotion ? undefined : { scale: 0.94 }}
             >
               {labelFromMinutes(minute)}
-            </button>
+            </motion.button>
           );
         })}
       </div>

@@ -27,6 +27,7 @@ model RefreshToken {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([userId])
+  @@index([expiresAt])
   @@map("refresh_tokens")
 }
 
@@ -52,6 +53,7 @@ model Meeting {
   participants        Participant[]
 
   @@index([organizerId])
+  @@index([organizerId, createdAt, id])
   @@map("meetings")
 }
 
@@ -72,6 +74,8 @@ model Participant {
   @@unique([meetingId, displayNameNormalized], map: "uniq_meeting_display_name_normalized")
   @@unique([meetingId, organizerId], map: "uniq_meeting_organizer_response")
   @@index([meetingId])
+  @@index([meetingId, joinedAt])
+  @@index([meetingId, respondedAt])
   @@map("participants")
 }
 
@@ -84,5 +88,6 @@ model Availability {
 
   @@unique([participantId, datetimeStart, datetimeEnd], map: "uniq_participant_availability_slot")
   @@index([participantId])
+  @@index([participantId, datetimeStart])
   @@map("availabilities")
 }

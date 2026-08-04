@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { sessionQueryKey, useSession } from "@/hooks/use-session";
 import { ApiError, login, signup } from "@/lib/auth-api";
 
@@ -87,7 +88,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
     <form className="space-y-5" noValidate onSubmit={handleSubmit}>
       {serverError && (
         <div
-          className="rounded-xl border border-primary/35 bg-primary/10 px-4 py-3 text-sm text-blue-100"
+          className="rounded-lg border border-destructive/35 bg-destructive/10 px-4 py-3 text-sm text-red-100"
           role="alert"
         >
           {serverError}
@@ -110,11 +111,11 @@ export function AuthForm({ mode }: { mode: Mode }) {
           Password
         </label>
         <div className="relative">
-          <input
+          <Input
             aria-describedby={errors.password ? "password-error" : undefined}
             aria-invalid={Boolean(errors.password)}
             autoComplete={isSignup ? "new-password" : "current-password"}
-            className="auth-input pr-11"
+            className="pr-11"
             id="password"
             onChange={(event) => setPassword(event.target.value)}
             placeholder={isSignup ? "8+ strong characters" : "Your password"}
@@ -135,7 +136,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           </button>
         </div>
         {errors.password && (
-          <p className="text-xs text-blue-300" id="password-error">
+          <p className="text-xs text-red-300" id="password-error">
             {errors.password}
           </p>
         )}
@@ -155,7 +156,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
       )}
 
       <Button
-        className="h-11 w-full shadow-[0_0_28px_oklch(0.72_0.19_250_/_0.28)]"
+        className="h-11 w-full shadow-glow"
         disabled={mutation.isPending}
         type="submit"
       >
@@ -202,11 +203,10 @@ function Field({
       <label className="text-sm font-medium" htmlFor={id}>
         {label}
       </label>
-      <input
+      <Input
         aria-describedby={error ? `${id}-error` : undefined}
         aria-invalid={Boolean(error)}
         autoComplete={autoComplete}
-        className="auth-input"
         id={id}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
@@ -214,7 +214,7 @@ function Field({
         value={value}
       />
       {error && (
-        <p className="text-xs text-blue-300" id={`${id}-error`}>
+        <p className="text-xs text-red-300" id={`${id}-error`}>
           {error}
         </p>
       )}

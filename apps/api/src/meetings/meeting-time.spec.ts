@@ -46,6 +46,16 @@ describe('meetingGrid', () => {
     });
   });
 
+  it('keeps cached timezone formatters isolated by timezone', () => {
+    const utc = meetingGrid({ ...meeting, timezone: 'UTC' });
+    const newYork = meetingGrid({ ...meeting, timezone: 'America/New_York' });
+    const tunisAgain = meetingGrid(meeting);
+
+    expect(utc.slots[0].datetimeStart).toBe('2026-08-12T08:00:00.000Z');
+    expect(newYork.slots[0].datetimeStart).toBe('2026-08-12T12:00:00.000Z');
+    expect(tunisAgain.slots[0].datetimeStart).toBe('2026-08-12T07:00:00.000Z');
+  });
+
   it('rejects impossible calendar dates', () => {
     expect(parseDateOnly('2026-02-29')).toBeNull();
     expect(parseDateOnly('2026-02-28')?.toISOString()).toBe(

@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -16,6 +17,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthUser } from '../auth/auth.types';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
 import { FinalizeMeetingDto } from './dto/finalize-meeting.dto';
+import { ListMeetingsQueryDto } from './dto/list-meetings-query.dto';
 import { LockMeetingDto } from './dto/lock-meeting.dto';
 import { UpdateMeetingDto } from './dto/update-meeting.dto';
 import { UpdateAvailabilityDto } from '../availability/dto/update-availability.dto';
@@ -32,8 +34,8 @@ export class MeetingsController {
   }
 
   @Get()
-  list(@CurrentUser() user: AuthUser) {
-    return this.meetings.list(user.id);
+  list(@CurrentUser() user: AuthUser, @Query() query: ListMeetingsQueryDto) {
+    return this.meetings.list(user.id, query);
   }
 
   @Get(':id')

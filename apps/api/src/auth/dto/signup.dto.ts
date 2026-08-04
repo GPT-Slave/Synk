@@ -5,10 +5,12 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { PlainText } from '../../security/plain-text';
 
 export class SignupDto {
   @IsEmail({}, { message: 'Enter a valid email address.' })
   @MaxLength(254)
+  @PlainText()
   email!: string;
 
   @IsString()

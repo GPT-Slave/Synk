@@ -6,6 +6,7 @@ import type {
   PublicMeetingDto,
 } from "@meet-planner/shared-types";
 import { useMutation } from "@tanstack/react-query";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   CheckCircle2,
   Cloud,
@@ -23,6 +24,9 @@ import {
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
+import { StatePanel } from "@/components/ui/state-panel";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/auth-api";
 import { saveAvailability } from "@/lib/meeting-api";
 
@@ -53,6 +57,7 @@ export function AvailabilityGrid({
   saveScope,
 }: AvailabilityGridProps) {
   const commentId = useId();
+  const toast = useToast();
   const [selected, setSelected] = useState(
     () =>
       new Set(
@@ -187,6 +192,16 @@ export function AvailabilityGrid({
       : "Your availability could not be saved."
     : undefined;
 
+  if (meeting.dates.length === 0 || meeting.slots.length === 0) {
+    return (
+      <StatePanel
+        className={mode === "participant" ? "mt-8" : undefined}
+        description="The organizer needs to add at least one valid day and time slot before availability can be selected."
+        title="No schedule slots yet"
+      />
+    );
+  }
+
   return (
     <section className={mode === "participant" ? "mt-8" : ""}>
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -201,7 +216,7 @@ export function AvailabilityGrid({
             Tap one square or paint across several. Drag sideways to see more
             days on smaller screens.
           </p>
-          <p className="mt-2 flex items-center gap-2 text-xs text-blue-200/75">
+          <p className="mt-2 flex items-center gap-2 text-xs text-primary/65">
             <ClockBadge /> Times are fixed to {meeting.timezone} (meeting
             timezone) · {meeting.slotIntervalMinutes}-minute slots
           </p>
@@ -210,7 +225,17 @@ export function AvailabilityGrid({
           <SaveIndicator state={saveState} />
           <Button
             disabled={!meeting.acceptingResponses}
-            onClick={() => saveResponse(response)}
+            onClick={() =>
+              saveResponse(response, {
+                onSuccess: () =>
+                  toast({
+                    title: "Availability saved",
+                    description:
+                      "Your latest times and note are safely stored.",
+                    variant: "success",
+                  }),
+              })
+            }
             type="button"
           >
             {saveState === "saving" ? (
@@ -273,8 +298,8 @@ export function AvailabilityGrid({
         >
           <MessageSquareText className="size-4 text-primary" /> Optional note
         </label>
-        <textarea
-          className="min-h-24 w-full resize-y rounded-2xl border border-input bg-white/[0.035] px-4 py-3 text-sm outline-none transition duration-200 placeholder:text-muted-foreground/70 hover:border-white/20 focus:border-primary focus:ring-3 focus:ring-primary/15"
+        <Textarea
+          className="min-h-24"
           disabled={!meeting.acceptingResponses}
           id={commentId}
           maxLength={1000}
@@ -311,6 +336,7 @@ function GridRow({
   slotByCell: Map<string, PublicMeetingDto["slots"][number]>;
   time: string;
 }) {
+  const reduceMotion = useReducedMotion();
   return (
     <>
       <div className="sticky left-0 z-10 border-b border-r border-white/10 bg-card/95 px-3 py-5 text-xs text-muted-foreground backdrop-blur-xl">
@@ -321,12 +347,12 @@ function GridRow({
         if (!slot) return <div key={date.date} />;
         const active = selected.has(slot.datetimeStart);
         return (
-          <button
+          <motion.button
             aria-label={`${active ? "Remove" : "Select"} ${date.label} at ${time}`}
             aria-pressed={active}
-            className={`min-h-14 touch-none border-b border-r border-white/10 transition duration-200 last:border-r-0 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-primary ${
+            className={`relative min-h-14 touch-none overflow-hidden border-b border-r border-white/10 transition duration-200 last:border-r-0 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-primary ${
               active
-                ? "bg-primary/75 shadow-[inset_0_0_0_1px_oklch(0.9_0.11_240_/_0.5)] hover:bg-primary/85"
+                ? "bg-primary/75 shadow-[inset_0_0_0_1px_oklch(0.94_0.12_145_/_0.5)] hover:bg-primary/85"
                 : "bg-transparent hover:bg-white/[0.06]"
             }`}
             data-slot-start={slot.datetimeStart}
@@ -337,7 +363,14 @@ function GridRow({
             }}
             onPointerDown={(event) => onPointerDown(event, slot.datetimeStart)}
             type="button"
-          />
+            whileTap={reduceMotion ? undefined : { scale: 0.96 }}
+          >
+            <motion.span
+              animate={{ opacity: active ? 1 : 0, scale: active ? 1 : 0.72 }}
+              className="absolute inset-2 rounded-sm border border-primary-foreground/20 bg-primary-foreground/[0.06]"
+              transition={{ duration: 0.18, ease: "easeOut" }}
+            />
+          </motion.button>
         );
       })}
     </>

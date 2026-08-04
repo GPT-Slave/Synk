@@ -507,6 +507,13 @@ Supports
 * Thousands of meetings
 * Hundreds of simultaneous participants
 
+MVP performance guardrails (2026-08-04): organizer lists use cursor pagination
+and database-side response counts; meeting grids are capped at 31 days and
+1,000 slots; PostgreSQL indexes cover organizer lists, response aggregation,
+participant ordering, availability lookup, and refresh-token expiry. Next.js
+compression and TanStack Query caching are enabled. Real-time updates remain
+Socket.IO-driven, with polling stopped after finalization.
+
 ---
 
 # 20. UI Design Language
@@ -534,13 +541,18 @@ Characteristics
 * Glass accents only where appropriate
 * Smooth 150–250 ms animations
 * Dark mode
-* Light mode
+* Light mode (post-MVP only; see decision below)
 
 Primary accent colors
 
 ```
-neon red and only dark theme
+neon green and only dark theme
 ```
+
+MVP design decision (2026-08-04): §20 originally mentioned both light and dark
+themes, while §25 requires dark mode only. §25 controls the MVP, so Synk ships
+one accessible dark theme with a neon-green accent. The team must explicitly
+resolve the specification discrepancy before light-mode work begins.
 
 Typography
 

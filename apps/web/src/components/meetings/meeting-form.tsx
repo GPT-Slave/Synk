@@ -7,6 +7,9 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SchedulePicker } from "@/components/meetings/schedule-picker";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/auth-api";
 import {
   createMeeting,
@@ -17,6 +20,7 @@ import {
 export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [title, setTitle] = useState(meeting?.title ?? "");
   const [description, setDescription] = useState(meeting?.description ?? "");
   const [startDate, setStartDate] = useState(meeting?.startDate ?? tomorrow());
@@ -48,6 +52,13 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
       meeting ? updateMeeting(meeting.id, input) : createMeeting(input),
     onSuccess: async (saved) => {
       await queryClient.invalidateQueries({ queryKey: ["meetings"] });
+      toast({
+        title: meeting ? "Meeting updated" : "Meeting created",
+        description: meeting
+          ? "Your schedule and invitation details are up to date."
+          : "Your private invitation is ready to share.",
+        variant: "success",
+      });
       router.push(`/dashboard/meetings/${saved.id}`);
     },
   });
@@ -88,7 +99,7 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
     <form className="space-y-7" noValidate onSubmit={submit}>
       {(formError || serverError) && (
         <div
-          className="rounded-xl border border-primary/35 bg-primary/10 px-4 py-3 text-sm text-blue-100"
+          className="rounded-lg border border-destructive/35 bg-destructive/10 px-4 py-3 text-sm text-red-100"
           role="alert"
         >
           {formError ?? serverError}
@@ -99,8 +110,7 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
         <label className="text-sm font-medium" htmlFor="title">
           Meeting title
         </label>
-        <input
-          className="auth-input"
+        <Input
           id="title"
           maxLength={120}
           minLength={2}
@@ -115,8 +125,8 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
         <label className="text-sm font-medium" htmlFor="description">
           Description <span className="text-muted-foreground">(optional)</span>
         </label>
-        <textarea
-          className="min-h-28 w-full resize-y rounded-xl border border-input bg-white/5 px-3 py-3 text-sm outline-none transition placeholder:text-muted-foreground/70 hover:border-white/20 focus:border-primary focus:ring-3 focus:ring-primary/15"
+        <Textarea
+          className="min-h-28"
           id="description"
           maxLength={2000}
           onChange={(event) => setDescription(event.target.value)}
@@ -203,8 +213,7 @@ function LabeledInput({
       <label className="text-sm text-muted-foreground" htmlFor={id}>
         {label}
       </label>
-      <input
-        className="auth-input"
+      <Input
         id={id}
         min={min}
         onChange={(event) => onChange(event.target.value)}

@@ -51,7 +51,10 @@ export interface MeetingStateChangedEvent {
 @WebSocketGateway({
   namespace: /^\/meetings\/[A-Za-z0-9_-]+$/,
   cors: {
-    origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
+    origin: (process.env.CORS_ORIGIN ?? 'http://localhost:3000')
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean),
     credentials: true,
   },
   maxHttpBufferSize: 100_000,

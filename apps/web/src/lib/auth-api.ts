@@ -26,12 +26,27 @@ export class ApiError extends Error {
   }
 }
 
+let csrfToken: string | null = null;
+let csrfPromise: Promise<string> | null = null;
+
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  return requestOnce<T>(path, init, true);
+}
+
+async function requestOnce<T>(
+  path: string,
+  init: RequestInit | undefined,
+  retryCsrf: boolean,
+): Promise<T> {
+  const method = (init?.method ?? "GET").toUpperCase();
+  const mutating = !["GET", "HEAD", "OPTIONS"].includes(method);
+  const csrf = mutating ? await ensureCsrfToken() : undefined;
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
     credentials: "include",
     headers: {
       ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      ...(csrf ? { "X-CSRF-Token": csrf } : {}),
       ...init?.headers,
     },
   });
@@ -47,6 +62,12 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
       if (Array.isArray(body.message)) message = body.message.join(" ");
       else if (body.message) message = body.message;
       details = body;
+      if (response.status === 403 && body.code === "CSRF_INVALID") {
+        csrfToken = null;
+        if (mutating && retryCsrf) {
+          return requestOnce<T>(path, init, false);
+        }
+      }
     } catch {
       // Keep the safe fallback for non-JSON errors.
     }
@@ -55,6 +76,32 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
+}
+
+async function ensureCsrfToken(): Promise<string> {
+  if (csrfToken) return csrfToken;
+  csrfPromise ??= fetch(`${API_URL}/auth/csrf`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  })
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new ApiError(
+          "Unable to initialize a secure Synk session.",
+          response.status,
+        );
+      }
+      const body = (await response.json()) as { token?: string };
+      if (!body.token) {
+        throw new ApiError("Synk did not return a security token.", 500);
+      }
+      csrfToken = body.token;
+      return body.token;
+    })
+    .finally(() => {
+      csrfPromise = null;
+    });
+  return csrfPromise;
 }
 
 export async function authenticatedRequest<T>(

@@ -10,7 +10,11 @@ export function readCookie(
 
     const key = cookie.slice(0, separator).trim();
     if (key === name) {
-      return decodeURIComponent(cookie.slice(separator + 1).trim());
+      try {
+        return decodeURIComponent(cookie.slice(separator + 1).trim());
+      } catch {
+        return undefined;
+      }
     }
   }
 

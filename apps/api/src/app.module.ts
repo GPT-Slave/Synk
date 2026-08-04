@@ -8,11 +8,14 @@ import { MeetingsModule } from './meetings/meetings.module';
 import { ParticipantsModule } from './participants/participants.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RealtimeModule } from './realtime/realtime.module';
+import { SecurityModule } from './security/security.module';
+import { validateEnvironment } from './security/environment';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }),
     PrismaModule,
+    SecurityModule,
     AuthModule,
     MeetingsModule,
     ParticipantsModule,

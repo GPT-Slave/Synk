@@ -8,6 +8,7 @@ import {
   MaxLength,
   ValidateNested,
 } from 'class-validator';
+import { PlainText } from '../../security/plain-text';
 
 export class AvailabilitySlotInput {
   @IsISO8601({ strict: true })
@@ -27,5 +28,6 @@ export class UpdateAvailabilityDto {
   @IsOptional()
   @IsString()
   @MaxLength(1000)
+  @PlainText()
   comment?: string;
 }

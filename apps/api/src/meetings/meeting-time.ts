@@ -7,6 +7,14 @@ export interface MeetingGridSlot {
   timeLabel: string;
 }
 
+const dateLabelFormatter = new Intl.DateTimeFormat('en', {
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
+  timeZone: 'UTC',
+});
+const zonedFormatterByTimezone = new Map<string, Intl.DateTimeFormat>();
+
 export function dateOnly(value: Date): string {
   return value.toISOString().slice(0, 10);
 }
@@ -34,12 +42,7 @@ export function meetingGrid(meeting: Meeting) {
     const date = dateOnly(cursor);
     dates.push({
       date,
-      label: new Intl.DateTimeFormat('en', {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        timeZone: 'UTC',
-      }).format(cursor),
+      label: dateLabelFormatter.format(cursor),
     });
 
     for (
@@ -96,15 +99,19 @@ function zonedDateTimeToUtc(
 }
 
 function zonedParts(value: Date, timezone: string) {
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: timezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  });
+  let formatter = zonedFormatterByTimezone.get(timezone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    });
+    zonedFormatterByTimezone.set(timezone, formatter);
+  }
   const values = Object.fromEntries(
     formatter
       .formatToParts(value)

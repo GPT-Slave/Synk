@@ -24,6 +24,11 @@ export interface OrganizerMeetingDto extends MeetingDto {
   responseCount: number;
 }
 
+export interface OrganizerMeetingPageDto {
+  items: OrganizerMeetingDto[];
+  nextCursor?: string;
+}
+
 export interface MeetingGridDateDto {
   date: string;
   label: string;

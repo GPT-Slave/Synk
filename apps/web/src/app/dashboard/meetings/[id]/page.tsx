@@ -31,6 +31,18 @@ import { HeatmapGrid } from "@/components/meetings/heatmap-grid";
 import { MeetingScheduledCard } from "@/components/meetings/meeting-scheduled-card";
 import { OrganizerShell } from "@/components/organizer-shell";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { MotionPanel } from "@/components/ui/motion-panel";
+import { StatePanel } from "@/components/ui/state-panel";
+import { DashboardSkeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast";
 import { useMeetingRealtime } from "@/hooks/use-meeting-realtime";
 import { ApiError } from "@/lib/auth-api";
 import {
@@ -55,7 +67,9 @@ function MeetingDetail() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<BestMatchDto>();
+  const toast = useToast();
   const realtimeStatus = useMeetingRealtime(id);
   const meeting = useQuery({
     queryKey: ["meetings", id],
@@ -70,16 +84,37 @@ function MeetingDetail() {
     mutationFn: () => deleteMeeting(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["meetings"] });
+      toast({
+        title: "Meeting deleted",
+        description: "The invitation and all responses were removed.",
+        variant: "success",
+      });
       router.replace("/dashboard");
     },
   });
   const lock = useMutation({
     mutationFn: (locked: boolean) => setMeetingLocked(id, locked),
-    onSuccess: refreshMeeting,
+    onSuccess: async (_saved, locked) => {
+      await refreshMeeting();
+      toast({
+        title: locked ? "Responses locked" : "Responses reopened",
+        description: locked
+          ? "Participants can view the invitation but cannot edit responses."
+          : "Participants can edit their availability again.",
+        variant: "success",
+      });
+    },
   });
   const reopen = useMutation({
     mutationFn: () => reopenMeeting(id),
-    onSuccess: refreshMeeting,
+    onSuccess: async () => {
+      await refreshMeeting();
+      toast({
+        title: "Meeting reopened",
+        description: "Finalization was removed and responses are open again.",
+        variant: "success",
+      });
+    },
   });
   const finalize = useMutation({
     mutationFn: (match: BestMatchDto) =>
@@ -90,40 +125,49 @@ function MeetingDetail() {
     onSuccess: async () => {
       setSelectedMatch(undefined);
       await refreshMeeting();
+      toast({
+        title: "Meeting scheduled",
+        description: "The confirmed time is now visible to every participant.",
+        variant: "success",
+      });
     },
   });
 
   if (meeting.isPending) {
-    return (
-      <div className="mx-auto mt-16 h-80 max-w-7xl animate-pulse rounded-3xl bg-white/5" />
-    );
+    return <DashboardSkeleton />;
   }
   if (meeting.isError) {
     return (
       <section className="mx-auto max-w-7xl py-16">
-        <h1 className="text-2xl font-semibold">Meeting not found</h1>
-        <p className="mt-2 text-muted-foreground">
-          It may have been deleted, or it belongs to another organizer.
-        </p>
+        <StatePanel
+          description="It may have been deleted, or it belongs to another organizer."
+          kind="error"
+          onRetry={() => void meeting.refetch()}
+          title="Meeting not found"
+        />
       </section>
     );
   }
 
   const data = meeting.data;
   async function copyInviteLink() {
-    const inviteUrl = `${window.location.origin}/meets/${data.slug}`;
-    await navigator.clipboard.writeText(inviteUrl);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
-  }
-
-  function confirmDelete() {
-    if (
-      window.confirm(
-        "Delete this meeting and every participant response? This cannot be undone.",
-      )
-    ) {
-      remove.mutate();
+    try {
+      const inviteUrl = `${window.location.origin}/meets/${data.slug}`;
+      await navigator.clipboard.writeText(inviteUrl);
+      setCopied(true);
+      toast({
+        title: "Invitation copied",
+        description: "The private Synk link is ready to share.",
+        variant: "success",
+      });
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      toast({
+        title: "Could not copy the link",
+        description:
+          "Your browser blocked clipboard access. Copy it from the address bar instead.",
+        variant: "error",
+      });
     }
   }
 
@@ -206,7 +250,7 @@ function MeetingDetail() {
           <Button
             aria-label="Delete meeting"
             disabled={remove.isPending}
-            onClick={confirmDelete}
+            onClick={() => setDeleteOpen(true)}
             size="icon"
             type="button"
             variant="destructive"
@@ -215,6 +259,37 @@ function MeetingDetail() {
           </Button>
         </div>
       </div>
+
+      <Dialog onOpenChange={setDeleteOpen} open={deleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete this meeting?</DialogTitle>
+            <DialogDescription>
+              This permanently removes the invitation, participant names,
+              comments, and every availability response. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              disabled={remove.isPending}
+              onClick={() => setDeleteOpen(false)}
+              type="button"
+              variant="outline"
+            >
+              Keep meeting
+            </Button>
+            <Button
+              disabled={remove.isPending}
+              onClick={() => remove.mutate()}
+              type="button"
+              variant="destructive"
+            >
+              {remove.isPending && <LoaderCircle className="animate-spin" />}
+              Delete permanently
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {actionError && (
         <p
@@ -311,10 +386,12 @@ function MeetingDetail() {
 
           <DashboardSection icon={<UsersRound />} title="Participants">
             {data.participants.length === 0 ? (
-              <EmptyText>
-                Add your availability or share the invite link to collect the
-                first response.
-              </EmptyText>
+              <StatePanel
+                className="min-h-36"
+                description="Add your availability or share the invite link to collect the first response."
+                icon={<UsersRound />}
+                title="No responses yet"
+              />
             ) : (
               <ul className="divide-y divide-white/10">
                 {data.participants.map((participant) => (
@@ -424,12 +501,12 @@ function InfoCard({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4 sm:p-5">
+    <MotionPanel className="rounded-lg border border-white/10 bg-white/[0.025] p-4 shadow-sm sm:p-5">
       <div className="flex items-center gap-2 text-sm text-muted-foreground [&_svg]:size-4 [&_svg]:text-primary">
         {icon} {label}
       </div>
       <p className="mt-3 text-sm font-medium">{value}</p>
-    </div>
+    </MotionPanel>
   );
 }
 
@@ -445,21 +522,17 @@ function DashboardSection({
   title: string;
 }) {
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-4 sm:p-6">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 font-medium [&_svg]:size-4 [&_svg]:text-primary">
-          {icon} {title}
-        </h2>
-        {action}
-      </div>
-      <div className="mt-5">{children}</div>
-    </section>
-  );
-}
-
-function EmptyText({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-sm leading-relaxed text-muted-foreground">{children}</p>
+    <MotionPanel className="rounded-lg border border-white/10 bg-white/[0.025] p-4 shadow-md sm:p-6">
+      <section>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 font-medium [&_svg]:size-4 [&_svg]:text-primary">
+            {icon} {title}
+          </h2>
+          {action}
+        </div>
+        <div className="mt-5">{children}</div>
+      </section>
+    </MotionPanel>
   );
 }
 
@@ -474,7 +547,7 @@ function LiveStatus({ status }: { status: "connecting" | "live" | "offline" }) {
       <span
         className={`size-1.5 rounded-full ${
           status === "live"
-            ? "bg-sky-400 shadow-[0_0_10px_oklch(0.75_0.15_235)]"
+            ? "bg-primary shadow-[0_0_10px_oklch(0.86_0.24_145)]"
             : "animate-pulse bg-white/35"
         }`}
       />

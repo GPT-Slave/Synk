@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { MotionPanel } from "@/components/ui/motion-panel";
 
 export function AuthShell({
   children,
@@ -12,30 +13,30 @@ export function AuthShell({
 }) {
   return (
     <main className="relative grid min-h-svh overflow-hidden lg:grid-cols-[1.05fr_0.95fr]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_75%_25%,oklch(0.72_0.19_250_/_0.15),transparent_36%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_75%_25%,oklch(0.86_0.24_145_/_0.14),transparent_36%)]" />
       <section className="relative hidden items-center justify-center border-r border-white/10 p-12 lg:flex">
         <Link className="text-center" aria-label="Synk home" href="/">
           <Image
             alt=""
-            className="brand-neon-blue mx-auto size-56 rounded-[2.5rem]"
+            className="brand-neon-green mx-auto size-56 rounded-lg"
             height={420}
             priority
             src="/logo.png"
             width={420}
           />
           <p className="mt-8 text-6xl font-semibold tracking-[-0.06em]">Synk</p>
-          <p className="mt-3 text-sm tracking-[0.2em] text-blue-100/60 uppercase">
+          <p className="mt-3 text-sm tracking-[0.2em] text-primary/60 uppercase">
             Find time. Together.
           </p>
         </Link>
       </section>
 
       <section className="relative flex items-center justify-center px-5 py-10 sm:px-8">
-        <div className="w-full max-w-md">
+        <MotionPanel className="w-full max-w-md">
           <Link className="mb-8 flex justify-center lg:hidden" href="/">
             <Image
               alt="Synk"
-              className="brand-neon-blue size-20 rounded-2xl"
+              className="brand-neon-green size-20 rounded-lg"
               height={112}
               priority
               src="/logo.png"
@@ -52,7 +53,7 @@ export function AuthShell({
             <p className="mt-3 text-muted-foreground">{description}</p>
           </div>
           {children}
-        </div>
+        </MotionPanel>
       </section>
     </main>
   );

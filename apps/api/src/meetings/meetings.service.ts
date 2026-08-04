@@ -13,6 +13,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { MeetingsRealtimeGateway } from '../realtime/meetings-realtime.gateway';
 import type { CreateMeetingDto } from './dto/create-meeting.dto';
 import type { FinalizeMeetingDto } from './dto/finalize-meeting.dto';
+import type { ListMeetingsQueryDto } from './dto/list-meetings-query.dto';
 import type { UpdateMeetingDto } from './dto/update-meeting.dto';
 import { aggregateAvailability } from './availability-aggregation';
 import {
@@ -54,22 +55,43 @@ export class MeetingsService {
     throw new ConflictException('Unable to generate a unique invitation link.');
   }
 
-  async list(organizerId: string) {
-    const meetings = await this.prisma.meeting.findMany({
+  async list(organizerId: string, query: ListMeetingsQueryDto = {}) {
+    const limit = query.limit ?? 24;
+    const rows = await this.prisma.meeting.findMany({
       where: { organizerId },
-      orderBy: [{ finalized: 'asc' }, { startDate: 'asc' }],
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
       include: {
-        participants: { select: { respondedAt: true } },
+        _count: { select: { participants: true } },
       },
     });
-    return meetings.map((meeting) => ({
-      ...this.serialize(meeting),
-      status: this.status(meeting),
-      participantCount: meeting.participants.length,
-      responseCount: meeting.participants.filter(
-        (participant) => participant.respondedAt,
-      ).length,
-    }));
+    const meetings = rows.slice(0, limit);
+    const responseCounts = meetings.length
+      ? await this.prisma.participant.groupBy({
+          by: ['meetingId'],
+          where: {
+            meetingId: { in: meetings.map((meeting) => meeting.id) },
+            respondedAt: { not: null },
+          },
+          _count: { _all: true },
+        })
+      : [];
+    const responsesByMeeting = new Map(
+      responseCounts.map((count) => [count.meetingId, count._count._all]),
+    );
+
+    return {
+      items: meetings.map((meeting) => ({
+        ...this.serialize(meeting),
+        status: this.status(meeting),
+        participantCount: meeting._count.participants,
+        responseCount: responsesByMeeting.get(meeting.id) ?? 0,
+      })),
+      ...(rows.length > limit
+        ? { nextCursor: meetings[meetings.length - 1]?.id }
+        : {}),
+    };
   }
 
   async detail(organizerId: string, id: string) {
@@ -412,6 +434,15 @@ export class MeetingsService {
     ) {
       throw new BadRequestException(
         `Working hours must align to ${slotIntervalMinutes}-minute slots.`,
+      );
+    }
+    const dayCount =
+      Math.floor((endDate.getTime() - startDate.getTime()) / 86_400_000) + 1;
+    const slotCount =
+      dayCount * ((endMinutes - startMinutes) / slotIntervalMinutes);
+    if (dayCount > 31 || slotCount > 1_000) {
+      throw new BadRequestException(
+        'Meeting schedules are limited to 31 days and 1,000 time slots.',
       );
     }
 

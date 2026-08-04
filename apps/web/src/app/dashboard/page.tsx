@@ -4,11 +4,13 @@ import type {
   MeetingStatus,
   OrganizerMeetingDto,
 } from "@meet-planner/shared-types";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { motion, useReducedMotion } from "framer-motion";
 import { CalendarPlus, Clock3, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { OrganizerShell } from "@/components/organizer-shell";
 import { Button } from "@/components/ui/button";
+import { StatePanel } from "@/components/ui/state-panel";
 import { useSession } from "@/hooks/use-session";
 import { listMeetings } from "@/lib/meeting-api";
 
@@ -28,10 +30,13 @@ export default function DashboardPage() {
 
 function DashboardContent() {
   const { data: session } = useSession();
-  const meetings = useQuery({
+  const meetings = useInfiniteQuery({
     queryKey: ["meetings"],
-    queryFn: listMeetings,
+    queryFn: ({ pageParam }) => listMeetings(pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (page) => page.nextCursor,
   });
+  const items = meetings.data?.pages.flatMap((page) => page.items) ?? [];
 
   return (
     <section className="mx-auto max-w-6xl py-12 sm:py-16">
@@ -58,34 +63,40 @@ function DashboardContent() {
 
       {meetings.isPending && <MeetingListSkeleton />}
       {meetings.isError && (
-        <p className="mt-12 rounded-xl border border-primary/30 bg-primary/10 p-4 text-sm text-blue-100">
-          Could not load your meetings. Make sure the API and database are
-          running.
-        </p>
+        <StatePanel
+          className="mt-12"
+          description="Check that the API and database are running, then try again."
+          kind="error"
+          title="Could not load your meetings"
+        />
       )}
-      {meetings.data?.length === 0 && (
-        <div className="mt-12 border-y border-white/10 py-14 text-center">
-          <CalendarPlus className="mx-auto size-7 text-primary" />
-          <h2 className="mt-4 text-lg font-medium">No meetings yet</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Your first availability poll takes less than a minute to create.
-          </p>
-        </div>
+      {!meetings.isPending && !meetings.isError && items.length === 0 && (
+        <StatePanel
+          action={
+            <Button render={<Link href="/dashboard/meetings/new" />}>
+              <CalendarPlus /> Create your first meeting
+            </Button>
+          }
+          className="mt-12"
+          description="Your first availability poll takes less than a minute to create."
+          icon={<CalendarPlus />}
+          title="No meetings yet"
+        />
       )}
 
       <div className="mt-12 space-y-12">
         {groups.map((group) => {
-          const items = meetings.data?.filter(
+          const groupItems = items.filter(
             (meeting) => meeting.status === group.status,
           );
-          if (!items?.length) return null;
+          if (!groupItems.length) return null;
           return (
             <section key={group.status}>
               <h2 className="mb-4 text-sm font-medium uppercase tracking-[0.16em] text-muted-foreground">
                 {group.title}
               </h2>
               <div className="grid gap-3 md:grid-cols-2">
-                {items.map((meeting) => (
+                {groupItems.map((meeting) => (
                   <MeetingCard key={meeting.id} meeting={meeting} />
                 ))}
               </div>
@@ -93,33 +104,50 @@ function DashboardContent() {
           );
         })}
       </div>
+      {meetings.hasNextPage && (
+        <div className="mt-10 flex justify-center">
+          <Button
+            disabled={meetings.isFetchingNextPage}
+            onClick={() => void meetings.fetchNextPage()}
+            variant="outline"
+          >
+            {meetings.isFetchingNextPage ? "Loading…" : "Load more meetings"}
+          </Button>
+        </div>
+      )}
     </section>
   );
 }
 
 function MeetingCard({ meeting }: { meeting: OrganizerMeetingDto }) {
+  const reduceMotion = useReducedMotion();
   return (
-    <Link
-      className="group rounded-2xl border border-white/10 bg-white/[0.025] p-5 transition hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/[0.035]"
-      href={`/dashboard/meetings/${meeting.id}`}
+    <motion.div
+      whileHover={reduceMotion ? undefined : { y: -2 }}
+      transition={{ duration: 0.18 }}
     >
-      <div className="flex items-start justify-between gap-4">
-        <h3 className="font-medium tracking-tight group-hover:text-primary">
-          {meeting.title}
-        </h3>
-        <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-          {meeting.status}
-        </span>
-      </div>
-      <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-        <Clock3 className="size-4" /> {formatDate(meeting.startDate)} –{" "}
-        {formatDate(meeting.endDate)}
-      </p>
-      <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-        <UsersRound className="size-4" /> {meeting.responseCount} of{" "}
-        {meeting.participantCount} responded
-      </p>
-    </Link>
+      <Link
+        className="group block rounded-2xl border border-white/10 bg-white/[0.025] p-5 transition-colors duration-200 hover:border-primary/35 hover:bg-primary/[0.035]"
+        href={`/dashboard/meetings/${meeting.id}`}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <h3 className="font-medium tracking-tight group-hover:text-primary">
+            {meeting.title}
+          </h3>
+          <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+            {meeting.status}
+          </span>
+        </div>
+        <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+          <Clock3 className="size-4" /> {formatDate(meeting.startDate)} –{" "}
+          {formatDate(meeting.endDate)}
+        </p>
+        <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+          <UsersRound className="size-4" /> {meeting.responseCount} of{" "}
+          {meeting.participantCount} responded
+        </p>
+      </Link>
+    </motion.div>
   );
 }
 

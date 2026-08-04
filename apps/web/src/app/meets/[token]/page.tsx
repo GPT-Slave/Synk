@@ -26,6 +26,9 @@ import {
 import { AvailabilityGrid } from "@/components/meetings/availability-grid";
 import { MeetingScheduledCard } from "@/components/meetings/meeting-scheduled-card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { MotionPanel } from "@/components/ui/motion-panel";
+import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/auth-api";
 import {
   getParticipantSession,
@@ -75,7 +78,7 @@ export default function PublicMeetingPage() {
   const meeting = useQuery({
     queryKey: ["public-meeting", token],
     queryFn: () => getPublicMeeting(token),
-    refetchInterval: 15_000,
+    refetchInterval: (query) => (query.state.data?.finalized ? false : 15_000),
   });
   const participant = useQuery({
     queryKey: ["participant-session", token, sessionToken],
@@ -163,7 +166,7 @@ export default function PublicMeetingPage() {
         <Link className="flex items-center gap-3" href="/">
           <Image
             alt=""
-            className="brand-neon-blue size-10 rounded-xl"
+            className="brand-neon-green size-10 rounded-lg"
             height={64}
             src="/logo.png"
             width={64}
@@ -201,11 +204,11 @@ export default function PublicMeetingPage() {
         )}
 
         {!meeting.data.acceptingResponses && !meeting.data.finalized && (
-          <div className="mt-8 flex items-start gap-3 rounded-2xl border border-primary/30 bg-primary/10 p-4 text-sm text-blue-100">
+          <div className="mt-8 flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/10 p-4 text-sm text-primary/90">
             <AlertCircle className="mt-0.5 size-4 shrink-0" />
             <div>
               <p className="font-medium">Responses are closed</p>
-              <p className="mt-1 text-blue-100/75">
+              <p className="mt-1 text-primary/65">
                 {meeting.data.closedReason}
               </p>
             </div>
@@ -286,10 +289,17 @@ function JoinForm({
   const [displayName, setDisplayName] = useState("");
   const [entryMode, setEntryMode] = useState<"choose" | "new">("choose");
   const [clientError, setClientError] = useState<string>();
+  const toast = useToast();
   const mutation = useMutation({
     mutationFn: (name: string) => joinMeeting(token, name),
-    onSuccess: ({ sessionToken, ...session }) =>
-      onJoined(session, sessionToken),
+    onSuccess: ({ sessionToken, ...session }) => {
+      onJoined(session, sessionToken);
+      toast({
+        title: `Welcome, ${session.participant.displayName}`,
+        description: "Select the times that work for you; changes autosave.",
+        variant: "success",
+      });
+    },
   });
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -320,7 +330,7 @@ function JoinForm({
 
   return (
     <form
-      className="mt-10 max-w-lg rounded-2xl border border-white/10 bg-white/[0.025] p-5 sm:p-7"
+      className="mt-10 max-w-lg rounded-lg border border-white/10 bg-white/[0.025] p-5 shadow-md sm:p-7"
       noValidate
       onSubmit={submit}
     >
@@ -347,7 +357,7 @@ function JoinForm({
                   aria-pressed={selected}
                   className={`group flex min-h-14 items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left transition duration-200 ${
                     selected
-                      ? "border-primary/70 bg-primary/15 text-white shadow-[0_0_24px_oklch(0.7_0.16_240_/_0.12)]"
+                      ? "border-primary/70 bg-primary/15 text-white shadow-[0_0_24px_oklch(0.86_0.24_145_/_0.12)]"
                       : "border-white/10 bg-white/[0.025] text-muted-foreground hover:border-primary/35 hover:bg-primary/[0.07] hover:text-white"
                   }`}
                   key={name}
@@ -362,7 +372,7 @@ function JoinForm({
                     className={`grid size-8 shrink-0 place-items-center rounded-full text-xs font-semibold ${
                       selected
                         ? "bg-primary text-primary-foreground"
-                        : "bg-white/[0.06] text-blue-100"
+                        : "bg-white/[0.06] text-foreground/80"
                     }`}
                   >
                     {selected ? <Check className="size-4" /> : initials(name)}
@@ -382,7 +392,7 @@ function JoinForm({
             })}
           </div>
           <button
-            className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary transition hover:text-blue-200"
+            className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary transition hover:text-primary/75"
             onClick={() => {
               mutation.reset();
               setClientError(undefined);
@@ -399,14 +409,14 @@ function JoinForm({
           <label className="block text-sm font-medium" htmlFor="display-name">
             Display name
           </label>
-          <input
+          <Input
             aria-describedby={
               clientError || apiError ? "join-error" : "name-storage-note"
             }
             aria-invalid={Boolean(clientError || apiError)}
             autoComplete="nickname"
             autoFocus={rememberedNames.length > 0}
-            className="auth-input mt-2"
+            className="mt-2"
             id="display-name"
             maxLength={30}
             minLength={2}
@@ -426,7 +436,7 @@ function JoinForm({
           </p>
           {rememberedNames.length > 0 && (
             <button
-              className="mt-3 text-sm font-medium text-primary transition hover:text-blue-200"
+              className="mt-3 text-sm font-medium text-primary transition hover:text-primary/75"
               onClick={() => {
                 mutation.reset();
                 setClientError(undefined);
@@ -441,17 +451,13 @@ function JoinForm({
         </div>
       )}
       {(clientError || apiError) && (
-        <div
-          className="mt-2 text-xs text-blue-300"
-          id="join-error"
-          role="alert"
-        >
+        <div className="mt-2 text-xs text-red-300" id="join-error" role="alert">
           <p>{clientError ?? apiError?.message}</p>
           {suggestions.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
               {suggestions.map((suggestion) => (
                 <button
-                  className="rounded-full border border-primary/30 px-2.5 py-1 text-blue-100 transition hover:bg-primary/10"
+                  className="rounded-full border border-primary/30 px-2.5 py-1 text-primary/85 transition hover:bg-primary/10"
                   key={suggestion}
                   onClick={() => {
                     mutation.reset();
@@ -492,7 +498,7 @@ function ReturningParticipantPrompt({
   onContinue: () => void;
 }) {
   return (
-    <section className="mt-10 max-w-lg rounded-2xl border border-primary/25 bg-primary/[0.07] p-5 shadow-[0_0_40px_oklch(0.7_0.16_240_/_0.08)] sm:p-7">
+    <MotionPanel className="mt-10 max-w-lg rounded-lg border border-primary/25 bg-primary/[0.07] p-5 shadow-md sm:p-7">
       <div className="grid size-11 place-items-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
         {initials(displayName)}
       </div>
@@ -512,7 +518,7 @@ function ReturningParticipantPrompt({
           Use another name
         </Button>
       </div>
-    </section>
+    </MotionPanel>
   );
 }
 
@@ -524,7 +530,7 @@ function SessionRestoreError({
   onRetry: () => void;
 }) {
   return (
-    <section className="mt-10 max-w-lg rounded-2xl border border-white/10 bg-white/[0.025] p-5 sm:p-7">
+    <MotionPanel className="mt-10 max-w-lg rounded-lg border border-white/10 bg-white/[0.025] p-5 shadow-md sm:p-7">
       <AlertCircle className="size-6 text-primary" />
       <h2 className="mt-4 text-xl font-semibold">
         We couldn&apos;t restore your response
@@ -541,7 +547,7 @@ function SessionRestoreError({
           Choose a name
         </Button>
       </div>
-    </section>
+    </MotionPanel>
   );
 }
 

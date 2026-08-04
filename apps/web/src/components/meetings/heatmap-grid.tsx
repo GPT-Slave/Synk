@@ -1,7 +1,9 @@
 "use client";
 
 import type { HeatmapCellDto } from "@meet-planner/shared-types";
+import { motion, useReducedMotion } from "framer-motion";
 import { useMemo, useState } from "react";
+import { StatePanel } from "@/components/ui/state-panel";
 import type { OrganizerMeetingDetail } from "@/lib/meeting-api";
 
 interface TooltipState {
@@ -23,6 +25,15 @@ export function HeatmapGrid({ meeting }: { meeting: OrganizerMeetingDetail }) {
       ),
     [meeting.heatmap],
   );
+
+  if (meeting.dates.length === 0 || meeting.heatmap.length === 0) {
+    return (
+      <StatePanel
+        description="The heatmap will appear when this meeting has valid schedule slots."
+        title="No heatmap data"
+      />
+    );
+  }
 
   function showTooltip(cell: HeatmapCellDto, x: number, y: number) {
     setTooltip({ cell, x, y });
@@ -88,7 +99,7 @@ export function HeatmapGrid({ meeting }: { meeting: OrganizerMeetingDetail }) {
           role="tooltip"
           style={{ left: tooltip.x, top: tooltip.y }}
         >
-          <p className="font-medium text-blue-50">
+          <p className="font-medium text-foreground">
             {tooltip.cell.availableCount} / {tooltip.cell.totalParticipants}{" "}
             available
           </p>
@@ -116,6 +127,7 @@ function HeatmapRow({
   onShow: (cell: HeatmapCellDto, x: number, y: number) => void;
   time: string;
 }) {
+  const reduceMotion = useReducedMotion();
   return (
     <>
       <div className="sticky left-0 z-10 border-b border-r border-white/10 bg-card/95 px-3 py-5 text-xs text-muted-foreground backdrop-blur-xl">
@@ -125,7 +137,7 @@ function HeatmapRow({
         const cell = cellByGridPosition.get(`${date.date}:${time}`);
         if (!cell) return <div key={date.date} />;
         return (
-          <button
+          <motion.button
             aria-label={`${date.label} at ${time}: ${cell.availableCount} of ${cell.totalParticipants} available${cell.participantNames.length ? ` — ${cell.participantNames.join(", ")}` : ""}`}
             className={`grid min-h-14 place-items-center border-b border-r border-white/10 text-[0.68rem] font-semibold tabular-nums outline-none transition duration-200 last:border-r-0 hover:brightness-125 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary ${tierClass(cell.tier)}`}
             key={date.date}
@@ -138,9 +150,10 @@ function HeatmapRow({
             onMouseLeave={onHide}
             onMouseMove={(event) => onShow(cell, event.clientX, event.clientY)}
             type="button"
+            whileHover={reduceMotion ? undefined : { scale: 1.025 }}
           >
             {cell.availableCount}/{cell.totalParticipants}
-          </button>
+          </motion.button>
         );
       })}
     </>
