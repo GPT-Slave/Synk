@@ -20,6 +20,7 @@ export interface MeetingInput {
   workdayStart: string;
   workdayEnd: string;
   slotIntervalMinutes: 30 | 60;
+  meetingDurationMinutes: 30 | 60 | 90 | 120;
   timezone: string;
   responseDeadline?: string | null;
 }
@@ -74,6 +75,13 @@ export function updateMeeting(id: string, input: MeetingInput) {
 
 export function deleteMeeting(id: string) {
   return authenticatedRequest<void>(`/meetings/${id}`, { method: "DELETE" });
+}
+
+export function deleteParticipant(id: string, participantId: string) {
+  return authenticatedRequest<void>(
+    `/meetings/${id}/participants/${participantId}`,
+    { method: "DELETE" },
+  );
 }
 
 export function saveOrganizerAvailability(

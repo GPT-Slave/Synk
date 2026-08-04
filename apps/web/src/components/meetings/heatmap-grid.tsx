@@ -47,23 +47,14 @@ export function HeatmapGrid({ meeting }: { meeting: OrganizerMeetingDetail }) {
             ? "Hover or focus a square to see who is available."
             : "The heatmap will fill as participants respond."}
         </p>
-        <div
-          className="flex flex-wrap items-center gap-2"
-          aria-label="Heatmap legend"
-        >
-          {([0, 20, 40, 60, 80, 100] as const).map((tier) => (
-            <span
-              className="flex items-center gap-1 text-[0.65rem] text-muted-foreground"
-              key={tier}
-            >
-              <span className={`size-2.5 rounded-sm ${tierClass(tier)}`} />
-              {tier}%
-            </span>
-          ))}
+        <div className="flex items-center gap-2" aria-label="Heatmap legend">
+          <span className="text-[0.65rem] text-muted-foreground">0%</span>
+          <span className="heatmap-gradient h-2.5 w-28 rounded-full border border-white/10" />
+          <span className="text-[0.65rem] text-muted-foreground">100%</span>
         </div>
       </div>
 
-      <div className="schedule-scroll max-h-[68svh] overflow-auto rounded-2xl border border-white/10 bg-black/10 overscroll-contain">
+      <div className="schedule-scroll max-h-[68svh] overflow-auto rounded-2xl border border-white/10 bg-black/10 overscroll-x-contain overscroll-y-auto">
         <div
           className="grid min-w-max"
           style={{
@@ -136,37 +127,50 @@ function HeatmapRow({
       {dates.map((date) => {
         const cell = cellByGridPosition.get(`${date.date}:${time}`);
         if (!cell) return <div key={date.date} />;
+        const color = heatmapColor(cell.percentage);
         return (
-          <motion.button
-            aria-label={`${date.label} at ${time}: ${cell.availableCount} of ${cell.totalParticipants} available${cell.participantNames.length ? ` — ${cell.participantNames.join(", ")}` : ""}`}
-            className={`grid min-h-14 place-items-center border-b border-r border-white/10 text-[0.68rem] font-semibold tabular-nums outline-none transition duration-200 last:border-r-0 hover:brightness-125 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary ${tierClass(cell.tier)}`}
+          <div
+            className="min-h-14 border-b border-r border-white/10 p-1.5 last:border-r-0"
             key={date.date}
-            onBlur={onHide}
-            onFocus={(event) => {
-              const box = event.currentTarget.getBoundingClientRect();
-              onShow(cell, box.left + box.width / 2, box.top);
-            }}
-            onMouseEnter={(event) => onShow(cell, event.clientX, event.clientY)}
-            onMouseLeave={onHide}
-            onMouseMove={(event) => onShow(cell, event.clientX, event.clientY)}
-            type="button"
-            whileHover={reduceMotion ? undefined : { scale: 1.025 }}
           >
-            {cell.availableCount}/{cell.totalParticipants}
-          </motion.button>
+            <motion.button
+              aria-label={`${date.label} at ${time}: ${cell.availableCount} of ${cell.totalParticipants} available${cell.participantNames.length ? ` — ${cell.participantNames.join(", ")}` : ""}`}
+              className="grid size-full min-h-11 place-items-center rounded-xl border text-[0.68rem] font-semibold tabular-nums outline-none transition duration-200 hover:brightness-125 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary"
+              onBlur={onHide}
+              onFocus={(event) => {
+                const box = event.currentTarget.getBoundingClientRect();
+                onShow(cell, box.left + box.width / 2, box.top);
+              }}
+              onMouseEnter={(event) =>
+                onShow(cell, event.clientX, event.clientY)
+              }
+              onMouseLeave={onHide}
+              onMouseMove={(event) =>
+                onShow(cell, event.clientX, event.clientY)
+              }
+              style={color}
+              type="button"
+              whileHover={reduceMotion ? undefined : { scale: 1.025 }}
+            >
+              {cell.availableCount}/{cell.totalParticipants}
+            </motion.button>
+          </div>
         );
       })}
     </>
   );
 }
 
-function tierClass(tier: HeatmapCellDto["tier"]) {
+export function heatmapColor(percentage: number) {
+  const normalized = Math.max(0, Math.min(100, percentage)) / 100;
+  const lightness = 0.17 + normalized * 0.49;
+  const chroma = 0.025 + normalized * 0.155;
+  const alpha = 0.65 + normalized * 0.35;
   return {
-    0: "bg-white/[0.035] text-white/35",
-    20: "bg-red-500/35 text-red-50",
-    40: "bg-orange-500/40 text-orange-50",
-    60: "bg-yellow-400/45 text-yellow-50",
-    80: "bg-green-500/50 text-green-50",
-    100: "bg-emerald-500/70 text-emerald-50 shadow-[inset_0_0_20px_oklch(0.7_0.18_155_/_0.18)]",
-  }[tier];
+    backgroundColor: `oklch(${lightness.toFixed(3)} ${chroma.toFixed(3)} 245 / ${alpha.toFixed(3)})`,
+    borderColor: `oklch(0.82 0.18 245 / ${(0.12 + normalized * 0.58).toFixed(3)})`,
+    boxShadow: `inset 0 0 ${Math.round(8 + normalized * 18)}px oklch(0.82 0.18 245 / ${(normalized * 0.24).toFixed(3)})`,
+    color:
+      normalized >= 0.48 ? "oklch(0.985 0.01 245)" : "oklch(0.78 0.035 245)",
+  };
 }

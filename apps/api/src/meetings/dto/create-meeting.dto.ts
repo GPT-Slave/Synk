@@ -43,6 +43,11 @@ export class CreateMeetingDto {
   @IsIn([30, 60])
   slotIntervalMinutes?: number;
 
+  @IsOptional()
+  @IsInt()
+  @IsIn([30, 60, 90, 120])
+  meetingDurationMinutes?: number;
+
   @IsTimeZone()
   timezone!: string;
 

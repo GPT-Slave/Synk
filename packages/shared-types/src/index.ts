@@ -9,6 +9,7 @@ export interface MeetingDto {
   workdayStart: string;
   workdayEnd: string;
   slotIntervalMinutes: 30 | 60;
+  meetingDurationMinutes: 30 | 60 | 90 | 120;
   finalized: boolean;
   locked: boolean;
   finalSlot?: AvailabilitySlotDto;
@@ -72,7 +73,6 @@ export interface HeatmapCellDto {
   availableCount: number;
   totalParticipants: number;
   percentage: number;
-  tier: 0 | 20 | 40 | 60 | 80 | 100;
   participantNames: string[];
 }
 

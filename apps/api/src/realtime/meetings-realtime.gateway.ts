@@ -37,6 +37,11 @@ export interface AvailabilityChangedEvent {
   comment?: string;
 }
 
+export interface ParticipantRemovedEvent {
+  meetingId: string;
+  participantId: string;
+}
+
 export interface MeetingStateChangedEvent {
   meetingId: string;
   finalized: boolean;
@@ -108,6 +113,12 @@ export class MeetingsRealtimeGateway implements OnGatewayConnection<Socket> {
     this.child(event.meetingId)
       .to(AUTHORIZED_ROOM)
       .emit('availability:changed', event);
+  }
+
+  participantRemoved(event: ParticipantRemovedEvent): void {
+    this.child(event.meetingId)
+      .to(AUTHORIZED_ROOM)
+      .emit('participant:removed', event);
   }
 
   meetingStateChanged(event: MeetingStateChangedEvent): void {

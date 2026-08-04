@@ -58,6 +58,16 @@ export class MeetingsController {
     return this.meetings.remove(user.id, id);
   }
 
+  @Delete(':id/participants/:participantId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  removeParticipant(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Param('participantId') participantId: string,
+  ) {
+    return this.meetings.removeParticipant(user.id, id, participantId);
+  }
+
   @Put(':id/availability')
   saveOrganizerAvailability(
     @CurrentUser() user: AuthUser,

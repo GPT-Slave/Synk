@@ -171,6 +171,8 @@ export class MeetingsService {
       workdayEnd: dto.workdayEnd ?? meeting.workdayEnd,
       slotIntervalMinutes:
         dto.slotIntervalMinutes ?? meeting.slotIntervalMinutes,
+      meetingDurationMinutes:
+        dto.meetingDurationMinutes ?? meeting.meetingDurationMinutes,
       timezone: dto.timezone ?? meeting.timezone,
       responseDeadline:
         dto.responseDeadline === undefined
@@ -207,6 +209,29 @@ export class MeetingsService {
   async remove(organizerId: string, id: string): Promise<void> {
     const meeting = await this.findOwned(organizerId, id);
     await this.prisma.meeting.delete({ where: { id: meeting.id } });
+  }
+
+  async removeParticipant(
+    organizerId: string,
+    id: string,
+    participantId: string,
+  ): Promise<void> {
+    const meeting = await this.findOwned(organizerId, id);
+    const participant = await this.prisma.participant.findFirst({
+      where: {
+        id: participantId,
+        meetingId: meeting.id,
+        organizerId: null,
+      },
+      select: { id: true },
+    });
+    if (!participant) throw new NotFoundException('Participant not found.');
+
+    await this.prisma.participant.delete({ where: { id: participant.id } });
+    this.realtime.participantRemoved({
+      meetingId: meeting.id,
+      participantId: participant.id,
+    });
   }
 
   async saveOrganizerAvailability(
@@ -369,6 +394,14 @@ export class MeetingsService {
     ) {
       throw new BadRequestException('Choose a valid meeting time.');
     }
+    if (
+      requestedEnd.getTime() - requestedStart.getTime() !==
+      meeting.meetingDurationMinutes * 60_000
+    ) {
+      throw new BadRequestException(
+        `The final time must be exactly ${meeting.meetingDurationMinutes} minutes.`,
+      );
+    }
 
     const endByStart = new Map(
       meetingGrid(meeting).slots.map((slot) => [
@@ -425,6 +458,7 @@ export class MeetingsService {
     const startMinutes = minutesFromTime(dto.workdayStart);
     const endMinutes = minutesFromTime(dto.workdayEnd);
     const slotIntervalMinutes = dto.slotIntervalMinutes ?? 60;
+    const meetingDurationMinutes = dto.meetingDurationMinutes ?? 60;
     if (endMinutes <= startMinutes) {
       throw new BadRequestException('Working hours must end after they start.');
     }
@@ -434,6 +468,16 @@ export class MeetingsService {
     ) {
       throw new BadRequestException(
         `Working hours must align to ${slotIntervalMinutes}-minute slots.`,
+      );
+    }
+    if (meetingDurationMinutes % slotIntervalMinutes !== 0) {
+      throw new BadRequestException(
+        'Meeting duration must be a multiple of the selected time-slot size.',
+      );
+    }
+    if (meetingDurationMinutes > endMinutes - startMinutes) {
+      throw new BadRequestException(
+        'Meeting duration cannot be longer than the daily scheduling window.',
       );
     }
     const dayCount =
@@ -454,6 +498,7 @@ export class MeetingsService {
       workdayStart: dto.workdayStart,
       workdayEnd: dto.workdayEnd,
       slotIntervalMinutes,
+      meetingDurationMinutes,
       timezone: dto.timezone,
       responseDeadline: dto.responseDeadline
         ? new Date(dto.responseDeadline)
@@ -480,6 +525,7 @@ export class MeetingsService {
       workdayStart: meeting.workdayStart,
       workdayEnd: meeting.workdayEnd,
       slotIntervalMinutes: meeting.slotIntervalMinutes,
+      meetingDurationMinutes: meeting.meetingDurationMinutes,
       finalized: meeting.finalized,
       locked: meeting.locked,
       ...(meeting.finalSlotAt && meeting.finalSlotEnd

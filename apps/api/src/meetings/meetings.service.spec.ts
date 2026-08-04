@@ -16,6 +16,7 @@ const baseDto = {
   workdayStart: '08:00',
   workdayEnd: '20:00',
   slotIntervalMinutes: 60,
+  meetingDurationMinutes: 60,
   timezone: 'Africa/Tunis',
 };
 
@@ -32,6 +33,7 @@ function savedMeeting(overrides: Partial<Meeting> = {}): Meeting {
     workdayStart: '08:00',
     workdayEnd: '20:00',
     slotIntervalMinutes: 60,
+    meetingDurationMinutes: 60,
     finalized: false,
     locked: false,
     finalSlotAt: null,
@@ -64,11 +66,14 @@ describe('MeetingsService', () => {
     },
     participant: {
       groupBy: jest.fn(),
+      findFirst: jest.fn(),
+      delete: jest.fn(),
     },
   };
   const realtime = {
     availabilityChanged: jest.fn(),
     meetingStateChanged: jest.fn(),
+    participantRemoved: jest.fn(),
   };
   const service = new MeetingsService(
     prisma as unknown as PrismaService,
@@ -118,6 +123,31 @@ describe('MeetingsService', () => {
         workdayStart: '08:30',
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects a duration that cannot align to the selected slots', async () => {
+    await expect(
+      service.create('user-1', {
+        ...baseDto,
+        slotIntervalMinutes: 60,
+        meetingDurationMinutes: 90,
+      }),
+    ).rejects.toThrow(
+      'Meeting duration must be a multiple of the selected time-slot size.',
+    );
+  });
+
+  it('rejects a duration longer than the daily scheduling window', async () => {
+    await expect(
+      service.create('user-1', {
+        ...baseDto,
+        workdayStart: '08:00',
+        workdayEnd: '09:00',
+        meetingDurationMinutes: 120,
+      }),
+    ).rejects.toThrow(
+      'Meeting duration cannot be longer than the daily scheduling window.',
+    );
   });
 
   it('bounds the meeting date range to protect grid performance', async () => {
@@ -244,6 +274,40 @@ describe('MeetingsService', () => {
     });
   });
 
+  it('deletes a non-organizer participant only from an owned meeting', async () => {
+    prisma.meeting.findFirst.mockResolvedValue(savedMeeting());
+    prisma.participant.findFirst.mockResolvedValue({ id: 'participant-1' });
+    prisma.participant.delete.mockResolvedValue({ id: 'participant-1' });
+
+    await service.removeParticipant('user-1', 'meeting-1', 'participant-1');
+
+    expect(prisma.participant.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: 'participant-1',
+        meetingId: 'meeting-1',
+        organizerId: null,
+      },
+      select: { id: true },
+    });
+    expect(prisma.participant.delete).toHaveBeenCalledWith({
+      where: { id: 'participant-1' },
+    });
+    expect(realtime.participantRemoved).toHaveBeenCalledWith({
+      meetingId: 'meeting-1',
+      participantId: 'participant-1',
+    });
+  });
+
+  it('does not delete an organizer response or a participant from another meeting', async () => {
+    prisma.meeting.findFirst.mockResolvedValue(savedMeeting());
+    prisma.participant.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.removeParticipant('user-1', 'meeting-1', 'participant-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.participant.delete).not.toHaveBeenCalled();
+  });
+
   it('finalizes an owned meeting with a contiguous grid window', async () => {
     prisma.meeting.findFirst.mockResolvedValue(savedMeeting());
     prisma.meeting.update.mockResolvedValue(
@@ -280,6 +344,19 @@ describe('MeetingsService', () => {
         datetimeEnd: '2026-08-12T08:15:00.000Z',
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects a final time with the wrong configured duration', async () => {
+    prisma.meeting.findFirst.mockResolvedValue(
+      savedMeeting({ meetingDurationMinutes: 120 }),
+    );
+
+    await expect(
+      service.finalize('user-1', 'meeting-1', {
+        datetimeStart: '2026-08-12T07:00:00.000Z',
+        datetimeEnd: '2026-08-12T08:00:00.000Z',
+      }),
+    ).rejects.toThrow('The final time must be exactly 120 minutes.');
   });
 
   it('locks responses independently and re-opens a finalized meeting', async () => {

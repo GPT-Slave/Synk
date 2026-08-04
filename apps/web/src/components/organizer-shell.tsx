@@ -13,7 +13,7 @@ export function OrganizerShell({ children }: { children: React.ReactNode }) {
           <Link className="flex items-center gap-3" href="/dashboard">
             <Image
               alt=""
-              className="brand-neon-green size-10 rounded-lg"
+              className="brand-neon-blue size-10 rounded-lg"
               height={64}
               src="/logo.png"
               width={64}

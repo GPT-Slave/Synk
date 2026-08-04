@@ -49,6 +49,11 @@ export class UpdateMeetingDto {
   slotIntervalMinutes?: number;
 
   @IsOptional()
+  @IsInt()
+  @IsIn([30, 60, 90, 120])
+  meetingDurationMinutes?: number;
+
+  @IsOptional()
   @IsTimeZone()
   timezone?: string;
 

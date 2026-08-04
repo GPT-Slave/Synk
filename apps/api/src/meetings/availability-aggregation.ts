@@ -33,22 +33,18 @@ export function aggregateAvailability(
     const percentage = totalParticipants
       ? Math.round((availableCount / totalParticipants) * 100)
       : 0;
-    const tier =
-      percentage === 0 ? 0 : Math.min(100, Math.ceil(percentage / 20) * 20);
-
     return {
       ...slot,
       availableCount,
       totalParticipants,
       percentage,
-      tier: tier as 0 | 20 | 40 | 60 | 80 | 100,
       participantNames,
     };
   });
 
   const cellsPerMatch = Math.max(
     1,
-    Math.ceil(60 / meeting.slotIntervalMinutes),
+    meeting.meetingDurationMinutes / meeting.slotIntervalMinutes,
   );
   const bestTimes = heatmap
     .map((cell, index, cells) => {

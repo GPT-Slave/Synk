@@ -13,6 +13,7 @@ const meeting = {
   workdayStart: '08:00',
   workdayEnd: '10:00',
   slotIntervalMinutes: 30,
+  meetingDurationMinutes: 60,
   finalized: false,
   locked: false,
   finalSlotAt: null,
@@ -22,7 +23,7 @@ const meeting = {
 } satisfies Meeting;
 
 describe('aggregateAvailability', () => {
-  it('builds six-tier heatmap cells with participant-name tooltips', () => {
+  it('builds exact-percentage heatmap cells with participant-name tooltips', () => {
     const result = aggregateAvailability(meeting, [
       {
         displayName: 'Alice',
@@ -42,10 +43,41 @@ describe('aggregateAvailability', () => {
       availableCount: 1,
       totalParticipants: 3,
       percentage: 33,
-      tier: 40,
       participantNames: ['Alice'],
     });
-    expect(result.heatmap[1].tier).toBe(0);
+    expect(result.heatmap[1].percentage).toBe(0);
+  });
+
+  it('uses the organizer-selected duration for contiguous matches', () => {
+    const result = aggregateAvailability(
+      { ...meeting, meetingDurationMinutes: 90 },
+      [
+        {
+          displayName: 'Alice',
+          availabilities: [
+            {
+              datetimeStart: new Date('2026-08-12T07:00:00.000Z'),
+              datetimeEnd: new Date('2026-08-12T07:30:00.000Z'),
+            },
+            {
+              datetimeStart: new Date('2026-08-12T07:30:00.000Z'),
+              datetimeEnd: new Date('2026-08-12T08:00:00.000Z'),
+            },
+            {
+              datetimeStart: new Date('2026-08-12T08:00:00.000Z'),
+              datetimeEnd: new Date('2026-08-12T08:30:00.000Z'),
+            },
+          ],
+        },
+      ],
+    );
+
+    expect(result.bestTimes).toHaveLength(1);
+    expect(result.bestTimes[0]).toMatchObject({
+      datetimeStart: '2026-08-12T07:00:00.000Z',
+      datetimeEnd: '2026-08-12T08:30:00.000Z',
+      percentage: 100,
+    });
   });
 
   it('ranks contiguous one-hour matches by overlap and then chronologically', () => {

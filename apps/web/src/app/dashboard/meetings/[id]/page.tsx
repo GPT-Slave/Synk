@@ -17,6 +17,7 @@ import {
   Sparkles,
   Trash2,
   UnlockKeyhole,
+  UserMinus,
   UsersRound,
 } from "lucide-react";
 import Link from "next/link";
@@ -47,6 +48,7 @@ import { useMeetingRealtime } from "@/hooks/use-meeting-realtime";
 import { ApiError } from "@/lib/auth-api";
 import {
   deleteMeeting,
+  deleteParticipant,
   finalizeMeeting,
   getMeeting,
   reopenMeeting,
@@ -68,6 +70,10 @@ function MeetingDetail() {
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [participantToDelete, setParticipantToDelete] = useState<{
+    id: string;
+    displayName: string;
+  }>();
   const [selectedMatch, setSelectedMatch] = useState<BestMatchDto>();
   const toast = useToast();
   const realtimeStatus = useMeetingRealtime(id);
@@ -90,6 +96,21 @@ function MeetingDetail() {
         variant: "success",
       });
       router.replace("/dashboard");
+    },
+  });
+  const removeParticipant = useMutation({
+    mutationFn: (participantId: string) => deleteParticipant(id, participantId),
+    onSuccess: async () => {
+      const displayName = participantToDelete?.displayName;
+      setParticipantToDelete(undefined);
+      await refreshMeeting();
+      toast({
+        title: "Participant removed",
+        description: displayName
+          ? `${displayName} and their availability were removed.`
+          : "The participant and their availability were removed.",
+        variant: "success",
+      });
     },
   });
   const lock = useMutation({
@@ -171,7 +192,13 @@ function MeetingDetail() {
     }
   }
 
-  const actionError = [lock.error, reopen.error, finalize.error, remove.error]
+  const actionError = [
+    lock.error,
+    reopen.error,
+    finalize.error,
+    remove.error,
+    removeParticipant.error,
+  ]
     .filter(Boolean)
     .map((error) =>
       error instanceof ApiError
@@ -291,6 +318,51 @@ function MeetingDetail() {
         </DialogContent>
       </Dialog>
 
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) setParticipantToDelete(undefined);
+        }}
+        open={Boolean(participantToDelete)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove this participant?</DialogTitle>
+            <DialogDescription>
+              {participantToDelete?.displayName ?? "This participant"} and all
+              of their availability will be permanently removed from this
+              meeting.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              disabled={removeParticipant.isPending}
+              onClick={() => setParticipantToDelete(undefined)}
+              type="button"
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={removeParticipant.isPending || !participantToDelete}
+              onClick={() => {
+                if (participantToDelete) {
+                  removeParticipant.mutate(participantToDelete.id);
+                }
+              }}
+              type="button"
+              variant="destructive"
+            >
+              {removeParticipant.isPending ? (
+                <LoaderCircle className="animate-spin" />
+              ) : (
+                <UserMinus />
+              )}
+              Remove participant
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {actionError && (
         <p
           className="mt-5 rounded-2xl border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-100"
@@ -314,7 +386,7 @@ function MeetingDetail() {
         <InfoCard
           icon={<Link2 />}
           label="Schedule"
-          value={`${data.timezone} · ${data.workdayStart}–${data.workdayEnd} · ${data.slotIntervalMinutes} min`}
+          value={`${data.timezone} · ${data.workdayStart}–${data.workdayEnd} · ${data.slotIntervalMinutes}-min slots · ${formatDuration(data.meetingDurationMinutes)} meeting`}
         />
       </div>
 
@@ -411,15 +483,34 @@ function MeetingDetail() {
                         </p>
                       )}
                     </div>
-                    <span
-                      className={
-                        participant.responded
-                          ? "shrink-0 text-xs text-primary"
-                          : "shrink-0 text-xs text-muted-foreground"
-                      }
-                    >
-                      {participant.responded ? "Responded" : "Not answered"}
-                    </span>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <span
+                        className={
+                          participant.responded
+                            ? "text-xs text-primary"
+                            : "text-xs text-muted-foreground"
+                        }
+                      >
+                        {participant.responded ? "Responded" : "Not answered"}
+                      </span>
+                      {!participant.isOrganizer && (
+                        <Button
+                          aria-label={`Remove ${participant.displayName}`}
+                          disabled={removeParticipant.isPending}
+                          onClick={() =>
+                            setParticipantToDelete({
+                              id: participant.id,
+                              displayName: participant.displayName,
+                            })
+                          }
+                          size="icon-sm"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <UserMinus />
+                        </Button>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -547,7 +638,7 @@ function LiveStatus({ status }: { status: "connecting" | "live" | "offline" }) {
       <span
         className={`size-1.5 rounded-full ${
           status === "live"
-            ? "bg-primary shadow-[0_0_10px_oklch(0.86_0.24_145)]"
+            ? "bg-primary shadow-[0_0_10px_oklch(0.82_0.18_245)]"
             : "animate-pulse bg-white/35"
         }`}
       />
@@ -581,4 +672,10 @@ function formatTime(value: string, timezone: string) {
     hourCycle: "h23",
     timeZone: timezone,
   }).format(new Date(value));
+}
+
+function formatDuration(minutes: number) {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = minutes / 60;
+  return `${hours} ${hours === 1 ? "hour" : "hours"}`;
 }

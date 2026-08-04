@@ -32,25 +32,26 @@ model RefreshToken {
 }
 
 model Meeting {
-  id                  String        @id @default(cuid())
-  organizerId         String        @map("organizer_id")
-  organizer           User          @relation(fields: [organizerId], references: [id])
-  title               String
-  description         String?
-  slug                String        @unique
-  timezone            String
-  startDate           DateTime      @map("start_date")
-  endDate             DateTime      @map("end_date")
-  workdayStart        String        @map("workday_start")
-  workdayEnd          String        @map("workday_end")
-  slotIntervalMinutes Int           @default(60) @map("slot_interval_minutes")
-  finalized           Boolean       @default(false)
-  locked              Boolean       @default(false)
-  finalSlotAt         DateTime?     @map("final_slot_at")
-  finalSlotEnd        DateTime?     @map("final_slot_end")
-  responseDeadline    DateTime?     @map("response_deadline")
-  createdAt           DateTime      @default(now()) @map("created_at")
-  participants        Participant[]
+  id                     String        @id @default(cuid())
+  organizerId            String        @map("organizer_id")
+  organizer              User          @relation(fields: [organizerId], references: [id])
+  title                  String
+  description            String?
+  slug                   String        @unique
+  timezone               String
+  startDate              DateTime      @map("start_date")
+  endDate                DateTime      @map("end_date")
+  workdayStart           String        @map("workday_start")
+  workdayEnd             String        @map("workday_end")
+  slotIntervalMinutes    Int           @default(60) @map("slot_interval_minutes")
+  meetingDurationMinutes Int           @default(60) @map("meeting_duration_minutes")
+  finalized              Boolean       @default(false)
+  locked                 Boolean       @default(false)
+  finalSlotAt            DateTime?     @map("final_slot_at")
+  finalSlotEnd           DateTime?     @map("final_slot_end")
+  responseDeadline       DateTime?     @map("response_deadline")
+  createdAt              DateTime      @default(now()) @map("created_at")
+  participants           Participant[]
 
   @@index([organizerId])
   @@index([organizerId, createdAt, id])

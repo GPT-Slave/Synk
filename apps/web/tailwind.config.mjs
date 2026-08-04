@@ -16,7 +16,7 @@ const config = {
         sm: "0 8px 24px -16px rgb(0 0 0 / 0.62)",
         md: "0 18px 48px -26px rgb(0 0 0 / 0.72)",
         lg: "0 28px 80px -34px rgb(0 0 0 / 0.82)",
-        glow: "0 0 34px -12px oklch(0.86 0.24 145 / 0.58)",
+        glow: "0 0 34px -12px oklch(0.82 0.18 245 / 0.58)",
       },
       spacing: {
         1: "4px",

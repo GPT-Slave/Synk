@@ -166,7 +166,7 @@ export default function PublicMeetingPage() {
         <Link className="flex items-center gap-3" href="/">
           <Image
             alt=""
-            className="brand-neon-green size-10 rounded-lg"
+            className="brand-neon-blue size-10 rounded-lg"
             height={64}
             src="/logo.png"
             width={64}
@@ -195,7 +195,8 @@ export default function PublicMeetingPage() {
             <Clock3 className="size-4 text-primary" />
             {meeting.data.workdayStart}–{meeting.data.workdayEnd} ·{" "}
             {meeting.data.timezone} · {meeting.data.slotIntervalMinutes}-minute
-            slots
+            slots · {formatDuration(meeting.data.meetingDurationMinutes)}{" "}
+            meeting
           </span>
         </div>
 
@@ -271,6 +272,12 @@ export default function PublicMeetingPage() {
       </section>
     </main>
   );
+}
+
+function formatDuration(minutes: number) {
+  if (minutes < 60) return `${minutes}-minute`;
+  const hours = minutes / 60;
+  return `${hours}-${hours === 1 ? "hour" : "hours"}`;
 }
 
 function JoinForm({
@@ -357,7 +364,7 @@ function JoinForm({
                   aria-pressed={selected}
                   className={`group flex min-h-14 items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left transition duration-200 ${
                     selected
-                      ? "border-primary/70 bg-primary/15 text-white shadow-[0_0_24px_oklch(0.86_0.24_145_/_0.12)]"
+                      ? "border-primary/70 bg-primary/15 text-white shadow-[0_0_24px_oklch(0.82_0.18_245_/_0.12)]"
                       : "border-white/10 bg-white/[0.025] text-muted-foreground hover:border-primary/35 hover:bg-primary/[0.07] hover:text-white"
                   }`}
                   key={name}

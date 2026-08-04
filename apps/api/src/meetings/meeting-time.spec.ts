@@ -13,6 +13,7 @@ const meeting = {
   workdayStart: '08:00',
   workdayEnd: '10:00',
   slotIntervalMinutes: 60,
+  meetingDurationMinutes: 60,
   finalized: false,
   locked: false,
   finalSlotAt: null,

@@ -51,44 +51,44 @@
   --shadow-sm: 0 8px 24px -16px rgb(0 0 0 / 0.62);
   --shadow-md: 0 18px 48px -26px rgb(0 0 0 / 0.72);
   --shadow-lg: 0 28px 80px -34px rgb(0 0 0 / 0.82);
-  --shadow-glow: 0 0 34px -12px oklch(0.86 0.24 145 / 0.58);
+  --shadow-glow: 0 0 34px -12px oklch(0.82 0.18 245 / 0.58);
 }
 
 :root,
 .dark {
   color-scheme: dark;
-  --background: oklch(0.105 0.014 155);
-  --foreground: oklch(0.975 0.01 150);
-  --card: oklch(0.15 0.018 155);
-  --card-foreground: oklch(0.975 0.01 150);
-  --popover: oklch(0.165 0.02 155);
-  --popover-foreground: oklch(0.975 0.01 150);
-  --primary: oklch(0.86 0.24 145);
-  --primary-foreground: oklch(0.105 0.026 150);
-  --secondary: oklch(0.205 0.025 155);
-  --secondary-foreground: oklch(0.97 0.01 150);
-  --muted: oklch(0.195 0.02 155);
-  --muted-foreground: oklch(0.72 0.035 150);
-  --accent: oklch(0.25 0.09 145);
-  --accent-foreground: oklch(0.93 0.1 145);
+  --background: oklch(0.105 0.018 250);
+  --foreground: oklch(0.975 0.01 245);
+  --card: oklch(0.15 0.025 250);
+  --card-foreground: oklch(0.975 0.01 245);
+  --popover: oklch(0.165 0.028 250);
+  --popover-foreground: oklch(0.975 0.01 245);
+  --primary: oklch(0.82 0.18 245);
+  --primary-foreground: oklch(0.12 0.04 250);
+  --secondary: oklch(0.205 0.035 250);
+  --secondary-foreground: oklch(0.97 0.01 245);
+  --muted: oklch(0.195 0.028 250);
+  --muted-foreground: oklch(0.72 0.04 245);
+  --accent: oklch(0.26 0.09 245);
+  --accent-foreground: oklch(0.93 0.08 245);
   --destructive: oklch(0.68 0.2 24);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.86 0.24 145);
-  --chart-1: oklch(0.86 0.24 145);
-  --chart-2: oklch(0.76 0.18 155);
+  --ring: oklch(0.82 0.18 245);
+  --chart-1: oklch(0.82 0.18 245);
+  --chart-2: oklch(0.76 0.16 225);
   --chart-3: oklch(0.68 0.15 85);
   --chart-4: oklch(0.64 0.18 45);
   --chart-5: oklch(0.62 0.2 24);
   --radius: 0.875rem;
-  --sidebar: oklch(0.135 0.018 155);
-  --sidebar-foreground: oklch(0.975 0.01 150);
-  --sidebar-primary: oklch(0.86 0.24 145);
-  --sidebar-primary-foreground: oklch(0.105 0.026 150);
-  --sidebar-accent: oklch(0.24 0.07 145);
-  --sidebar-accent-foreground: oklch(0.975 0.01 150);
+  --sidebar: oklch(0.135 0.024 250);
+  --sidebar-foreground: oklch(0.975 0.01 245);
+  --sidebar-primary: oklch(0.82 0.18 245);
+  --sidebar-primary-foreground: oklch(0.12 0.04 250);
+  --sidebar-accent: oklch(0.24 0.07 245);
+  --sidebar-accent-foreground: oklch(0.975 0.01 245);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.86 0.24 145);
+  --sidebar-ring: oklch(0.82 0.18 245);
 }
 
 @layer base {
@@ -100,9 +100,13 @@
     overflow-x: hidden;
     background-image: linear-gradient(
       to bottom,
-      oklch(0.23 0.08 150 / 0.33),
+      oklch(0.24 0.095 245 / 0.34),
       transparent 18rem
     );
+    background-attachment: fixed;
+    background-position: center top;
+    background-repeat: no-repeat;
+    background-size: 100% 28rem;
   }
   html {
     @apply font-sans;
@@ -114,12 +118,20 @@
     @apply h-11 w-full rounded-md border border-input bg-white/[0.035] px-3 text-sm shadow-xs outline-none transition duration-180 placeholder:text-muted-foreground/70 hover:border-white/20 focus:border-primary focus:ring-3 focus:ring-primary/15 aria-invalid:border-destructive aria-invalid:ring-destructive/15;
   }
 
-  .brand-neon-green {
-    filter: hue-rotate(220deg) saturate(1.6) brightness(1.16);
+  .brand-neon-blue {
+    filter: hue-rotate(105deg) saturate(1.45) brightness(1.12);
+  }
+
+  .heatmap-gradient {
+    background: linear-gradient(
+      to right,
+      oklch(0.17 0.025 245 / 0.65),
+      oklch(0.66 0.18 245)
+    );
   }
 
   .schedule-scroll {
-    scrollbar-color: oklch(0.86 0.24 145 / 0.48) transparent;
+    scrollbar-color: oklch(0.82 0.18 245 / 0.52) transparent;
     scrollbar-width: thin;
     -webkit-overflow-scrolling: touch;
   }
@@ -132,7 +144,7 @@
   .schedule-scroll::-webkit-scrollbar-thumb {
     border: 2px solid transparent;
     border-radius: 999px;
-    background: oklch(0.86 0.24 145 / 0.48);
+    background: oklch(0.82 0.18 245 / 0.52);
     background-clip: padding-box;
   }
 

@@ -32,6 +32,9 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
   const [slotIntervalMinutes, setSlotIntervalMinutes] = useState<30 | 60>(
     meeting?.slotIntervalMinutes ?? 60,
   );
+  const [meetingDurationMinutes, setMeetingDurationMinutes] = useState<
+    30 | 60 | 90 | 120
+  >(meeting?.meetingDurationMinutes ?? 60);
   const [timezone, setTimezone] = useState(meeting?.timezone ?? "Africa/Tunis");
   const [responseDeadline, setResponseDeadline] = useState(
     meeting?.responseDeadline
@@ -74,6 +77,15 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
       setFormError("Working hours must end after they start.");
       return;
     }
+    if (
+      meetingDurationMinutes >
+      minutesFromTime(workdayEnd) - minutesFromTime(workdayStart)
+    ) {
+      setFormError(
+        "Meeting duration cannot be longer than the daily scheduling window.",
+      );
+      return;
+    }
     mutation.mutate({
       title: title.trim(),
       description: description.trim() || undefined,
@@ -82,6 +94,7 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
       workdayStart,
       workdayEnd,
       slotIntervalMinutes,
+      meetingDurationMinutes,
       timezone,
       responseDeadline: responseDeadline
         ? new Date(responseDeadline).toISOString()
@@ -139,7 +152,12 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
         endDate={endDate}
         minDate={meeting ? undefined : today()}
         onEndDateChange={setEndDate}
-        onIntervalChange={setSlotIntervalMinutes}
+        onIntervalChange={(interval) => {
+          setSlotIntervalMinutes(interval);
+          if (meetingDurationMinutes % interval !== 0) {
+            setMeetingDurationMinutes(interval);
+          }
+        }}
         onStartDateChange={setStartDate}
         onWorkdayEndChange={setWorkdayEnd}
         onWorkdayStartChange={setWorkdayStart}
@@ -150,6 +168,32 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <label className="text-sm font-medium" htmlFor="meeting-duration">
+            Meeting duration
+          </label>
+          <select
+            className="auth-input"
+            id="meeting-duration"
+            onChange={(event) =>
+              setMeetingDurationMinutes(
+                Number(event.target.value) as 30 | 60 | 90 | 120,
+              )
+            }
+            value={meetingDurationMinutes}
+          >
+            {([30, 60, 90, 120] as const)
+              .filter((duration) => duration % slotIntervalMinutes === 0)
+              .map((duration) => (
+                <option className="bg-card" key={duration} value={duration}>
+                  {formatDuration(duration)}
+                </option>
+              ))}
+          </select>
+          <p className="text-xs text-muted-foreground">
+            Synk uses this length when ranking and finalizing top matches.
+          </p>
+        </div>
         <div className="space-y-2">
           <label className="text-sm font-medium" htmlFor="timezone">
             Timezone
@@ -191,6 +235,17 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
       </div>
     </form>
   );
+}
+
+function formatDuration(minutes: number) {
+  if (minutes < 60) return `${minutes} minutes`;
+  const hours = minutes / 60;
+  return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+}
+
+function minutesFromTime(value: string) {
+  const [hours, minutes] = value.split(":").map(Number);
+  return hours * 60 + minutes;
 }
 
 function LabeledInput({

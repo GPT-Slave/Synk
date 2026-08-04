@@ -16,7 +16,8 @@ import {
   Save,
 } from "lucide-react";
 import {
-  PointerEvent,
+  PointerEvent as ReactPointerEvent,
+  useCallback,
   useEffect,
   useId,
   useMemo,
@@ -66,9 +67,18 @@ export function AvailabilityGrid({
   );
   const [comment, setComment] = useState(participantSession.comment ?? "");
   const [saveState, setSaveState] = useState<SaveState>("idle");
-  const [isDragging, setIsDragging] = useState(false);
-  const dragMode = useRef<"select" | "remove" | null>(null);
+  const dragging = useRef(false);
   const touchedSlot = useRef<string | undefined>(undefined);
+  const touchGesture = useRef<
+    | {
+        pointerId: number;
+        startX: number;
+        startY: number;
+        slotStart: string;
+        dragging: boolean;
+      }
+    | undefined
+  >(undefined);
   const times = useMemo(
     () => Array.from(new Set(meeting.slots.map((slot) => slot.timeLabel))),
     [meeting.slots],
@@ -95,6 +105,14 @@ export function AvailabilityGrid({
   const responseKey = useMemo(() => availabilityKey(response), [response]);
   const latestKey = useRef(responseKey);
   const lastSavedKey = useRef(responseKey);
+  const toggleSlot = useCallback((slotStart: string) => {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(slotStart)) next.delete(slotStart);
+      else next.add(slotStart);
+      return next;
+    });
+  }, []);
 
   const mutation = useMutation({
     mutationFn: async (nextResponse: AvailabilityResponse) => {
@@ -124,18 +142,33 @@ export function AvailabilityGrid({
   }, [responseKey]);
 
   useEffect(() => {
-    function finishDrag() {
-      dragMode.current = null;
+    function finishDrag(event: globalThis.PointerEvent) {
+      const touch = touchGesture.current;
+      if (
+        touch &&
+        touch.pointerId === event.pointerId &&
+        !touch.dragging &&
+        Math.hypot(event.clientX - touch.startX, event.clientY - touch.startY) <
+          8
+      ) {
+        toggleSlot(touch.slotStart);
+      }
+      touchGesture.current = undefined;
+      dragging.current = false;
       touchedSlot.current = undefined;
-      setIsDragging(false);
+    }
+    function cancelDrag() {
+      touchGesture.current = undefined;
+      dragging.current = false;
+      touchedSlot.current = undefined;
     }
     window.addEventListener("pointerup", finishDrag);
-    window.addEventListener("pointercancel", finishDrag);
+    window.addEventListener("pointercancel", cancelDrag);
     return () => {
       window.removeEventListener("pointerup", finishDrag);
-      window.removeEventListener("pointercancel", finishDrag);
+      window.removeEventListener("pointercancel", cancelDrag);
     };
-  }, []);
+  }, [toggleSlot]);
 
   useEffect(() => {
     if (!meeting.acceptingResponses || responseKey === lastSavedKey.current) {
@@ -147,43 +180,57 @@ export function AvailabilityGrid({
   }, [meeting.acceptingResponses, response, responseKey, saveResponse]);
 
   function applySlot(slotStart: string) {
-    if (!dragMode.current || touchedSlot.current === slotStart) return;
+    if (!dragging.current || touchedSlot.current === slotStart) return;
     touchedSlot.current = slotStart;
-    setSelected((current) => {
-      const next = new Set(current);
-      if (dragMode.current === "select") next.add(slotStart);
-      else next.delete(slotStart);
-      return next;
-    });
+    toggleSlot(slotStart);
   }
 
   function startDrag(
-    event: PointerEvent<HTMLButtonElement>,
+    event: ReactPointerEvent<HTMLButtonElement>,
     slotStart: string,
   ) {
     if (!meeting.acceptingResponses || event.button !== 0) return;
+    if (event.pointerType === "touch") {
+      touchGesture.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        slotStart,
+        dragging: false,
+      };
+      return;
+    }
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
-    dragMode.current = selected.has(slotStart) ? "remove" : "select";
+    dragging.current = true;
     touchedSlot.current = undefined;
-    setIsDragging(true);
     applySlot(slotStart);
   }
 
-  function continueDrag(event: PointerEvent<HTMLDivElement>) {
-    if (!dragMode.current) return;
+  function continueDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    const touch = touchGesture.current;
+    if (touch && touch.pointerId === event.pointerId) {
+      const deltaX = event.clientX - touch.startX;
+      const deltaY = event.clientY - touch.startY;
+      if (!touch.dragging) {
+        if (Math.abs(deltaY) >= Math.abs(deltaX) || Math.abs(deltaX) < 8) {
+          return;
+        }
+        touch.dragging = true;
+        dragging.current = true;
+        touchedSlot.current = undefined;
+        applySlot(touch.slotStart);
+      }
+      event.preventDefault();
+    }
+    if (!dragging.current) return;
     const element = document.elementFromPoint(event.clientX, event.clientY);
     const slot = element?.closest<HTMLElement>("[data-slot-start]");
     if (slot?.dataset.slotStart) applySlot(slot.dataset.slotStart);
   }
 
   function toggleFromKeyboard(slotStart: string) {
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(slotStart)) next.delete(slotStart);
-      else next.add(slotStart);
-      return next;
-    });
+    toggleSlot(slotStart);
   }
 
   const error = mutation.error
@@ -257,13 +304,12 @@ export function AvailabilityGrid({
         </p>
       )}
 
-      <div className="schedule-scroll mt-6 max-h-[68svh] overflow-auto rounded-2xl border border-white/10 bg-white/[0.02] overscroll-contain">
+      <div className="schedule-scroll mt-6 max-h-[68svh] overflow-auto rounded-2xl border border-white/10 bg-white/[0.02] overscroll-x-contain overscroll-y-auto">
         <div
           className="grid min-w-max select-none"
           onPointerMove={continueDrag}
           style={{
             gridTemplateColumns: `4.75rem repeat(${meeting.dates.length}, minmax(8.5rem, 1fr))`,
-            touchAction: isDragging ? "none" : "pan-x",
           }}
         >
           <div className="sticky left-0 top-0 z-30 border-b border-r border-white/10 bg-card/95 backdrop-blur-xl" />
@@ -329,7 +375,7 @@ function GridRow({
   meetingOpen: boolean;
   onKeyboardToggle: (slotStart: string) => void;
   onPointerDown: (
-    event: PointerEvent<HTMLButtonElement>,
+    event: ReactPointerEvent<HTMLButtonElement>,
     slotStart: string,
   ) => void;
   selected: Set<string>;
@@ -347,30 +393,30 @@ function GridRow({
         if (!slot) return <div key={date.date} />;
         const active = selected.has(slot.datetimeStart);
         return (
-          <motion.button
-            aria-label={`${active ? "Remove" : "Select"} ${date.label} at ${time}`}
-            aria-pressed={active}
-            className={`relative min-h-14 touch-none overflow-hidden border-b border-r border-white/10 transition duration-200 last:border-r-0 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-primary ${
-              active
-                ? "bg-primary/75 shadow-[inset_0_0_0_1px_oklch(0.94_0.12_145_/_0.5)] hover:bg-primary/85"
-                : "bg-transparent hover:bg-white/[0.06]"
-            }`}
-            data-slot-start={slot.datetimeStart}
-            disabled={!meetingOpen}
+          <div
+            className="min-h-14 border-b border-r border-white/10 p-1.5 last:border-r-0"
             key={date.date}
-            onClick={(event) => {
-              if (event.detail === 0) onKeyboardToggle(slot.datetimeStart);
-            }}
-            onPointerDown={(event) => onPointerDown(event, slot.datetimeStart)}
-            type="button"
-            whileTap={reduceMotion ? undefined : { scale: 0.96 }}
           >
-            <motion.span
-              animate={{ opacity: active ? 1 : 0, scale: active ? 1 : 0.72 }}
-              className="absolute inset-2 rounded-sm border border-primary-foreground/20 bg-primary-foreground/[0.06]"
-              transition={{ duration: 0.18, ease: "easeOut" }}
+            <motion.button
+              aria-label={`${active ? "Remove" : "Select"} ${date.label} at ${time}`}
+              aria-pressed={active}
+              className={`relative size-full min-h-11 touch-pan-y rounded-xl border transition duration-200 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-primary ${
+                active
+                  ? "border-primary/80 bg-primary/75 shadow-[0_0_18px_-8px_oklch(0.82_0.18_245_/_0.85)] hover:bg-primary/85"
+                  : "border-white/8 bg-white/[0.015] hover:border-white/15 hover:bg-white/[0.06]"
+              }`}
+              data-slot-start={slot.datetimeStart}
+              disabled={!meetingOpen}
+              onClick={(event) => {
+                if (event.detail === 0) onKeyboardToggle(slot.datetimeStart);
+              }}
+              onPointerDown={(event) =>
+                onPointerDown(event, slot.datetimeStart)
+              }
+              type="button"
+              whileTap={reduceMotion ? undefined : { scale: 0.96 }}
             />
-          </motion.button>
+          </div>
         );
       })}
     </>
