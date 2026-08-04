@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/auth-api";
+import { useI18n } from "@/lib/i18n";
 import {
   createMeeting,
   type MeetingInput,
@@ -38,6 +39,7 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const toast = useToast();
+  const { t } = useI18n();
   const [title, setTitle] = useState(meeting?.title ?? "");
   const [description, setDescription] = useState(meeting?.description ?? "");
   const [startDate, setStartDate] = useState(meeting?.startDate ?? tomorrow());
@@ -46,9 +48,6 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
     meeting?.workdayStart ?? "08:00",
   );
   const [workdayEnd, setWorkdayEnd] = useState(meeting?.workdayEnd ?? "20:00");
-  const [slotIntervalMinutes, setSlotIntervalMinutes] = useState<15 | 30 | 60>(
-    meeting?.slotIntervalMinutes ?? 60,
-  );
   const [meetingDurationMinutes, setMeetingDurationMinutes] = useState(
     meeting?.meetingDurationMinutes ?? 60,
   );
@@ -68,10 +67,10 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
     onSuccess: async (saved) => {
       await queryClient.invalidateQueries({ queryKey: ["meetings"] });
       toast({
-        title: meeting ? "Meeting updated" : "Meeting created",
+        title: meeting ? t("Meeting updated") : t("Meeting created"),
         description: meeting
-          ? "Your schedule and invitation details are up to date."
-          : "Your private invitation is ready to share.",
+          ? t("Your schedule and invitation details are up to date.")
+          : t("Your private invitation is ready to share."),
         variant: "success",
       });
       router.push(`/dashboard/meetings/${saved.id}`);
@@ -82,11 +81,11 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
     event.preventDefault();
     setFormError(undefined);
     if (!endDate || endDate < startDate) {
-      setFormError("End date must be on or after the start date.");
+      setFormError(t("End date must be on or after the start date."));
       return;
     }
     if (workdayEnd <= workdayStart) {
-      setFormError("Working hours must end after they start.");
+      setFormError(t("Working hours must end after they start."));
       return;
     }
     if (
@@ -94,7 +93,7 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
       minutesFromTime(workdayEnd) - minutesFromTime(workdayStart)
     ) {
       setFormError(
-        "Meeting duration cannot be longer than the daily scheduling window.",
+        t("Meeting duration cannot be longer than the daily scheduling window."),
       );
       return;
     }
@@ -105,7 +104,7 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
       endDate,
       workdayStart,
       workdayEnd,
-      slotIntervalMinutes,
+      slotIntervalMinutes: 15,
       meetingDurationMinutes,
       timezone,
     });
@@ -114,7 +113,7 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
   const serverError = mutation.error
     ? mutation.error instanceof ApiError
       ? mutation.error.message
-      : "Unable to reach Synk. Is the API running?"
+      : t("Unable to reach Synk. Is the API running?")
     : undefined;
 
   return (
@@ -130,7 +129,7 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
 
       <div className="space-y-2">
         <label className="text-sm font-medium" htmlFor="title">
-          Meeting title
+          {t("Meeting title")}
         </label>
         <Input
           id="title"
@@ -145,7 +144,8 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
 
       <div className="space-y-2">
         <label className="text-sm font-medium" htmlFor="description">
-          Description <span className="text-muted-foreground">(optional)</span>
+          {t("Description")}{" "}
+          <span className="text-muted-foreground">({t("optional")})</span>
         </label>
         <Textarea
           className="min-h-28"
@@ -161,16 +161,9 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
         endDate={endDate}
         minDate={meeting ? undefined : today()}
         onEndDateChange={setEndDate}
-        onIntervalChange={(interval) => {
-          setSlotIntervalMinutes(interval);
-          if (meetingDurationMinutes % interval !== 0) {
-            setMeetingDurationMinutes(interval);
-          }
-        }}
         onStartDateChange={setStartDate}
         onWorkdayEndChange={setWorkdayEnd}
         onWorkdayStartChange={setWorkdayStart}
-        slotIntervalMinutes={slotIntervalMinutes}
         startDate={startDate}
         workdayEnd={workdayEnd}
         workdayStart={workdayStart}
@@ -180,7 +173,7 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
             <label className="text-sm font-medium" htmlFor="meeting-duration">
-              Meeting duration
+              {t("Meeting duration")}
             </label>
             <output
               className="rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1 text-sm font-semibold tabular-nums text-primary"
@@ -198,28 +191,26 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
             onChange={(event) => {
               const duration = Number(event.target.value);
               setMeetingDurationMinutes(duration);
-              if (duration % slotIntervalMinutes !== 0) {
-                setSlotIntervalMinutes(15);
-              }
             }}
             step={15}
             type="range"
             value={meetingDurationMinutes}
           />
           <div className="flex justify-between text-[0.65rem] text-muted-foreground">
-            <span>15 min</span>
-            <span>1 hour</span>
-            <span>3 hours</span>
-            <span>6 hours</span>
+            <span>{t("15 min")}</span>
+            <span>{t("1 hour")}</span>
+            <span>{t("3 hours")}</span>
+            <span>{t("6 hours")}</span>
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Drag the slider in 15-minute steps. Synk uses this exact duration
-            for suggestions and finalization.
+            {t(
+              "Drag the slider in 15-minute steps. Synk uses this exact duration for suggestions and finalization.",
+            )}
           </p>
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium" htmlFor="timezone">
-            Timezone
+            {t("Timezone")}
           </label>
           <select
             className="auth-input"
@@ -238,7 +229,7 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
 
       <div className="flex justify-end gap-3 border-t border-white/10 pt-6">
         <Button onClick={() => router.back()} type="button" variant="outline">
-          Cancel
+          {t("Cancel")}
         </Button>
         <Button
           className="h-10 px-5"
@@ -246,7 +237,7 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
           type="submit"
         >
           {mutation.isPending && <LoaderCircle className="animate-spin" />}
-          {meeting ? "Save changes" : "Create meeting"}
+          {meeting ? t("Save changes") : t("Create meeting")}
         </Button>
       </div>
     </form>

@@ -460,7 +460,7 @@ export class MeetingsService {
     }
     const startMinutes = minutesFromTime(dto.workdayStart);
     const endMinutes = minutesFromTime(dto.workdayEnd);
-    const slotIntervalMinutes = dto.slotIntervalMinutes ?? 60;
+    const slotIntervalMinutes = dto.slotIntervalMinutes ?? 15;
     const meetingDurationMinutes = dto.meetingDurationMinutes ?? 60;
     if (endMinutes <= startMinutes) {
       throw new BadRequestException('Working hours must end after they start.');

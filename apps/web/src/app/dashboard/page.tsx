@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { StatePanel } from "@/components/ui/state-panel";
 import { useSession } from "@/hooks/use-session";
 import { listMeetings } from "@/lib/meeting-api";
+import { useI18n } from "@/lib/i18n";
 
 const groups: Array<{ status: MeetingStatus; title: string }> = [
   { status: "upcoming", title: "Upcoming" },
@@ -29,6 +30,7 @@ export default function DashboardPage() {
 }
 
 function DashboardContent() {
+  const { t } = useI18n();
   const { data: session } = useSession();
   const meetings = useInfiniteQuery({
     queryKey: ["meetings"],
@@ -41,23 +43,24 @@ function DashboardContent() {
   return (
     <section className="mx-auto max-w-6xl py-12 sm:py-16">
       <p className="text-sm text-muted-foreground">
-        Signed in as {session?.user.email}
+        {t("Signed in as")} {session?.user.email}
       </p>
       <div className="mt-3 flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
         <div>
           <h1 className="text-4xl font-semibold tracking-tight">
-            Your meetings
+            {t("Your meetings")}
           </h1>
           <p className="mt-3 max-w-xl text-muted-foreground">
-            Create a poll, share its private invitation link, and watch
-            responses arrive.
+            {t(
+              "Create a poll, share its private invitation link, and watch responses arrive.",
+            )}
           </p>
         </div>
         <Button
           className="h-10 px-4"
           render={<Link href="/dashboard/meetings/new" />}
         >
-          <CalendarPlus /> Create meeting
+          <CalendarPlus /> {t("Create meeting")}
         </Button>
       </div>
 
@@ -65,22 +68,26 @@ function DashboardContent() {
       {meetings.isError && (
         <StatePanel
           className="mt-12"
-          description="Check that the API and database are running, then try again."
+          description={t(
+            "Check that the API and database are running, then try again.",
+          )}
           kind="error"
-          title="Could not load your meetings"
+          title={t("Could not load your meetings")}
         />
       )}
       {!meetings.isPending && !meetings.isError && items.length === 0 && (
         <StatePanel
           action={
             <Button render={<Link href="/dashboard/meetings/new" />}>
-              <CalendarPlus /> Create your first meeting
+              <CalendarPlus /> {t("Create your first meeting")}
             </Button>
           }
           className="mt-12"
-          description="Your first availability poll takes less than a minute to create."
+          description={t(
+            "Your first availability poll takes less than a minute to create.",
+          )}
           icon={<CalendarPlus />}
-          title="No meetings yet"
+          title={t("No meetings yet")}
         />
       )}
 
@@ -93,7 +100,7 @@ function DashboardContent() {
           return (
             <section key={group.status}>
               <h2 className="mb-4 text-sm font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                {group.title}
+                {t(group.title)}
               </h2>
               <div className="grid gap-3 md:grid-cols-2">
                 {groupItems.map((meeting) => (
@@ -111,7 +118,9 @@ function DashboardContent() {
             onClick={() => void meetings.fetchNextPage()}
             variant="outline"
           >
-            {meetings.isFetchingNextPage ? "Loading…" : "Load more meetings"}
+            {meetings.isFetchingNextPage
+              ? t("Loading…")
+              : t("Load more meetings")}
           </Button>
         </div>
       )}
@@ -121,6 +130,7 @@ function DashboardContent() {
 
 function MeetingCard({ meeting }: { meeting: OrganizerMeetingDto }) {
   const reduceMotion = useReducedMotion();
+  const { formatDate, t } = useI18n();
   return (
     <motion.div
       whileHover={reduceMotion ? undefined : { y: -2 }}
@@ -135,12 +145,25 @@ function MeetingCard({ meeting }: { meeting: OrganizerMeetingDto }) {
             {meeting.title}
           </h3>
           <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-            {meeting.status}
+            {t(
+              groups.find((group) => group.status === meeting.status)?.title ??
+                meeting.status,
+            )}
           </span>
         </div>
         <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-          <Clock3 className="size-4" /> {formatDate(meeting.startDate)} –{" "}
-          {formatDate(meeting.endDate)}
+          <Clock3 className="size-4" />{" "}
+          {formatDate(meeting.startDate, {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}{" "}
+          –{" "}
+          {formatDate(meeting.endDate, {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}
         </p>
         <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
           <UsersRound className="size-4" /> {meeting.responseCount} of{" "}
@@ -163,13 +186,4 @@ function MeetingListSkeleton() {
       <span className="sr-only">Loading meetings…</span>
     </div>
   );
-}
-
-function formatDate(date: string) {
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${date}T00:00:00Z`));
 }

@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { QueryProvider } from "@/components/query-provider";
 import { PwaRegister } from "@/components/pwa-register";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import { I18nProvider } from "@/lib/i18n";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -37,7 +39,10 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} dark h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-background text-foreground">
-        <QueryProvider>{children}</QueryProvider>
+        <I18nProvider>
+          <QueryProvider>{children}</QueryProvider>
+          <LanguageSwitcher />
+        </I18nProvider>
         <PwaRegister />
       </body>
     </html>

@@ -8,7 +8,7 @@ export interface MeetingDto {
   endDate: string;
   workdayStart: string;
   workdayEnd: string;
-  slotIntervalMinutes: 15 | 30 | 60;
+  slotIntervalMinutes: 15;
   meetingDurationMinutes: number;
   finalized: boolean;
   locked: boolean;

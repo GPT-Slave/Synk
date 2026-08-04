@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { sessionQueryKey, useSession } from "@/hooks/use-session";
 import { ApiError, login, signup } from "@/lib/auth-api";
+import { useI18n } from "@/lib/i18n";
 
 type Mode = "login" | "signup";
 
@@ -19,6 +20,7 @@ interface FormErrors {
 }
 
 export function AuthForm({ mode }: { mode: Mode }) {
+  const { t } = useI18n();
   const isSignup = mode === "signup";
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -44,25 +46,25 @@ export function AuthForm({ mode }: { mode: Mode }) {
   function validate(): FormErrors {
     const nextErrors: FormErrors = {};
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      nextErrors.email = "Enter a valid email address.";
+      nextErrors.email = t("Enter a valid email address.");
     }
 
-    if (!password) nextErrors.password = "Enter your password.";
+    if (!password) nextErrors.password = t("Enter your password.");
     else if (isSignup) {
       if (password.length < 8)
-        nextErrors.password = "Use at least 8 characters.";
+        nextErrors.password = t("Use at least 8 characters.");
       else if (password.length > 72)
-        nextErrors.password = "Use no more than 72 characters.";
+        nextErrors.password = t("Use no more than 72 characters.");
       else if (!/[a-z]/.test(password))
-        nextErrors.password = "Add a lowercase letter.";
+        nextErrors.password = t("Add a lowercase letter.");
       else if (!/[A-Z]/.test(password))
-        nextErrors.password = "Add an uppercase letter.";
-      else if (!/[0-9]/.test(password)) nextErrors.password = "Add a number.";
+        nextErrors.password = t("Add an uppercase letter.");
+      else if (!/[0-9]/.test(password)) nextErrors.password = t("Add a number.");
       else if (!/[^A-Za-z0-9]/.test(password))
-        nextErrors.password = "Add a special character.";
+        nextErrors.password = t("Add a special character.");
 
       if (password !== confirmPassword) {
-        nextErrors.confirmPassword = "Passwords do not match.";
+        nextErrors.confirmPassword = t("Passwords do not match.");
       }
     }
     return nextErrors;
@@ -81,7 +83,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const serverError = mutation.error
     ? mutation.error instanceof ApiError
       ? mutation.error.message
-      : "Unable to connect to Synk. Is the API running?"
+      : t("Unable to connect to Synk. Is the API running?")
     : null;
 
   return (
@@ -99,7 +101,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
         autoComplete="email"
         error={errors.email}
         id="email"
-        label="Email"
+        label={t("Email")}
         onChange={setEmail}
         placeholder="you@example.com"
         type="email"
@@ -108,23 +110,23 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
       <div className="space-y-2">
         <label className="text-sm font-medium" htmlFor="password">
-          Password
+          {t("Password")}
         </label>
         <div className="relative">
           <Input
             aria-describedby={errors.password ? "password-error" : undefined}
             aria-invalid={Boolean(errors.password)}
             autoComplete={isSignup ? "new-password" : "current-password"}
-            className="pr-11"
+            className="pe-11"
             id="password"
             onChange={(event) => setPassword(event.target.value)}
-            placeholder={isSignup ? "8+ strong characters" : "Your password"}
+            placeholder={isSignup ? t("8+ strong characters") : t("Your password")}
             type={showPassword ? "text" : "password"}
             value={password}
           />
           <button
-            aria-label={showPassword ? "Hide password" : "Show password"}
-            className="absolute inset-y-0 right-0 grid w-11 place-items-center text-muted-foreground transition hover:text-foreground"
+            aria-label={showPassword ? t("Hide password") : t("Show password")}
+            className="absolute inset-y-0 end-0 grid w-11 place-items-center text-muted-foreground transition hover:text-foreground"
             onClick={() => setShowPassword((visible) => !visible)}
             type="button"
           >
@@ -147,9 +149,9 @@ export function AuthForm({ mode }: { mode: Mode }) {
           autoComplete="new-password"
           error={errors.confirmPassword}
           id="confirm-password"
-          label="Confirm password"
+          label={t("Confirm password")}
           onChange={setConfirmPassword}
-          placeholder="Repeat your password"
+          placeholder={t("Repeat your password")}
           type={showPassword ? "text" : "password"}
           value={confirmPassword}
         />
@@ -161,16 +163,16 @@ export function AuthForm({ mode }: { mode: Mode }) {
         type="submit"
       >
         {mutation.isPending && <LoaderCircle className="animate-spin" />}
-        {isSignup ? "Create organizer account" : "Log in"}
+        {isSignup ? t("Create organizer account") : t("Log in")}
       </Button>
 
       <p className="text-center text-sm text-muted-foreground">
-        {isSignup ? "Already organizing with Synk?" : "New to Synk?"}{" "}
+        {isSignup ? t("Already organizing with Synk?") : t("New to Synk?")}{" "}
         <Link
           className="font-medium text-primary hover:underline"
           href={isSignup ? "/login" : "/signup"}
         >
-          {isSignup ? "Log in" : "Create an account"}
+          {isSignup ? t("Log in") : t("Sign up")}
         </Link>
       </p>
     </form>

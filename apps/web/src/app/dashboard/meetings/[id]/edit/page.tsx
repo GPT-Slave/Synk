@@ -9,6 +9,7 @@ import { OrganizerShell } from "@/components/organizer-shell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatePanel } from "@/components/ui/state-panel";
 import { getMeeting } from "@/lib/meeting-api";
+import { useI18n } from "@/lib/i18n";
 
 export default function EditMeetingPage() {
   return (
@@ -19,6 +20,7 @@ export default function EditMeetingPage() {
 }
 
 function EditMeeting() {
+  const { t } = useI18n();
   const { id } = useParams<{ id: string }>();
   const meeting = useQuery({
     queryKey: ["meetings", id],
@@ -31,26 +33,26 @@ function EditMeeting() {
         className="inline-flex items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"
         href={`/dashboard/meetings/${id}`}
       >
-        <ArrowLeft className="size-4" /> Back to meeting
+        <ArrowLeft className="size-4" /> {t("Back to meeting")}
       </Link>
       <h1 className="mt-8 text-4xl font-semibold tracking-tight">
-        Edit meeting
+        {t("Edit meeting")}
       </h1>
       {meeting.isPending && (
         <div className="mt-10 space-y-4" role="status">
           <Skeleton className="h-14" />
           <Skeleton className="h-44" />
           <Skeleton className="h-52" />
-          <span className="sr-only">Loading meeting form…</span>
+          <span className="sr-only">{t("Loading meeting form…")}</span>
         </div>
       )}
       {meeting.isError && (
         <StatePanel
           className="mt-10"
-          description="It may have been deleted, or it belongs to another organizer."
+          description={t("It may have been deleted, or it belongs to another organizer.")}
           kind="error"
           onRetry={() => void meeting.refetch()}
-          title="Meeting could not be loaded"
+          title={t("Meeting could not be loaded")}
         />
       )}
       {meeting.data?.finalized && (
@@ -60,13 +62,13 @@ function EditMeeting() {
               className="text-sm font-medium text-primary hover:underline"
               href={`/dashboard/meetings/${id}`}
             >
-              Return to meeting
+              {t("Return to meeting")}
             </Link>
           }
           className="mt-10"
-          description="Re-open the meeting from its dashboard before changing the schedule."
+          description={t("Re-open the meeting from its dashboard before changing the schedule.")}
           icon={<LockKeyhole />}
-          title="This meeting is finalized"
+          title={t("This meeting is finalized")}
         />
       )}
       {meeting.data && !meeting.data.finalized && (

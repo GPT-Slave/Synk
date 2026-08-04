@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { StatePanel } from "@/components/ui/state-panel";
+import { useI18n } from "@/lib/i18n";
 
 export default function ErrorPage({
   error,
@@ -10,6 +11,7 @@ export default function ErrorPage({
   error: Error & { digest?: string };
   unstable_retry: () => void;
 }) {
+  const { t } = useI18n();
   useEffect(() => {
     console.error(error);
   }, [error]);
@@ -18,10 +20,12 @@ export default function ErrorPage({
     <main className="grid min-h-svh place-items-center px-5">
       <StatePanel
         className="w-full max-w-lg"
-        description="Synk hit an unexpected problem. Your saved data is safe; retry the page to continue."
+        description={t(
+          "Synk hit an unexpected problem. Your saved data is safe; retry the page to continue.",
+        )}
         kind="error"
         onRetry={unstable_retry}
-        title="Something went wrong"
+        title={t("Something went wrong")}
       />
     </main>
   );

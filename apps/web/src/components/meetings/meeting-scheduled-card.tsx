@@ -1,3 +1,5 @@
+"use client";
+
 import type { MeetingDto } from "@meet-planner/shared-types";
 import {
   CalendarCheck2,
@@ -7,6 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MotionPanel } from "@/components/ui/motion-panel";
+import { useI18n } from "@/lib/i18n";
 
 export function MeetingScheduledCard({
   meeting,
@@ -15,6 +18,7 @@ export function MeetingScheduledCard({
   meeting: Pick<MeetingDto, "finalSlot" | "timezone" | "title">;
   compact?: boolean;
 }) {
+  const { formatDate: localizeDate, t } = useI18n();
   const start = meeting.finalSlot?.datetimeStart;
   const end = meeting.finalSlot?.datetimeEnd;
 
@@ -25,13 +29,13 @@ export function MeetingScheduledCard({
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_15%,oklch(0.82_0.18_245_/_0.2),transparent_42%)]" />
       <div className="relative">
         <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary/90">
-          <CheckCircle2 className="size-3.5 text-primary" /> Confirmed
+          <CheckCircle2 className="size-3.5 text-primary" /> {t("Confirmed")}
         </span>
         <h2 className="mt-5 text-2xl font-semibold tracking-tight sm:text-3xl">
-          Meeting scheduled
+          {t("Meeting scheduled")}
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          {meeting.title} now has a confirmed time.
+          {t("{title} now has a confirmed time.", { title: meeting.title })}
         </p>
 
         {start && end ? (
@@ -39,19 +43,36 @@ export function MeetingScheduledCard({
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-white/10 bg-black/15 p-4">
                 <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <CalendarCheck2 className="size-4 text-primary" /> Date
+                  <CalendarCheck2 className="size-4 text-primary" /> {t("Date")}
                 </p>
                 <p className="mt-2 font-medium">
-                  {formatDate(start, meeting.timezone)}
+                  {localizeDate(start, {
+                    weekday: "long",
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                    timeZone: meeting.timezone,
+                  })}
                 </p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-black/15 p-4">
                 <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Clock3 className="size-4 text-primary" /> Time
+                  <Clock3 className="size-4 text-primary" /> {t("Time")}
                 </p>
                 <p className="mt-2 font-medium">
-                  {formatTime(start, meeting.timezone)}–
-                  {formatTime(end, meeting.timezone)}
+                  {localizeDate(start, {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hourCycle: "h23",
+                    timeZone: meeting.timezone,
+                  })}
+                  –
+                  {localizeDate(end, {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hourCycle: "h23",
+                    timeZone: meeting.timezone,
+                  })}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {meeting.timezone}
@@ -68,34 +89,15 @@ export function MeetingScheduledCard({
                 />
               }
             >
-              Open Google Meet <ExternalLink />
+              {t("Open Google Meet")} <ExternalLink />
             </Button>
           </>
         ) : (
           <p className="mt-5 rounded-2xl border border-white/10 bg-black/15 p-4 text-sm text-muted-foreground">
-            The organizer is confirming the exact time.
+            {t("The organizer is confirming the exact time.")}
           </p>
         )}
       </div>
     </MotionPanel>
   );
-}
-
-function formatDate(value: string, timezone: string) {
-  return new Intl.DateTimeFormat("en", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    timeZone: timezone,
-  }).format(new Date(value));
-}
-
-function formatTime(value: string, timezone: string) {
-  return new Intl.DateTimeFormat("en", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-    timeZone: timezone,
-  }).format(new Date(value));
 }

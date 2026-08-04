@@ -6,8 +6,10 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { sessionQueryKey } from "@/hooks/use-session";
 import { logout } from "@/lib/auth-api";
+import { useI18n } from "@/lib/i18n";
 
 export function LogoutButton() {
+  const { t } = useI18n();
   const router = useRouter();
   const queryClient = useQueryClient();
   const mutation = useMutation({
@@ -25,7 +27,7 @@ export function LogoutButton() {
       variant="outline"
     >
       <LogOut />
-      Log out
+      {t("Log out")}
     </Button>
   );
 }

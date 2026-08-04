@@ -29,6 +29,7 @@ import { StatePanel } from "@/components/ui/state-panel";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/auth-api";
+import { useI18n } from "@/lib/i18n";
 import { saveAvailability } from "@/lib/meeting-api";
 
 interface AvailabilityGridProps {
@@ -59,6 +60,7 @@ export function AvailabilityGrid({
 }: AvailabilityGridProps) {
   const commentId = useId();
   const toast = useToast();
+  const { formatDate, t } = useI18n();
   const [selected, setSelected] = useState(
     () =>
       new Set(
@@ -79,8 +81,13 @@ export function AvailabilityGrid({
       }
     | undefined
   >(undefined);
-  const times = useMemo(
-    () => Array.from(new Set(meeting.slots.map((slot) => slot.timeLabel))),
+  const hours = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          meeting.slots.map((slot) => `${slot.timeLabel.slice(0, 2)}:00`),
+        ),
+      ),
     [meeting.slots],
   );
   const slotByCell = useMemo(
@@ -236,15 +243,17 @@ export function AvailabilityGrid({
   const error = mutation.error
     ? mutation.error instanceof ApiError
       ? mutation.error.message
-      : "Your availability could not be saved."
+      : t("Your availability could not be saved.")
     : undefined;
 
   if (meeting.dates.length === 0 || meeting.slots.length === 0) {
     return (
       <StatePanel
         className={mode === "participant" ? "mt-8" : undefined}
-        description="The organizer needs to add at least one valid day and time slot before availability can be selected."
-        title="No schedule slots yet"
+        description={t(
+          "The organizer needs to add at least one valid day and time slot before availability can be selected.",
+        )}
+        title={t("No schedule slots yet")}
       />
     );
   }
@@ -254,7 +263,7 @@ export function AvailabilityGrid({
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="text-sm text-muted-foreground">
-            {mode === "organizer" ? "Your availability" : "Responding as"}
+            {mode === "organizer" ? t("Your availability") : t("Responding as")}
           </p>
           <h2 className="mt-1 text-xl font-semibold">
             {participantSession.participant.displayName}
@@ -276,9 +285,8 @@ export function AvailabilityGrid({
               saveResponse(response, {
                 onSuccess: () =>
                   toast({
-                    title: "Availability saved",
-                    description:
-                      "Your latest times and note are safely stored.",
+                    title: t("Availability saved"),
+                    description: t("Your latest times and note are safely stored."),
                     variant: "success",
                   }),
               })
@@ -290,7 +298,7 @@ export function AvailabilityGrid({
             ) : (
               <Save />
             )}
-            Save now
+            {t("Save now")}
           </Button>
         </div>
       </div>
@@ -319,20 +327,26 @@ export function AvailabilityGrid({
               key={date.date}
               title={date.label}
             >
-              {date.label}
+              {formatDate(date.date, {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+              })}
             </div>
           ))}
 
-          {times.map((time) => (
+          {hours.map((hour) => (
             <GridRow
               dates={meeting.dates}
-              key={time}
+              formatDate={formatDate}
+              key={hour}
               meetingOpen={meeting.acceptingResponses}
               onKeyboardToggle={toggleFromKeyboard}
               onPointerDown={startDrag}
               selected={selected}
               slotByCell={slotByCell}
-              time={time}
+              hour={hour}
+              t={t}
             />
           ))}
         </div>
@@ -343,7 +357,8 @@ export function AvailabilityGrid({
           className="flex items-center gap-2 text-sm font-medium"
           htmlFor={commentId}
         >
-          <MessageSquareText className="size-4 text-primary" /> Optional note
+          <MessageSquareText className="size-4 text-primary" />{" "}
+          {t("Optional note")}
         </label>
         <Textarea
           className="min-h-24"
@@ -351,11 +366,11 @@ export function AvailabilityGrid({
           id={commentId}
           maxLength={1000}
           onChange={(event) => setComment(event.target.value)}
-          placeholder="For example: I can join 15 minutes late on Wednesday."
+          placeholder={t("For example: I can join 15 minutes late on Wednesday.")}
           value={comment}
         />
         <div className="flex justify-between text-xs text-muted-foreground">
-          <span>Your selections and note autosave after a short pause.</span>
+          <span>{t("Your selections and note autosave after a short pause.")}</span>
           <span>{comment.length}/1000</span>
         </div>
       </div>
@@ -365,14 +380,21 @@ export function AvailabilityGrid({
 
 function GridRow({
   dates,
+  formatDate,
+  hour,
   meetingOpen,
   onKeyboardToggle,
   onPointerDown,
   selected,
   slotByCell,
-  time,
+  t,
 }: {
   dates: PublicMeetingDto["dates"];
+  formatDate: (
+    value: Date | string,
+    options?: Intl.DateTimeFormatOptions,
+  ) => string;
+  hour: string;
   meetingOpen: boolean;
   onKeyboardToggle: (slotStart: string) => void;
   onPointerDown: (
@@ -381,59 +403,76 @@ function GridRow({
   ) => void;
   selected: Set<string>;
   slotByCell: Map<string, PublicMeetingDto["slots"][number]>;
-  time: string;
+  t: (message: string) => string;
 }) {
   const reduceMotion = useReducedMotion();
   return (
     <>
-      <div className="px-2 py-5 text-xs text-muted-foreground">
-        {time}
-      </div>
-      {dates.map((date) => {
-        const slot = slotByCell.get(`${date.date}:${time}`);
-        if (!slot) return <div key={date.date} />;
-        const active = selected.has(slot.datetimeStart);
-        return (
-          <div
-            className="min-h-14 p-1"
-            key={date.date}
-          >
-            <motion.button
-              aria-label={`${active ? "Remove" : "Select"} ${date.label} at ${time}`}
-              aria-pressed={active}
-              className={`relative size-full min-h-11 touch-pan-y rounded-xl border transition duration-200 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-primary ${
-                active
-                  ? "border-primary/80 bg-primary/75 shadow-[0_0_18px_-8px_oklch(0.82_0.18_245_/_0.85)] hover:bg-primary/85"
-                  : "border-white/8 bg-white/[0.015] hover:border-white/15 hover:bg-white/[0.06]"
-              }`}
-              data-slot-start={slot.datetimeStart}
-              disabled={!meetingOpen}
-              onClick={(event) => {
-                if (event.detail === 0) onKeyboardToggle(slot.datetimeStart);
-              }}
-              onPointerDown={(event) =>
-                onPointerDown(event, slot.datetimeStart)
+      <div className="px-2 py-5 text-xs text-muted-foreground">{hour}</div>
+      {dates.map((date) => (
+        <div className="min-h-14 p-1" key={date.date}>
+          <div className="grid size-full min-h-11 grid-cols-4 overflow-hidden rounded-xl border border-white/10">
+            {[0, 15, 30, 45].map((quarter) => {
+              const time = `${hour.slice(0, 3)}${String(quarter).padStart(2, "0")}`;
+              const slot = slotByCell.get(`${date.date}:${time}`);
+              if (!slot) {
+                return (
+                  <span
+                    aria-hidden="true"
+                    className="bg-white/[0.01]"
+                    key={quarter}
+                  />
+                );
               }
-              type="button"
-              whileTap={reduceMotion ? undefined : { scale: 0.96 }}
-            />
+              const active = selected.has(slot.datetimeStart);
+              const dateLabel = formatDate(date.date, {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+              });
+              return (
+                <motion.button
+                  aria-label={`${t(active ? "Remove" : "Select")} ${dateLabel} at ${time}`}
+                  aria-pressed={active}
+                  className={`relative min-h-11 touch-pan-y transition duration-200 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-primary ${
+                    active
+                      ? "bg-primary/75 shadow-[0_0_18px_-8px_oklch(0.82_0.18_245_/_0.85)] hover:bg-primary/85"
+                      : "bg-white/[0.015] hover:bg-white/[0.07]"
+                  }`}
+                  data-slot-start={slot.datetimeStart}
+                  disabled={!meetingOpen}
+                  key={quarter}
+                  onClick={(event) => {
+                    if (event.detail === 0)
+                      onKeyboardToggle(slot.datetimeStart);
+                  }}
+                  onPointerDown={(event) =>
+                    onPointerDown(event, slot.datetimeStart)
+                  }
+                  title={time}
+                  type="button"
+                  whileTap={reduceMotion ? undefined : { scale: 0.96 }}
+                />
+              );
+            })}
           </div>
-        );
-      })}
+        </div>
+      ))}
     </>
   );
 }
 
 function SaveIndicator({ state }: { state: SaveState }) {
+  const { t } = useI18n();
   const contents = {
-    idle: { icon: <Cloud />, label: "Autosave ready" },
-    dirty: { icon: <Cloud />, label: "Changes pending" },
+    idle: { icon: <Cloud />, label: t("Autosave ready") },
+    dirty: { icon: <Cloud />, label: t("Changes pending") },
     saving: {
       icon: <LoaderCircle className="animate-spin" />,
-      label: "Saving…",
+      label: t("Saving…"),
     },
-    saved: { icon: <CheckCircle2 />, label: "Saved" },
-    error: { icon: <CloudOff />, label: "Not saved" },
+    saved: { icon: <CheckCircle2 />, label: t("Saved") },
+    error: { icon: <CloudOff />, label: t("Not saved") },
   }[state];
   return (
     <span

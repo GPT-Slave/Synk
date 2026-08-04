@@ -50,6 +50,7 @@ import {
   setActiveParticipantToken,
   type StoredParticipantSession,
 } from "@/lib/participant-invitation-state";
+import { useI18n } from "@/lib/i18n";
 
 const AvailabilityGrid = dynamic(
   () =>
@@ -72,6 +73,7 @@ const AvailabilityGrid = dynamic(
 );
 
 export default function PublicMeetingPage() {
+  const { formatDate: localizeDate, t } = useI18n();
   const { token } = useParams<{ token: string }>();
   const queryClient = useQueryClient();
   const {
@@ -196,7 +198,7 @@ export default function PublicMeetingPage() {
       </nav>
 
       <section className="mx-auto max-w-6xl py-10 sm:py-14">
-        <p className="text-sm font-medium text-primary">Synk invitation</p>
+        <p className="text-sm font-medium text-primary">{t("Synk invitation")}</p>
         <h1 className="mt-3 max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
           {meeting.data.title}
         </h1>
@@ -208,8 +210,17 @@ export default function PublicMeetingPage() {
         <div className="mt-6 flex flex-wrap gap-x-6 gap-y-3 text-sm text-muted-foreground">
           <span className="flex items-center gap-2">
             <CalendarDays className="size-4 text-primary" />
-            {formatDate(meeting.data.startDate)} –{" "}
-            {formatDate(meeting.data.endDate)}
+            {localizeDate(meeting.data.startDate, {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}{" "}
+            –{" "}
+            {localizeDate(meeting.data.endDate, {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
           </span>
           <span className="flex items-center gap-2">
             <Clock3 className="size-4 text-primary" />
@@ -228,7 +239,7 @@ export default function PublicMeetingPage() {
           <div className="mt-8 flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/10 p-4 text-sm text-primary/90">
             <AlertCircle className="mt-0.5 size-4 shrink-0" />
             <div>
-              <p className="font-medium">Responses are closed</p>
+              <p className="font-medium">{t("Responses are closed")}</p>
               <p className="mt-1 text-primary/65">
                 {meeting.data.closedReason}
               </p>
@@ -239,7 +250,7 @@ export default function PublicMeetingPage() {
         {!meeting.data.finalized && invitationView === "restoring" && (
           <div className="mt-12 flex items-center gap-3 text-sm text-muted-foreground">
             <LoaderCircle className="size-4 animate-spin text-primary" />{" "}
-            Restoring your response…
+            {t("Restoring your response…")}
           </div>
         )}
 
@@ -314,6 +325,7 @@ function JoinForm({
   rememberedNames: string[];
   token: string;
 }) {
+  const { t } = useI18n();
   const [displayName, setDisplayName] = useState("");
   const [entryMode, setEntryMode] = useState<"choose" | "new">("choose");
   const [clientError, setClientError] = useState<string>();
@@ -324,7 +336,7 @@ function JoinForm({
       onJoined(session, sessionToken);
       toast({
         title: `Welcome, ${session.participant.displayName}`,
-        description: "Select the times that work for you; changes autosave.",
+        description: t("Select the times that work for you; changes autosave."),
         variant: "success",
       });
     },
@@ -335,7 +347,7 @@ function JoinForm({
     mutation.reset();
     const normalized = normalizeDisplayName(displayName);
     if (normalized.length < 2 || normalized.length > 30) {
-      setClientError("Choose or enter a name between 2 and 30 characters.");
+      setClientError(t("Choose or enter a name between 2 and 30 characters."));
       return;
     }
     setClientError(undefined);
@@ -365,15 +377,16 @@ function JoinForm({
       <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
         <UserRound className="size-5" />
       </div>
-      <h2 className="mt-5 text-xl font-semibold">Who&apos;s responding?</h2>
+      <h2 className="mt-5 text-xl font-semibold">{t("Who’s responding?")}</h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        Choose a name saved on this device or enter a new one. Next, you&apos;ll
-        select your available hours directly on the calendar.
+        {t(
+          "Choose a name saved on this device or enter a new one. Next, you'll select your available hours directly on the calendar.",
+        )}
       </p>
 
       {rememberedNames.length > 0 && entryMode === "choose" ? (
         <div className="mt-6">
-          <p className="text-sm font-medium">Saved on this device</p>
+          <p className="text-sm font-medium">{t("Saved on this device")}</p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {rememberedNames.map((name) => {
               const selected = displayName === name;
@@ -383,7 +396,7 @@ function JoinForm({
               return (
                 <button
                   aria-pressed={selected}
-                  className={`group flex min-h-14 items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left transition duration-200 ${
+                  className={`group flex min-h-14 items-center gap-3 rounded-xl border px-3.5 py-2.5 text-start transition duration-200 ${
                     selected
                       ? "border-primary/70 bg-primary/15 text-white shadow-[0_0_24px_oklch(0.82_0.18_245_/_0.12)]"
                       : "border-white/10 bg-white/[0.025] text-muted-foreground hover:border-primary/35 hover:bg-primary/[0.07] hover:text-white"
@@ -411,8 +424,8 @@ function JoinForm({
                     </span>
                     <span className="block text-[0.68rem] text-muted-foreground">
                       {hasSavedResponse
-                        ? "Saved response found"
-                        : "Use this name"}
+                        ? t("Saved response found")
+                        : t("Use this name")}
                     </span>
                   </span>
                 </button>
@@ -429,13 +442,13 @@ function JoinForm({
             }}
             type="button"
           >
-            <Plus className="size-4" /> Enter a new name
+            <Plus className="size-4" /> {t("Enter a new name")}
           </button>
         </div>
       ) : (
         <div className="mt-6">
           <label className="block text-sm font-medium" htmlFor="display-name">
-            Display name
+            {t("Display name")}
           </label>
           <Input
             aria-describedby={
@@ -460,7 +473,7 @@ function JoinForm({
             className="mt-2 text-xs text-muted-foreground"
             id="name-storage-note"
           >
-            Your name will be remembered only on this device.
+            {t("Your name will be remembered only on this device.")}
           </p>
           {rememberedNames.length > 0 && (
             <button
@@ -473,7 +486,7 @@ function JoinForm({
               }}
               type="button"
             >
-              Choose a saved name instead
+              {t("Choose a saved name instead")}
             </button>
           )}
         </div>
@@ -509,8 +522,8 @@ function JoinForm({
       >
         {mutation.isPending && <LoaderCircle className="animate-spin" />}{" "}
         {findMeetingParticipantSession(meetingSessions, displayName)
-          ? "Open my saved availability"
-          : "Continue to availability"}
+          ? t("Open my saved availability")
+          : t("Continue to availability")}
       </Button>
     </form>
   );
@@ -525,25 +538,29 @@ function ReturningParticipantPrompt({
   onChooseAnother: () => void;
   onContinue: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <MotionPanel className="mt-10 max-w-lg rounded-lg border border-primary/25 bg-primary/[0.07] p-5 shadow-md sm:p-7">
       <div className="grid size-11 place-items-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
         {initials(displayName)}
       </div>
-      <p className="mt-5 text-sm font-medium text-primary">Welcome back</p>
+      <p className="mt-5 text-sm font-medium text-primary">
+        {t("Welcome back")}
+      </p>
       <h2 className="mt-1 text-2xl font-semibold">
-        Continue as {displayName}?
+        {t("Continue as {name}?", { name: displayName })}
       </h2>
       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-        We found your response on this device. Continue to review or update your
-        availability.
+        {t(
+          "We found your response on this device. Continue to review or update your availability.",
+        )}
       </p>
       <div className="mt-6 flex flex-col gap-3 sm:flex-row">
         <Button className="sm:flex-1" onClick={onContinue} type="button">
-          <Check /> Continue as {displayName}
+          <Check /> {t("Continue as {name}", { name: displayName })}
         </Button>
         <Button onClick={onChooseAnother} type="button" variant="outline">
-          Use another name
+          {t("Use another name")}
         </Button>
       </div>
     </MotionPanel>
@@ -557,22 +574,24 @@ function SessionRestoreError({
   onChooseAnother: () => void;
   onRetry: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <MotionPanel className="mt-10 max-w-lg rounded-lg border border-white/10 bg-white/[0.025] p-5 shadow-md sm:p-7">
       <AlertCircle className="size-6 text-primary" />
       <h2 className="mt-4 text-xl font-semibold">
-        We couldn&apos;t restore your response
+        {t("We couldn't restore your response")}
       </h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        Check your connection and try again. You can also continue with a
-        different participant name.
+        {t(
+          "Check your connection and try again. You can also continue with a different participant name.",
+        )}
       </p>
       <div className="mt-5 flex flex-wrap gap-3">
         <Button onClick={onRetry} type="button">
-          <RotateCcw /> Try again
+          <RotateCcw /> {t("Try again")}
         </Button>
         <Button onClick={onChooseAnother} type="button" variant="outline">
-          Choose a name
+          {t("Choose a name")}
         </Button>
       </div>
     </MotionPanel>
@@ -580,17 +599,21 @@ function SessionRestoreError({
 }
 
 function InvalidInvitation() {
+  const { t } = useI18n();
   return (
     <main className="grid min-h-svh place-items-center px-5 text-center">
       <div className="max-w-md">
         <AlertCircle className="mx-auto size-9 text-primary" />
-        <h1 className="mt-5 text-3xl font-semibold">Invitation not found</h1>
+        <h1 className="mt-5 text-3xl font-semibold">
+          {t("Invitation not found")}
+        </h1>
         <p className="mt-3 leading-relaxed text-muted-foreground">
-          This link is invalid, expired, or the organizer deleted the meeting.
-          Ask the organizer for a fresh invitation.
+          {t(
+            "This link is invalid, expired, or the organizer deleted the meeting. Ask the organizer for a fresh invitation.",
+          )}
         </p>
         <Button className="mt-7" render={<Link href="/" />} variant="outline">
-          Return to Synk
+          {t("Return to Synk")}
         </Button>
       </div>
     </main>
@@ -648,14 +671,4 @@ function initials(displayName: string) {
     .slice(0, 2)
     .map((part) => part[0]?.toLocaleUpperCase("en-US"))
     .join("");
-}
-
-function formatDate(date: string) {
-  return new Intl.DateTimeFormat("en", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${date}T00:00:00Z`));
 }

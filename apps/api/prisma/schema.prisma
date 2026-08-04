@@ -43,7 +43,7 @@ model Meeting {
   endDate                DateTime      @map("end_date")
   workdayStart           String        @map("workday_start")
   workdayEnd             String        @map("workday_end")
-  slotIntervalMinutes    Int           @default(60) @map("slot_interval_minutes")
+  slotIntervalMinutes    Int           @default(15) @map("slot_interval_minutes")
   meetingDurationMinutes Int           @default(60) @map("meeting_duration_minutes")
   finalized              Boolean       @default(false)
   locked                 Boolean       @default(false)

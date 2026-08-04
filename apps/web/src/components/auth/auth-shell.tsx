@@ -1,6 +1,9 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { MotionPanel } from "@/components/ui/motion-panel";
+import { useI18n } from "@/lib/i18n";
 
 export function AuthShell({
   children,
@@ -11,11 +14,12 @@ export function AuthShell({
   description: string;
   title: string;
 }) {
+  const { t } = useI18n();
   return (
     <main className="relative grid min-h-svh overflow-hidden lg:grid-cols-[1.05fr_0.95fr]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_75%_25%,oklch(0.82_0.18_245_/_0.14),transparent_36%)]" />
-      <section className="relative hidden items-center justify-center border-r border-white/10 p-12 lg:flex">
-        <Link className="text-center" aria-label="Synk home" href="/">
+      <section className="relative hidden items-center justify-center border-e border-white/10 p-12 lg:flex">
+        <Link className="text-center" aria-label={t("Synk home")} href="/">
           <Image
             alt=""
             className="brand-neon-blue mx-auto size-56 rounded-lg"
@@ -26,7 +30,7 @@ export function AuthShell({
           />
           <p className="mt-8 text-6xl font-semibold tracking-[-0.06em]">Synk</p>
           <p className="mt-3 text-sm tracking-[0.2em] text-primary/60 uppercase">
-            Find time. Together.
+            {t("Find time. Together.")}
           </p>
         </Link>
       </section>
@@ -45,12 +49,12 @@ export function AuthShell({
           </Link>
           <div className="mb-8">
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-primary">
-              Organizer access
+              {t("Organizer access")}
             </p>
             <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-              {title}
+              {t(title)}
             </h1>
-            <p className="mt-3 text-muted-foreground">{description}</p>
+            <p className="mt-3 text-muted-foreground">{t(description)}</p>
           </div>
           {children}
         </MotionPanel>

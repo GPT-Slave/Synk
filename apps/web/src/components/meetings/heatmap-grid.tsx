@@ -4,6 +4,7 @@ import type { BestMatchDto, HeatmapCellDto } from "@meet-planner/shared-types";
 import { motion, useReducedMotion } from "framer-motion";
 import { PointerEvent as ReactPointerEvent, useMemo, useState } from "react";
 import { StatePanel } from "@/components/ui/state-panel";
+import { useI18n } from "@/lib/i18n";
 import type { OrganizerMeetingDetail } from "@/lib/meeting-api";
 
 interface TooltipState {
@@ -24,8 +25,14 @@ export function HeatmapGrid({
   selectedMatch?: BestMatchDto;
 }) {
   const [tooltip, setTooltip] = useState<TooltipState>();
-  const times = useMemo(
-    () => Array.from(new Set(meeting.heatmap.map((cell) => cell.timeLabel))),
+  const { formatDate, t } = useI18n();
+  const hours = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          meeting.heatmap.map((cell) => `${cell.timeLabel.slice(0, 2)}:00`),
+        ),
+      ),
     [meeting.heatmap],
   );
   const cellByGridPosition = useMemo(
@@ -40,7 +47,7 @@ export function HeatmapGrid({
     return (
       <StatePanel
         description="The heatmap will appear when this meeting has valid schedule slots."
-        title="No heatmap data"
+        title={t("No heatmap data")}
       />
     );
   }
@@ -60,12 +67,14 @@ export function HeatmapGrid({
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-muted-foreground">
           {manualMode
-            ? `Choose a start square or drag across the grid. Synk highlights the full ${formatDuration(meeting.meetingDurationMinutes)} meeting.`
+            ? t("Choose a start square or drag across the grid. Synk highlights the full {duration} meeting.", {
+                duration: formatDuration(meeting.meetingDurationMinutes),
+              })
             : meeting.participantCount
-              ? "Hover or focus a square to see who is available."
-              : "The heatmap will fill as participants respond."}
+              ? t("Hover or focus a square to see who is available.")
+              : t("The heatmap will fill as participants respond.")}
         </p>
-        <div className="flex items-center gap-2" aria-label="Heatmap legend">
+        <div className="flex items-center gap-2" aria-label={t("Heatmap legend")}>
           <span className="text-[0.65rem] text-muted-foreground">0%</span>
           <span className="heatmap-gradient h-2.5 w-28 rounded-full border border-white/10" />
           <span className="text-[0.65rem] text-muted-foreground">100%</span>
@@ -86,21 +95,27 @@ export function HeatmapGrid({
               key={date.date}
               title={date.label}
             >
-              {date.label}
+              {formatDate(date.date, {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+              })}
             </div>
           ))}
 
-          {times.map((time) => (
+          {hours.map((hour) => (
             <HeatmapRow
               cellByGridPosition={cellByGridPosition}
               dates={meeting.dates}
-              key={time}
+              formatDate={formatDate}
+              hour={hour}
+              key={hour}
               manualMode={manualMode}
               onHide={() => setTooltip(undefined)}
               onManualSelect={chooseManualTime}
               onShow={showTooltip}
               selectedMatch={selectedMatch}
-              time={time}
+              t={t}
             />
           ))}
         </div>
@@ -114,12 +129,12 @@ export function HeatmapGrid({
         >
           <p className="font-medium text-foreground">
             {tooltip.cell.availableCount} / {tooltip.cell.totalParticipants}{" "}
-            available
+            {t("available")}
           </p>
           <p className="mt-1 text-muted-foreground">
             {tooltip.cell.participantNames.length
               ? tooltip.cell.participantNames.join(", ")
-              : "No participants available"}
+              : t("No participants available")}
           </p>
         </div>
       )}
@@ -130,96 +145,114 @@ export function HeatmapGrid({
 function HeatmapRow({
   cellByGridPosition,
   dates,
+  formatDate,
+  hour,
   manualMode,
   onHide,
   onManualSelect,
   onShow,
   selectedMatch,
-  time,
+  t,
 }: {
   cellByGridPosition: Map<string, HeatmapCellDto>;
   dates: OrganizerMeetingDetail["dates"];
+  formatDate: (
+    value: Date | string,
+    options?: Intl.DateTimeFormatOptions,
+  ) => string;
+  hour: string;
   manualMode: boolean;
   onHide: () => void;
   onManualSelect: (cell: HeatmapCellDto) => void;
   onShow: (cell: HeatmapCellDto, x: number, y: number) => void;
   selectedMatch?: BestMatchDto;
-  time: string;
+  t: (message: string) => string;
 }) {
   const reduceMotion = useReducedMotion();
   return (
     <>
-      <div className="px-2 py-5 text-xs text-muted-foreground">
-        {time}
-      </div>
-      {dates.map((date) => {
-        const cell = cellByGridPosition.get(`${date.date}:${time}`);
-        if (!cell) return <div key={date.date} />;
-        const color = heatmapColor(cell.percentage);
-        const selected = Boolean(
-          selectedMatch &&
-          cell.datetimeStart >= selectedMatch.datetimeStart &&
-          cell.datetimeStart < selectedMatch.datetimeEnd,
-        );
-        return (
-          <div
-            className="min-h-14 p-1"
-            key={date.date}
-          >
-            <motion.button
-              aria-label={`${date.label} at ${time}: ${cell.availableCount} of ${cell.totalParticipants} available${cell.participantNames.length ? ` — ${cell.participantNames.join(", ")}` : ""}`}
-              aria-pressed={manualMode ? selected : undefined}
-              className={`grid size-full min-h-11 touch-pan-y place-items-center rounded-xl border text-[0.68rem] font-semibold tabular-nums outline-none transition duration-200 hover:brightness-125 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary ${
-                manualMode ? "cursor-crosshair" : ""
-              } ${selected ? "relative z-[1] ring-2 ring-primary ring-offset-2 ring-offset-card" : ""}`}
-              onBlur={onHide}
-              onFocus={(event) => {
-                const box = event.currentTarget.getBoundingClientRect();
-                onShow(cell, box.left + box.width / 2, box.top);
-              }}
-              onMouseEnter={(event) =>
-                onShow(cell, event.clientX, event.clientY)
-              }
-              onMouseLeave={onHide}
-              onMouseMove={(event) =>
-                onShow(cell, event.clientX, event.clientY)
-              }
-              onClick={(event) => {
-                const pointerType = (event.nativeEvent as PointerEvent)
-                  .pointerType;
-                if (event.detail === 0 || pointerType === "touch") {
-                  onManualSelect(cell);
-                }
-              }}
-              onPointerDown={(event) => {
-                if (
-                  !manualMode ||
-                  event.pointerType !== "mouse" ||
-                  event.button !== 0
-                ) {
-                  return;
-                }
-                event.preventDefault();
-                onManualSelect(cell);
-              }}
-              onPointerEnter={(event: ReactPointerEvent<HTMLButtonElement>) => {
-                if (
-                  manualMode &&
-                  event.pointerType === "mouse" &&
-                  event.buttons === 1
-                ) {
-                  onManualSelect(cell);
-                }
-              }}
-              style={color}
-              type="button"
-              whileHover={reduceMotion ? undefined : { scale: 1.025 }}
-            >
-              {cell.availableCount}/{cell.totalParticipants}
-            </motion.button>
+      <div className="px-2 py-5 text-xs text-muted-foreground">{hour}</div>
+      {dates.map((date) => (
+        <div className="min-h-14 p-1" key={date.date}>
+          <div className="grid size-full min-h-11 grid-cols-4 overflow-hidden rounded-xl border border-white/10">
+            {[0, 15, 30, 45].map((quarter) => {
+              const time = `${hour.slice(0, 3)}${String(quarter).padStart(2, "0")}`;
+              const cell = cellByGridPosition.get(`${date.date}:${time}`);
+              if (!cell)
+                return (
+                  <span
+                    aria-hidden="true"
+                    className="bg-white/[0.01]"
+                    key={quarter}
+                  />
+                );
+              const color = heatmapColor(cell.percentage);
+              const selected = Boolean(
+                selectedMatch &&
+                cell.datetimeStart >= selectedMatch.datetimeStart &&
+                cell.datetimeStart < selectedMatch.datetimeEnd,
+              );
+              const dateLabel = formatDate(date.date, {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+              });
+              return (
+                <motion.button
+                  aria-label={`${dateLabel} at ${time}: ${cell.availableCount} of ${cell.totalParticipants} ${t("available")}${cell.participantNames.length ? ` — ${cell.participantNames.join(", ")}` : ""}`}
+                  aria-pressed={manualMode ? selected : undefined}
+                  className={`grid min-h-11 touch-pan-y place-items-center text-[0.58rem] font-semibold tabular-nums outline-none transition duration-200 hover:brightness-125 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary ${manualMode ? "cursor-crosshair" : ""} ${selected ? "relative z-[1] ring-2 ring-inset ring-primary" : ""}`}
+                  key={quarter}
+                  onBlur={onHide}
+                  onFocus={(event) => {
+                    const box = event.currentTarget.getBoundingClientRect();
+                    onShow(cell, box.left + box.width / 2, box.top);
+                  }}
+                  onMouseEnter={(event) =>
+                    onShow(cell, event.clientX, event.clientY)
+                  }
+                  onMouseLeave={onHide}
+                  onMouseMove={(event) =>
+                    onShow(cell, event.clientX, event.clientY)
+                  }
+                  onClick={(event) => {
+                    const pointerType = (event.nativeEvent as PointerEvent)
+                      .pointerType;
+                    if (event.detail === 0 || pointerType === "touch")
+                      onManualSelect(cell);
+                  }}
+                  onPointerDown={(event) => {
+                    if (
+                      !manualMode ||
+                      event.pointerType !== "mouse" ||
+                      event.button !== 0
+                    )
+                      return;
+                    event.preventDefault();
+                    onManualSelect(cell);
+                  }}
+                  onPointerEnter={(
+                    event: ReactPointerEvent<HTMLButtonElement>,
+                  ) => {
+                    if (
+                      manualMode &&
+                      event.pointerType === "mouse" &&
+                      event.buttons === 1
+                    )
+                      onManualSelect(cell);
+                  }}
+                  style={color}
+                  title={`${time} · ${cell.availableCount}/${cell.totalParticipants}`}
+                  type="button"
+                  whileHover={reduceMotion ? undefined : { scale: 1.025 }}
+                >
+                  {cell.availableCount}/{cell.totalParticipants}
+                </motion.button>
+              );
+            })}
           </div>
-        );
-      })}
+        </div>
+      ))}
     </>
   );
 }

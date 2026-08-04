@@ -42,7 +42,7 @@ export class CreateMeetingDto {
 
   @IsOptional()
   @IsInt()
-  @IsIn([15, 30, 60])
+  @IsIn([15])
   slotIntervalMinutes?: number;
 
   @IsOptional()

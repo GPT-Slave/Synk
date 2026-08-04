@@ -33,10 +33,17 @@ describe('CreateMeetingDto duration', () => {
     },
   );
 
-  it.each([15, 30, 60])(
-    'accepts %i-minute timetable slots',
+  it('accepts quarter-hour timetable slots', async () => {
+    expect(await validate(dto(60, 15))).toHaveLength(0);
+  });
+
+  it.each([30, 60])(
+    'rejects legacy %i-minute timetable slots',
     async (interval) => {
-      expect(await validate(dto(60, interval))).toHaveLength(0);
+      const errors = await validate(dto(60, interval));
+      expect(
+        errors.some((error) => error.property === 'slotIntervalMinutes'),
+      ).toBe(true);
     },
   );
 });

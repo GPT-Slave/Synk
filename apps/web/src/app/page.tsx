@@ -1,9 +1,13 @@
+"use client";
+
 import { ArrowRight, CalendarDays, UsersRound } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/lib/i18n";
 
 export default function Home() {
+  const { t } = useI18n();
   return (
     <main className="relative flex min-h-svh flex-col overflow-hidden px-5 sm:px-8">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,oklch(0.82_0.18_245_/_0.14),transparent_38%)]" />
@@ -21,9 +25,9 @@ export default function Home() {
         </Link>
         <div className="flex items-center gap-2">
           <Button render={<Link href="/login" />} variant="ghost">
-            Log in
+            {t("Log in")}
           </Button>
-          <Button render={<Link href="/signup" />}>Sign up</Button>
+          <Button render={<Link href="/signup" />}>{t("Sign up")}</Button>
         </div>
       </nav>
 
@@ -31,38 +35,39 @@ export default function Home() {
         <div>
           <p className="mb-5 flex items-center gap-2 text-sm font-medium text-primary">
             <span className="size-1.5 rounded-full bg-primary shadow-[0_0_10px_var(--primary)]" />
-            Scheduling without the back-and-forth
+            {t("Scheduling without the back-and-forth")}
           </p>
           <h1 className="max-w-3xl text-5xl font-semibold leading-[1.02] tracking-[-0.045em] sm:text-6xl lg:text-7xl">
-            Find the time that works for everyone.
+            {t("Find the time that works for everyone.")}
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
-            Create an availability poll, share one secure link, and see the
-            perfect overlap. Participants never need an account.
+            {t(
+              "Create an availability poll, share one secure link, and see the perfect overlap. Participants never need an account.",
+            )}
           </p>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
             <Button
               className="h-11 px-5 shadow-glow"
               render={<Link href="/signup" />}
             >
-              Create your first poll <ArrowRight />
+              {t("Create your first poll")} <ArrowRight />
             </Button>
             <Button
               className="h-11 px-5"
               render={<Link href="/login" />}
               variant="outline"
             >
-              Organizer login
+              {t("Organizer login")}
             </Button>
           </div>
           <div className="mt-10 flex flex-wrap gap-6 text-sm text-muted-foreground">
             <span className="flex items-center gap-2">
-              <CalendarDays className="size-4 text-primary" /> Visual
-              availability
+              <CalendarDays className="size-4 text-primary" />{" "}
+              {t("Visual availability")}
             </span>
             <span className="flex items-center gap-2">
-              <UsersRound className="size-4 text-primary" /> No participant
-              accounts
+              <UsersRound className="size-4 text-primary" />{" "}
+              {t("No participant accounts")}
             </span>
           </div>
         </div>
@@ -82,7 +87,7 @@ export default function Home() {
               Synk
             </p>
             <p className="mt-2 text-sm tracking-[0.18em] text-primary/60 uppercase">
-              Find time. Together.
+              {t("Find time. Together.")}
             </p>
           </div>
         </div>

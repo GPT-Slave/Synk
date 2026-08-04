@@ -1,6 +1,7 @@
 import { AlertTriangle, Inbox, LoaderCircle } from "lucide-react";
 import type * as React from "react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 type StateKind = "empty" | "error" | "loading";
@@ -22,6 +23,7 @@ export function StatePanel({
   onRetry?: () => void;
   title: string;
 }) {
+  const { t } = useI18n();
   const fallbackIcon = {
     empty: <Inbox />,
     error: <AlertTriangle />,
@@ -61,7 +63,7 @@ export function StatePanel({
             type="button"
             variant="outline"
           >
-            Try again
+            {t("Try again")}
           </Button>
         )}
         {action && <div className="mt-5">{action}</div>}

@@ -4,16 +4,15 @@ import { CalendarRange, ChevronLeft, ChevronRight, Clock3 } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/lib/i18n";
 
 interface SchedulePickerProps {
   endDate: string;
   minDate?: string;
   onEndDateChange: (value: string) => void;
-  onIntervalChange: (value: 15 | 30 | 60) => void;
   onStartDateChange: (value: string) => void;
   onWorkdayEndChange: (value: string) => void;
   onWorkdayStartChange: (value: string) => void;
-  slotIntervalMinutes: 15 | 30 | 60;
   startDate: string;
   workdayEnd: string;
   workdayStart: string;
@@ -23,26 +22,25 @@ export function SchedulePicker({
   endDate,
   minDate,
   onEndDateChange,
-  onIntervalChange,
   onStartDateChange,
   onWorkdayEndChange,
   onWorkdayStartChange,
-  slotIntervalMinutes,
   startDate,
   workdayEnd,
   workdayStart,
 }: SchedulePickerProps) {
+  const { t } = useI18n();
   return (
     <section className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.025] shadow-lg">
       <div className="border-b border-white/10 px-5 py-5 sm:px-7">
         <p className="text-xs font-medium uppercase tracking-[0.2em] text-primary">
-          Schedule window
+          {t("Schedule window")}
         </p>
         <h2 className="mt-2 text-xl font-semibold tracking-tight">
-          Pick the days and hours visually
+          {t("Pick the days and hours visually")}
         </h2>
         <p className="mt-1.5 text-sm text-muted-foreground">
-          Choose a start square, then an end square—just like booking a stay.
+          {t("Choose a start square, then an end square—just like booking a stay.")}
         </p>
       </div>
 
@@ -55,19 +53,7 @@ export function SchedulePicker({
       />
 
       <TimeRangeGrid
-        interval={slotIntervalMinutes}
         onEndChange={onWorkdayEndChange}
-        onIntervalChange={(nextInterval) => {
-          const start = floorToInterval(
-            minutesFromLabel(workdayStart),
-            nextInterval,
-          );
-          let end = ceilToInterval(minutesFromLabel(workdayEnd), nextInterval);
-          if (end <= start) end = Math.min(1_440, start + nextInterval);
-          onWorkdayStartChange(labelFromMinutes(start));
-          onWorkdayEndChange(labelFromMinutes(end));
-          onIntervalChange(nextInterval);
-        }}
         onStartChange={onWorkdayStartChange}
         rangeEnd={workdayEnd}
         rangeStart={workdayStart}
@@ -86,6 +72,7 @@ function DateRangeCalendar({
   SchedulePickerProps,
   "endDate" | "minDate" | "onEndDateChange" | "onStartDateChange" | "startDate"
 >) {
+  const { t } = useI18n();
   const [visibleMonth, setVisibleMonth] = useState(() =>
     firstOfMonth(parseDate(startDate) ?? new Date()),
   );
@@ -122,46 +109,50 @@ function DateRangeCalendar({
         <div className="flex items-center gap-3">
           <CalendarRange className="size-5 text-primary" />
           <div>
-            <p className="text-sm font-medium">Date range</p>
+            <p className="text-sm font-medium">{t("Date range")}</p>
             <p className="text-xs text-muted-foreground">
               {selectingEnd
-                ? "Now choose the last day"
-                : "Choose the first day"}
+                ? t("Now choose the last day")
+                : t("Choose the first day")}
             </p>
           </div>
         </div>
         <div className="grid grid-cols-2 overflow-hidden rounded-2xl border border-white/10 bg-black/10">
           <RangeSummary
-            label="Start"
+            label={t("Start")}
             value={startDate}
             active={!selectingEnd}
           />
-          <RangeSummary label="End" value={endDate} active={selectingEnd} />
+          <RangeSummary
+            label={t("End")}
+            value={endDate}
+            active={selectingEnd}
+          />
         </div>
       </div>
 
       <div className="mb-4 flex items-center justify-between">
         <Button
-          aria-label="Previous month"
+          aria-label={t("Previous month")}
           disabled={!canGoBack}
           onClick={() => setVisibleMonth(addMonths(visibleMonth, -1))}
           size="icon"
           type="button"
           variant="ghost"
         >
-          <ChevronLeft />
+          <ChevronLeft className="rtl:rotate-180" />
         </Button>
         <p className="text-xs text-muted-foreground sm:hidden">
-          Select two dates
+          {t("Select two dates")}
         </p>
         <Button
-          aria-label="Next month"
+          aria-label={t("Next month")}
           onClick={() => setVisibleMonth(addMonths(visibleMonth, 1))}
           size="icon"
           type="button"
           variant="ghost"
         >
-          <ChevronRight />
+          <ChevronRight className="rtl:rotate-180" />
         </Button>
       </div>
 
@@ -199,16 +190,14 @@ function Month({
 }) {
   const days = useMemo(() => monthDays(month), [month]);
   const reduceMotion = useReducedMotion();
+  const { formatDate } = useI18n();
   return (
     <div>
       <h3 className="mb-4 text-center text-sm font-semibold">
-        {new Intl.DateTimeFormat("en", {
-          month: "long",
-          year: "numeric",
-        }).format(month)}
+        {formatDate(month, { month: "long", year: "numeric" })}
       </h3>
       <div className="grid grid-cols-7 text-center text-[0.68rem] font-medium uppercase tracking-wider text-muted-foreground">
-        {WEEKDAYS.map((weekday) => (
+        {weekdays(formatDate).map((weekday) => (
           <span className="py-2" key={weekday}>
             {weekday}
           </span>
@@ -228,18 +217,15 @@ function Month({
           const startsVisibleSegment =
             inRange && (rangeStartDate || index % 7 === 0);
           const endsVisibleSegment =
-            inRange &&
-            (rangeEndDate || singleSelectedDate || index % 7 === 6);
+            inRange && (rangeEndDate || singleSelectedDate || index % 7 === 6);
           return (
             <motion.button
-              aria-label={new Intl.DateTimeFormat("en", {
-                dateStyle: "full",
-              }).format(parseDate(date)!)}
+              aria-label={formatDate(parseDate(date)!, { dateStyle: "full" })}
               aria-pressed={inRange}
               className={`relative h-11 text-sm outline-none transition duration-200 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary ${
                 inRange ? "bg-primary/16 text-foreground" : ""
-              } ${startsVisibleSegment ? "rounded-l-xl" : ""} ${
-                endsVisibleSegment ? "rounded-r-xl" : ""
+              } ${startsVisibleSegment ? "rounded-s-xl" : ""} ${
+                endsVisibleSegment ? "rounded-e-xl" : ""
               } ${disabled ? "cursor-default text-white/20" : "hover:bg-white/[0.07]"}`}
               disabled={disabled}
               key={date}
@@ -267,44 +253,40 @@ function Month({
 }
 
 function TimeRangeGrid({
-  interval,
   onEndChange,
-  onIntervalChange,
   onStartChange,
   rangeEnd,
   rangeStart,
 }: {
-  interval: 15 | 30 | 60;
   onEndChange: (value: string) => void;
-  onIntervalChange: (value: 15 | 30 | 60) => void;
   onStartChange: (value: string) => void;
   rangeEnd: string;
   rangeStart: string;
 }) {
   const reduceMotion = useReducedMotion();
+  const { t } = useI18n();
   const [selectingEnd, setSelectingEnd] = useState(false);
   const [hoveredMinute, setHoveredMinute] = useState<number>();
-  const slots = useMemo(
-    () =>
-      Array.from({ length: 1_440 / interval }, (_, index) => index * interval),
-    [interval],
+  const hours = useMemo(
+    () => Array.from({ length: 24 }, (_, hour) => hour),
+    [],
   );
   const savedStart = minutesFromLabel(rangeStart);
   const savedEnd = minutesFromLabel(rangeEnd);
   const preview =
     selectingEnd && hoveredMinute !== undefined
-      ? orderMinuteRange(savedStart, hoveredMinute, interval)
+      ? orderMinuteRange(savedStart, hoveredMinute, 15)
       : { start: savedStart, end: savedEnd };
 
   function selectTime(minute: number) {
     if (!selectingEnd) {
       onStartChange(labelFromMinutes(minute));
-      onEndChange(labelFromMinutes(minute + interval));
+      onEndChange(labelFromMinutes(minute + 15));
       setSelectingEnd(true);
       return;
     }
 
-    const next = orderMinuteRange(savedStart, minute, interval);
+    const next = orderMinuteRange(savedStart, minute, 15);
     onStartChange(labelFromMinutes(next.start));
     onEndChange(labelFromMinutes(next.end));
     setSelectingEnd(false);
@@ -317,31 +299,23 @@ function TimeRangeGrid({
         <div className="flex items-center gap-3">
           <Clock3 className="size-5 text-primary" />
           <div>
-            <p className="text-sm font-medium">Daily working hours</p>
+            <p className="text-sm font-medium">{t("Daily working hours")}</p>
             <p className="text-xs text-muted-foreground">
               {selectingEnd
-                ? "Choose the last time square"
-                : "Choose the first time square"}
+                ? t("Choose the last time quarter")
+                : t("Choose the first time quarter")}
             </p>
           </div>
         </div>
-        <div className="flex rounded-xl border border-white/10 bg-black/10 p-1">
-          {([15, 30, 60] as const).map((value) => (
-            <motion.button
-              aria-pressed={interval === value}
-              className={`rounded-lg px-3 py-2 text-xs font-medium transition duration-200 ${
-                interval === value
-                  ? "bg-primary text-primary-foreground shadow-glow"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              key={value}
-              onClick={() => onIntervalChange(value)}
-              type="button"
-              whileTap={reduceMotion ? undefined : { scale: 0.94 }}
-            >
-              {value} min
-            </motion.button>
-          ))}
+        <div className="text-end">
+          <p className="text-xs font-medium text-primary">
+            {t("Quarter-hour slots")}
+          </p>
+          <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+            {t(
+              "Each hour is split into four independently selectable quarters.",
+            )}
+          </p>
         </div>
       </div>
 
@@ -349,44 +323,57 @@ function TimeRangeGrid({
         <span className="rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-foreground">
           {rangeStart}
         </span>
-        <span className="text-muted-foreground">to</span>
+        <span className="text-muted-foreground">{t("to")}</span>
         <span className="rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-foreground">
           {rangeEnd}
         </span>
         <span className="text-xs text-muted-foreground">
-          · {formatDuration(savedEnd - savedStart)} each selected day
+          · {t("{duration} each selected day", { duration: formatDuration(savedEnd - savedStart) })}
         </span>
       </div>
 
       <div
-        className="mt-5 grid grid-cols-4 gap-1.5 sm:grid-cols-6 lg:grid-cols-8"
+        className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4"
         onMouseLeave={() => setHoveredMinute(undefined)}
       >
-        {slots.map((minute) => {
-          const active = minute >= preview.start && minute < preview.end;
-          const endpoint =
-            minute === preview.start || minute + interval === preview.end;
-          return (
-            <motion.button
-              aria-label={`Select ${labelFromMinutes(minute)}`}
-              aria-pressed={active}
-              className={`min-h-11 rounded-xl border px-1 py-2 text-xs tabular-nums outline-none transition duration-200 focus-visible:ring-2 focus-visible:ring-primary ${
-                endpoint
-                  ? "border-primary bg-primary text-primary-foreground shadow-glow"
-                  : active
-                    ? "border-primary/30 bg-primary/15 text-foreground"
-                    : "border-white/[0.07] bg-white/[0.02] text-muted-foreground hover:border-white/20 hover:bg-white/[0.06] hover:text-foreground"
-              }`}
-              key={minute}
-              onClick={() => selectTime(minute)}
-              onMouseEnter={() => setHoveredMinute(minute)}
-              type="button"
-              whileTap={reduceMotion ? undefined : { scale: 0.94 }}
-            >
-              {labelFromMinutes(minute)}
-            </motion.button>
-          );
-        })}
+        {hours.map((hour) => (
+          <div
+            className="overflow-hidden rounded-xl border border-white/[0.09] bg-white/[0.02]"
+            key={hour}
+          >
+            <p className="px-2 py-1.5 text-xs font-medium tabular-nums text-muted-foreground">
+              {String(hour).padStart(2, "0")}:00
+            </p>
+            <div className="grid grid-cols-4">
+              {[0, 15, 30, 45].map((quarter) => {
+                const minute = hour * 60 + quarter;
+                const active = minute >= preview.start && minute < preview.end;
+                const endpoint =
+                  minute === preview.start || minute + 15 === preview.end;
+                return (
+                  <motion.button
+                    aria-label={`Select ${labelFromMinutes(minute)}`}
+                    aria-pressed={active}
+                    className={`min-h-10 px-1 text-[0.65rem] tabular-nums outline-none transition duration-200 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary ${
+                      endpoint
+                        ? "bg-primary text-primary-foreground shadow-glow"
+                        : active
+                          ? "bg-primary/20 text-foreground"
+                          : "text-muted-foreground hover:bg-white/[0.07] hover:text-foreground"
+                    }`}
+                    key={quarter}
+                    onClick={() => selectTime(minute)}
+                    onMouseEnter={() => setHoveredMinute(minute)}
+                    type="button"
+                    whileTap={reduceMotion ? undefined : { scale: 0.94 }}
+                  >
+                    :{String(quarter).padStart(2, "0")}
+                  </motion.button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -401,21 +388,35 @@ function RangeSummary({
   label: string;
   value: string;
 }) {
+  const { formatDate, t } = useI18n();
   return (
     <div
-      className={`min-w-32 px-4 py-2.5 first:border-r first:border-white/10 ${active ? "bg-primary/10" : ""}`}
+      className={`min-w-32 px-4 py-2.5 first:border-e first:border-white/10 ${active ? "bg-primary/10" : ""}`}
     >
       <p className="text-[0.65rem] uppercase tracking-wider text-muted-foreground">
         {label}
       </p>
       <p className="mt-0.5 text-xs font-medium">
-        {value ? formatShortDate(value) : "Select date"}
+        {value
+          ? formatDate(value, {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })
+          : t("Select date")}
       </p>
     </div>
   );
 }
 
-const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+function weekdays(formatDate: ReturnType<typeof useI18n>["formatDate"]) {
+  const sunday = new Date(2026, 0, 4, 12);
+  return Array.from({ length: 7 }, (_, offset) => {
+    const day = new Date(sunday);
+    day.setDate(day.getDate() + offset);
+    return formatDate(day, { weekday: "short" });
+  });
+}
 
 function monthDays(month: Date) {
   const first = firstOfMonth(month);
@@ -459,14 +460,6 @@ function orderRange(first: string, second: string) {
     : { start: second, end: first };
 }
 
-function formatShortDate(value: string) {
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(parseDate(value));
-}
-
 function minutesFromLabel(value: string) {
   const [hours, minutes] = value.split(":").map(Number);
   return hours * 60 + minutes;
@@ -481,14 +474,6 @@ function orderMinuteRange(first: number, second: number, interval: number) {
   return first <= second
     ? { start: first, end: Math.min(1_440, second + interval) }
     : { start: second, end: Math.min(1_440, first + interval) };
-}
-
-function floorToInterval(value: number, interval: number) {
-  return Math.floor(value / interval) * interval;
-}
-
-function ceilToInterval(value: number, interval: number) {
-  return Math.min(1_440, Math.ceil(value / interval) * interval);
 }
 
 function formatDuration(minutes: number) {

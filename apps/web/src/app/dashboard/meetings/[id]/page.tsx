@@ -53,6 +53,7 @@ import {
   saveOrganizerAvailability,
   setMeetingLocked,
 } from "@/lib/meeting-api";
+import { useI18n } from "@/lib/i18n";
 
 const AvailabilityGrid = dynamic(
   () =>
@@ -78,6 +79,7 @@ export default function MeetingDetailPage() {
 }
 
 function MeetingDetail() {
+  const { formatDate, t } = useI18n();
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -105,8 +107,8 @@ function MeetingDetail() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["meetings"] });
       toast({
-        title: "Meeting deleted",
-        description: "The invitation and all responses were removed.",
+        title: t("Meeting deleted"),
+        description: t("The invitation and all responses were removed."),
         variant: "success",
       });
       router.replace("/dashboard");
@@ -119,10 +121,10 @@ function MeetingDetail() {
       setParticipantToDelete(undefined);
       await refreshMeeting();
       toast({
-        title: "Participant removed",
+        title: t("Participant removed"),
         description: displayName
-          ? `${displayName} and their availability were removed.`
-          : "The participant and their availability were removed.",
+          ? t("{name} and their availability were removed.", { name: displayName })
+          : t("The participant and their availability were removed."),
         variant: "success",
       });
     },
@@ -132,10 +134,10 @@ function MeetingDetail() {
     onSuccess: async (_saved, locked) => {
       await refreshMeeting();
       toast({
-        title: locked ? "Responses locked" : "Responses reopened",
+        title: locked ? t("Responses locked") : t("Responses reopened"),
         description: locked
-          ? "Participants can view the invitation but cannot edit responses."
-          : "Participants can edit their availability again.",
+          ? t("Participants can view the invitation but cannot edit responses.")
+          : t("Participants can edit their availability again."),
         variant: "success",
       });
     },
@@ -145,8 +147,8 @@ function MeetingDetail() {
     onSuccess: async () => {
       await refreshMeeting();
       toast({
-        title: "Meeting reopened",
-        description: "Finalization was removed and responses are open again.",
+        title: t("Meeting reopened"),
+        description: t("Finalization was removed and responses are open again."),
         variant: "success",
       });
     },
@@ -161,8 +163,8 @@ function MeetingDetail() {
       setSelectedMatch(undefined);
       await refreshMeeting();
       toast({
-        title: "Meeting scheduled",
-        description: "The confirmed time is now visible to every participant.",
+        title: t("Meeting scheduled"),
+        description: t("The confirmed time is now visible to every participant."),
         variant: "success",
       });
     },
@@ -175,10 +177,10 @@ function MeetingDetail() {
     return (
       <section className="mx-auto max-w-7xl py-16">
         <StatePanel
-          description="It may have been deleted, or it belongs to another organizer."
+          description={t("It may have been deleted, or it belongs to another organizer.")}
           kind="error"
           onRetry={() => void meeting.refetch()}
-          title="Meeting not found"
+          title={t("Meeting not found")}
         />
       </section>
     );
@@ -191,16 +193,17 @@ function MeetingDetail() {
       await navigator.clipboard.writeText(inviteUrl);
       setCopied(true);
       toast({
-        title: "Invitation copied",
-        description: "The private Synk link is ready to share.",
+        title: t("Invitation copied"),
+        description: t("The private Synk link is ready to share."),
         variant: "success",
       });
       window.setTimeout(() => setCopied(false), 1800);
     } catch {
       toast({
-        title: "Could not copy the link",
-        description:
+        title: t("Could not copy the link"),
+        description: t(
           "Your browser blocked clipboard access. Copy it from the address bar instead.",
+        ),
         variant: "error",
       });
     }
@@ -226,7 +229,7 @@ function MeetingDetail() {
         className="inline-flex items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"
         href="/dashboard"
       >
-        <ArrowLeft className="size-4" /> All meetings
+        <ArrowLeft className="size-4" /> {t("All meetings")}
       </Link>
 
       <div className="mt-7 flex flex-col justify-between gap-6 xl:flex-row xl:items-start">
@@ -260,13 +263,13 @@ function MeetingDetail() {
                 ) : (
                   <LockKeyhole />
                 )}
-                {data.locked ? "Open responses" : "Lock responses"}
+                {data.locked ? t("Open responses") : t("Lock responses")}
               </Button>
               <Button
                 render={<Link href={`/dashboard/meetings/${id}/edit`} />}
                 variant="outline"
               >
-                <Pencil /> Edit
+                <Pencil /> {t("Edit")}
               </Button>
             </>
           )}
@@ -282,14 +285,15 @@ function MeetingDetail() {
               ) : (
                 <UnlockKeyhole />
               )}
-              Re-open meeting
+              {t("Re-open meeting")}
             </Button>
           )}
           <Button onClick={copyInviteLink} type="button">
-            {copied ? <Check /> : <Copy />} {copied ? "Copied" : "Copy invite"}
+            {copied ? <Check /> : <Copy />}{" "}
+            {copied ? t("Copied") : t("Copy invite")}
           </Button>
           <Button
-            aria-label="Delete meeting"
+            aria-label={t("Delete meeting")}
             disabled={remove.isPending}
             onClick={() => setDeleteOpen(true)}
             size="icon"
@@ -304,10 +308,11 @@ function MeetingDetail() {
       <Dialog onOpenChange={setDeleteOpen} open={deleteOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete this meeting?</DialogTitle>
+            <DialogTitle>{t("Delete this meeting?")}</DialogTitle>
             <DialogDescription>
-              This permanently removes the invitation, participant names,
-              comments, and every availability response. This cannot be undone.
+              {t(
+                "This permanently removes the invitation, participant names, comments, and every availability response. This cannot be undone.",
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -317,7 +322,7 @@ function MeetingDetail() {
               type="button"
               variant="outline"
             >
-              Keep meeting
+              {t("Keep meeting")}
             </Button>
             <Button
               disabled={remove.isPending}
@@ -326,7 +331,7 @@ function MeetingDetail() {
               variant="destructive"
             >
               {remove.isPending && <LoaderCircle className="animate-spin" />}
-              Delete permanently
+              {t("Delete permanently")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -340,11 +345,11 @@ function MeetingDetail() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Remove this participant?</DialogTitle>
+            <DialogTitle>{t("Remove this participant?")}</DialogTitle>
             <DialogDescription>
-              {participantToDelete?.displayName ?? "This participant"} and all
-              of their availability will be permanently removed from this
-              meeting.
+              {t("{name} and all of their availability will be permanently removed from this meeting.", {
+                name: participantToDelete?.displayName ?? t("This participant"),
+              })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -354,7 +359,7 @@ function MeetingDetail() {
               type="button"
               variant="outline"
             >
-              Cancel
+              {t("Cancel")}
             </Button>
             <Button
               disabled={removeParticipant.isPending || !participantToDelete}
@@ -371,7 +376,7 @@ function MeetingDetail() {
               ) : (
                 <UserMinus />
               )}
-              Remove participant
+              {t("Remove participant")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -389,17 +394,17 @@ function MeetingDetail() {
       <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <InfoCard
           icon={<CalendarDays />}
-          label="Date range"
-          value={`${formatDate(data.startDate)} – ${formatDate(data.endDate)}`}
+          label={t("Date range")}
+          value={`${formatDate(data.startDate, { month: "short", day: "numeric", year: "numeric" })} – ${formatDate(data.endDate, { month: "short", day: "numeric", year: "numeric" })}`}
         />
         <InfoCard
           icon={<UsersRound />}
-          label="Responses"
+          label={t("Responses")}
           value={`${data.responseCount} / ${data.participantCount}`}
         />
         <InfoCard
           icon={<Link2 />}
-          label="Schedule"
+          label={t("Schedule")}
           value={`${data.timezone} · ${data.workdayStart}–${data.workdayEnd} · ${data.slotIntervalMinutes}-min slots · ${formatDuration(data.meetingDurationMinutes)} meeting`}
         />
       </div>
@@ -411,7 +416,7 @@ function MeetingDetail() {
           {!data.finalized && (
             <DashboardSection
               icon={<CalendarCheck2 />}
-              title="Your availability"
+              title={t("Your availability")}
             >
               <AvailabilityGrid
                 meeting={data}
@@ -435,8 +440,8 @@ function MeetingDetail() {
               icon={<Flame />}
               title={
                 manualSelection
-                  ? "Choose your meeting time"
-                  : "Live availability heatmap"
+                  ? t("Choose your meeting time")
+                  : t("Live availability heatmap")
               }
             >
               <HeatmapGrid
@@ -475,7 +480,7 @@ function MeetingDetail() {
               </Button>
             }
             icon={<Sparkles />}
-            title="Top matches"
+            title={t("Top matches")}
           >
             <BestTimeSuggestions
               matches={data.bestTimes}
@@ -513,7 +518,7 @@ function MeetingDetail() {
                 <Plus className={manualSelection ? "rotate-45" : ""} />
                 {manualSelection
                   ? "Cancel custom selection"
-                  : "Create your own"}
+                  : t("Create your own")}
               </Button>
             )}
             {selectedMatch && !manualSelection && (
@@ -527,7 +532,7 @@ function MeetingDetail() {
             )}
           </DashboardSection>
 
-          <DashboardSection icon={<UsersRound />} title="Participants">
+          <DashboardSection icon={<UsersRound />} title={t("Participants")}>
             {data.participants.length === 0 ? (
               <StatePanel
                 className="min-h-36"
@@ -730,15 +735,6 @@ function LiveStatus({ status }: { status: "connecting" | "live" | "offline" }) {
       {label}
     </span>
   );
-}
-
-function formatDate(date: string) {
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${date}T00:00:00Z`));
 }
 
 function formatLongDate(value: string, timezone: string) {
