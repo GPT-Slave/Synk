@@ -8,12 +8,11 @@ export interface MeetingDto {
   endDate: string;
   workdayStart: string;
   workdayEnd: string;
-  slotIntervalMinutes: 30 | 60;
-  meetingDurationMinutes: 30 | 60 | 90 | 120;
+  slotIntervalMinutes: 15 | 30 | 60;
+  meetingDurationMinutes: number;
   finalized: boolean;
   locked: boolean;
   finalSlot?: AvailabilitySlotDto;
-  responseDeadline?: string;
   createdAt: string;
 }
 

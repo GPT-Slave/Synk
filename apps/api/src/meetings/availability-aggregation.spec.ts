@@ -1,5 +1,6 @@
 import type { Meeting } from '@prisma/client';
 import { aggregateAvailability } from './availability-aggregation';
+import { meetingGrid } from './meeting-time';
 
 const meeting = {
   id: 'meeting-1',
@@ -18,7 +19,6 @@ const meeting = {
   locked: false,
   finalSlotAt: null,
   finalSlotEnd: null,
-  responseDeadline: null,
   createdAt: new Date('2026-08-04T00:00:00.000Z'),
 } satisfies Meeting;
 
@@ -123,5 +123,34 @@ describe('aggregateAvailability', () => {
       percentage: 100,
       datetimeEnd: '2026-08-12T08:30:00.000Z',
     });
+  });
+
+  it('aggregates a 31-day grid for 300 participants within the one-second budget', () => {
+    const largeMeeting = {
+      ...meeting,
+      endDate: new Date('2026-09-11T00:00:00.000Z'),
+      workdayEnd: '16:00',
+      slotIntervalMinutes: 15,
+      meetingDurationMinutes: 60,
+    } satisfies Meeting;
+    const availableSlots = meetingGrid(largeMeeting).slots.slice(0, 32);
+    const participants = Array.from({ length: 300 }, (_, index) => ({
+      displayName: `Participant ${index + 1}`,
+      availabilities: availableSlots.map((slot) => ({
+        datetimeStart: new Date(slot.datetimeStart),
+        datetimeEnd: new Date(slot.datetimeEnd),
+      })),
+    }));
+
+    const startedAt = performance.now();
+    const result = aggregateAvailability(largeMeeting, participants);
+    const durationMs = performance.now() - startedAt;
+
+    expect(result.heatmap).toHaveLength(992);
+    expect(result.bestTimes[0]).toMatchObject({
+      availableCount: 300,
+      percentage: 100,
+    });
+    expect(durationMs).toBeLessThan(1_000);
   });
 });

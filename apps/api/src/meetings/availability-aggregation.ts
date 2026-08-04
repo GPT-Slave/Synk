@@ -14,21 +14,22 @@ export function aggregateAvailability(
   participants: ParticipantAvailability[],
 ) {
   const grid = meetingGrid(meeting);
-  const participantNamesByStart = new Map<string, string[]>();
+  const participantNamesByStart = new Map<string, Set<string>>();
 
   for (const participant of participants) {
     for (const availability of participant.availabilities) {
       const start = availability.datetimeStart.toISOString();
-      const names = participantNamesByStart.get(start) ?? [];
-      names.push(participant.displayName);
+      const names = participantNamesByStart.get(start) ?? new Set<string>();
+      names.add(participant.displayName);
       participantNamesByStart.set(start, names);
     }
   }
 
   const totalParticipants = participants.length;
   const heatmap = grid.slots.map((slot) => {
-    const participantNames =
-      participantNamesByStart.get(slot.datetimeStart) ?? [];
+    const participantNames = Array.from(
+      participantNamesByStart.get(slot.datetimeStart) ?? [],
+    );
     const availableCount = participantNames.length;
     const percentage = totalParticipants
       ? Math.round((availableCount / totalParticipants) * 100)
@@ -61,8 +62,15 @@ export function aggregateAvailability(
         return undefined;
       }
 
-      const participantNames = cell.participantNames.filter((name) =>
-        window.every((next) => next.participantNames.includes(name)),
+      const participantSets = window.map(
+        (next) =>
+          participantNamesByStart.get(next.datetimeStart) ?? new Set<string>(),
+      );
+      const smallest = participantSets.reduce((left, right) =>
+        left.size <= right.size ? left : right,
+      );
+      const participantNames = Array.from(smallest).filter((name) =>
+        participantSets.every((names) => names.has(name)),
       );
       const availableCount = participantNames.length;
       const percentage = totalParticipants

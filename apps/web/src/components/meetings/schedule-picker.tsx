@@ -9,11 +9,11 @@ interface SchedulePickerProps {
   endDate: string;
   minDate?: string;
   onEndDateChange: (value: string) => void;
-  onIntervalChange: (value: 30 | 60) => void;
+  onIntervalChange: (value: 15 | 30 | 60) => void;
   onStartDateChange: (value: string) => void;
   onWorkdayEndChange: (value: string) => void;
   onWorkdayStartChange: (value: string) => void;
-  slotIntervalMinutes: 30 | 60;
+  slotIntervalMinutes: 15 | 30 | 60;
   startDate: string;
   workdayEnd: string;
   workdayStart: string;
@@ -265,9 +265,9 @@ function TimeRangeGrid({
   rangeEnd,
   rangeStart,
 }: {
-  interval: 30 | 60;
+  interval: 15 | 30 | 60;
   onEndChange: (value: string) => void;
-  onIntervalChange: (value: 30 | 60) => void;
+  onIntervalChange: (value: 15 | 30 | 60) => void;
   onStartChange: (value: string) => void;
   rangeEnd: string;
   rangeStart: string;
@@ -317,7 +317,7 @@ function TimeRangeGrid({
           </div>
         </div>
         <div className="flex rounded-xl border border-white/10 bg-black/10 p-1">
-          {([30, 60] as const).map((value) => (
+          {([15, 30, 60] as const).map((value) => (
             <motion.button
               aria-pressed={interval === value}
               className={`rounded-lg px-3 py-2 text-xs font-medium transition duration-200 ${

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import {
   FormEvent,
@@ -23,7 +24,6 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { AvailabilityGrid } from "@/components/meetings/availability-grid";
 import { MeetingScheduledCard } from "@/components/meetings/meeting-scheduled-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +50,26 @@ import {
   setActiveParticipantToken,
   type StoredParticipantSession,
 } from "@/lib/participant-invitation-state";
+
+const AvailabilityGrid = dynamic(
+  () =>
+    import("@/components/meetings/availability-grid").then(
+      (module) => module.AvailabilityGrid,
+    ),
+  {
+    loading: () => (
+      <div
+        className="mt-8 grid min-h-72 place-items-center rounded-lg border border-white/10 bg-black/10 text-sm text-muted-foreground"
+        role="status"
+      >
+        <span className="flex items-center gap-2">
+          <LoaderCircle className="size-4 animate-spin text-primary" />
+          Loading availability calendar…
+        </span>
+      </div>
+    ),
+  },
+);
 
 export default function PublicMeetingPage() {
   const { token } = useParams<{ token: string }>();
@@ -276,8 +296,9 @@ export default function PublicMeetingPage() {
 
 function formatDuration(minutes: number) {
   if (minutes < 60) return `${minutes}-minute`;
-  const hours = minutes / 60;
-  return `${hours}-${hours === 1 ? "hour" : "hours"}`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return `${hours}-${hours === 1 ? "hour" : "hours"}${remainder ? `-${remainder}-minute` : ""}`;
 }
 
 function JoinForm({

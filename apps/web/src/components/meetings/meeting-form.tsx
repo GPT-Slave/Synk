@@ -3,10 +3,10 @@
 import type { OrganizerMeetingDto } from "@meet-planner/shared-types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { LoaderCircle } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { SchedulePicker } from "@/components/meetings/schedule-picker";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
@@ -16,6 +16,23 @@ import {
   type MeetingInput,
   updateMeeting,
 } from "@/lib/meeting-api";
+
+const SchedulePicker = dynamic(
+  () =>
+    import("@/components/meetings/schedule-picker").then(
+      (module) => module.SchedulePicker,
+    ),
+  {
+    loading: () => (
+      <div
+        className="min-h-96 animate-pulse rounded-lg border border-white/10 bg-white/[0.025]"
+        role="status"
+      >
+        <span className="sr-only">Loading schedule picker…</span>
+      </div>
+    ),
+  },
+);
 
 export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
   const router = useRouter();
@@ -29,18 +46,13 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
     meeting?.workdayStart ?? "08:00",
   );
   const [workdayEnd, setWorkdayEnd] = useState(meeting?.workdayEnd ?? "20:00");
-  const [slotIntervalMinutes, setSlotIntervalMinutes] = useState<30 | 60>(
+  const [slotIntervalMinutes, setSlotIntervalMinutes] = useState<15 | 30 | 60>(
     meeting?.slotIntervalMinutes ?? 60,
   );
-  const [meetingDurationMinutes, setMeetingDurationMinutes] = useState<
-    30 | 60 | 90 | 120
-  >(meeting?.meetingDurationMinutes ?? 60);
-  const [timezone, setTimezone] = useState(meeting?.timezone ?? "Africa/Tunis");
-  const [responseDeadline, setResponseDeadline] = useState(
-    meeting?.responseDeadline
-      ? toLocalDateTimeInput(meeting.responseDeadline)
-      : "",
+  const [meetingDurationMinutes, setMeetingDurationMinutes] = useState(
+    meeting?.meetingDurationMinutes ?? 60,
   );
+  const [timezone, setTimezone] = useState(meeting?.timezone ?? "Africa/Tunis");
   const [formError, setFormError] = useState<string>();
   const timezones = useMemo(
     () =>
@@ -96,9 +108,6 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
       slotIntervalMinutes,
       meetingDurationMinutes,
       timezone,
-      responseDeadline: responseDeadline
-        ? new Date(responseDeadline).toISOString()
-        : null,
     });
   }
 
@@ -167,31 +176,45 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
         workdayStart={workdayStart}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-5 sm:grid-cols-2">
         <div className="space-y-2">
-          <label className="text-sm font-medium" htmlFor="meeting-duration">
-            Meeting duration
-          </label>
-          <select
-            className="auth-input"
+          <div className="flex items-center justify-between gap-3">
+            <label className="text-sm font-medium" htmlFor="meeting-duration">
+              Meeting duration
+            </label>
+            <output
+              className="rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1 text-sm font-semibold tabular-nums text-primary"
+              htmlFor="meeting-duration"
+            >
+              {formatDuration(meetingDurationMinutes)}
+            </output>
+          </div>
+          <input
+            aria-valuetext={formatDuration(meetingDurationMinutes)}
+            className="duration-slider w-full"
             id="meeting-duration"
-            onChange={(event) =>
-              setMeetingDurationMinutes(
-                Number(event.target.value) as 30 | 60 | 90 | 120,
-              )
-            }
+            max={360}
+            min={15}
+            onChange={(event) => {
+              const duration = Number(event.target.value);
+              setMeetingDurationMinutes(duration);
+              if (duration % slotIntervalMinutes !== 0) {
+                setSlotIntervalMinutes(15);
+              }
+            }}
+            step={15}
+            type="range"
             value={meetingDurationMinutes}
-          >
-            {([30, 60, 90, 120] as const)
-              .filter((duration) => duration % slotIntervalMinutes === 0)
-              .map((duration) => (
-                <option className="bg-card" key={duration} value={duration}>
-                  {formatDuration(duration)}
-                </option>
-              ))}
-          </select>
-          <p className="text-xs text-muted-foreground">
-            Synk uses this length when ranking and finalizing top matches.
+          />
+          <div className="flex justify-between text-[0.65rem] text-muted-foreground">
+            <span>15 min</span>
+            <span>1 hour</span>
+            <span>3 hours</span>
+            <span>6 hours</span>
+          </div>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Drag the slider in 15-minute steps. Synk uses this exact duration
+            for suggestions and finalization.
           </p>
         </div>
         <div className="space-y-2">
@@ -211,13 +234,6 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
             ))}
           </select>
         </div>
-        <LabeledInput
-          id="response-deadline"
-          label="Response deadline (optional)"
-          onChange={setResponseDeadline}
-          type="datetime-local"
-          value={responseDeadline}
-        />
       </div>
 
       <div className="flex justify-end gap-3 border-t border-white/10 pt-6">
@@ -239,45 +255,14 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
 
 function formatDuration(minutes: number) {
   if (minutes < 60) return `${minutes} minutes`;
-  const hours = minutes / 60;
-  return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return `${hours} ${hours === 1 ? "hour" : "hours"}${remainder ? ` ${remainder} min` : ""}`;
 }
 
 function minutesFromTime(value: string) {
   const [hours, minutes] = value.split(":").map(Number);
   return hours * 60 + minutes;
-}
-
-function LabeledInput({
-  id,
-  label,
-  min,
-  onChange,
-  type,
-  value,
-}: {
-  id: string;
-  label: string;
-  min?: string;
-  onChange: (value: string) => void;
-  type: string;
-  value: string;
-}) {
-  return (
-    <div className="space-y-2">
-      <label className="text-sm text-muted-foreground" htmlFor={id}>
-        {label}
-      </label>
-      <Input
-        id={id}
-        min={min}
-        onChange={(event) => onChange(event.target.value)}
-        required={type !== "datetime-local"}
-        type={type}
-        value={value}
-      />
-    </div>
-  );
 }
 
 function tomorrow() {
@@ -289,9 +274,4 @@ function tomorrow() {
 function today() {
   const date = new Date();
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-function toLocalDateTimeInput(value: string) {
-  const date = new Date(value);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}T${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }

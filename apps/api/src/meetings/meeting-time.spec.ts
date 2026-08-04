@@ -18,7 +18,6 @@ const meeting = {
   locked: false,
   finalSlotAt: null,
   finalSlotEnd: null,
-  responseDeadline: null,
   createdAt: new Date('2026-08-04T00:00:00.000Z'),
 } satisfies Meeting;
 
@@ -44,6 +43,21 @@ describe('meetingGrid', () => {
       timeLabel: '08:30',
       datetimeStart: '2026-08-12T07:30:00.000Z',
       datetimeEnd: '2026-08-12T08:00:00.000Z',
+    });
+  });
+
+  it('creates quarter-hour slots for 15-minute meetings', () => {
+    const grid = meetingGrid({
+      ...meeting,
+      slotIntervalMinutes: 15,
+      meetingDurationMinutes: 15,
+    });
+
+    expect(grid.slots).toHaveLength(16);
+    expect(grid.slots[1]).toMatchObject({
+      timeLabel: '08:15',
+      datetimeStart: '2026-08-12T07:15:00.000Z',
+      datetimeEnd: '2026-08-12T07:30:00.000Z',
     });
   });
 

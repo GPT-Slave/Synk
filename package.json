@@ -14,6 +14,7 @@
     "prisma:migrate": "pnpm --filter api exec prisma migrate dev",
     "prisma:studio": "pnpm --filter api exec prisma studio",
     "lint": "pnpm --filter web lint && pnpm --filter api lint",
+    "performance:load": "node scripts/load-meeting.mjs",
     "security:audit": "node scripts/security-audit.mjs"
   },
   "devDependencies": {

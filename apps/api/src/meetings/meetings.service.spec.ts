@@ -38,7 +38,6 @@ function savedMeeting(overrides: Partial<Meeting> = {}): Meeting {
     locked: false,
     finalSlotAt: null,
     finalSlotEnd: null,
-    responseDeadline: null,
     createdAt: new Date('2026-08-04T00:00:00.000Z'),
     ...overrides,
   };
@@ -137,6 +136,38 @@ describe('MeetingsService', () => {
     );
   });
 
+  it('accepts meeting durations from 15 minutes through 6 hours', async () => {
+    prisma.meeting.create.mockImplementation(({ data }) =>
+      Promise.resolve(savedMeeting({ ...data })),
+    );
+
+    const shortMeeting = await service.create('user-1', {
+      ...baseDto,
+      slotIntervalMinutes: 15,
+      meetingDurationMinutes: 15,
+    });
+    const longMeeting = await service.create('user-1', {
+      ...baseDto,
+      slotIntervalMinutes: 15,
+      meetingDurationMinutes: 360,
+    });
+
+    expect(shortMeeting.meetingDurationMinutes).toBe(15);
+    expect(longMeeting.meetingDurationMinutes).toBe(360);
+  });
+
+  it('rejects duration values outside the slider contract', async () => {
+    await expect(
+      service.create('user-1', {
+        ...baseDto,
+        slotIntervalMinutes: 15,
+        meetingDurationMinutes: 375,
+      }),
+    ).rejects.toThrow(
+      'Meeting duration must be between 15 minutes and 6 hours in 15-minute steps.',
+    );
+  });
+
   it('rejects a duration longer than the daily scheduling window', async () => {
     await expect(
       service.create('user-1', {
@@ -229,17 +260,13 @@ describe('MeetingsService', () => {
   });
 
   it('clears stale responses when the scheduling window changes', async () => {
-    const current = savedMeeting({
-      responseDeadline: new Date('2026-08-10T12:00:00.000Z'),
-    });
-    prisma.meeting.findFirst.mockResolvedValue(current);
+    prisma.meeting.findFirst.mockResolvedValue(savedMeeting());
     transaction.meeting.update.mockResolvedValue(
-      savedMeeting({ workdayEnd: '18:00', responseDeadline: null }),
+      savedMeeting({ workdayEnd: '18:00' }),
     );
 
     await service.update('user-1', 'meeting-1', {
       workdayEnd: '18:00',
-      responseDeadline: null,
     });
 
     expect(transaction.availability.deleteMany).toHaveBeenCalledWith({
@@ -251,7 +278,7 @@ describe('MeetingsService', () => {
     });
     expect(transaction.meeting.update).toHaveBeenCalledWith({
       where: { id: 'meeting-1' },
-      data: expect.objectContaining({ responseDeadline: null }),
+      data: expect.objectContaining({ workdayEnd: '18:00' }),
     });
   });
 
@@ -261,6 +288,36 @@ describe('MeetingsService', () => {
     await expect(
       service.detail('other-user', 'meeting-1'),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('loads heatmap inputs with one narrow relation query instead of N+1 reads', async () => {
+    prisma.meeting.findFirst.mockResolvedValue({
+      ...savedMeeting(),
+      participants: [],
+    });
+
+    await service.detail('user-1', 'meeting-1');
+
+    expect(prisma.meeting.findFirst).toHaveBeenCalledWith({
+      where: { id: 'meeting-1', organizerId: 'user-1' },
+      include: {
+        participants: {
+          orderBy: { joinedAt: 'asc' },
+          select: {
+            id: true,
+            displayName: true,
+            joinedAt: true,
+            organizerId: true,
+            respondedAt: true,
+            comment: true,
+            availabilities: {
+              select: { datetimeStart: true, datetimeEnd: true },
+            },
+          },
+        },
+      },
+    });
+    expect(prisma.meeting.findFirst).toHaveBeenCalledTimes(1);
   });
 
   it('deletes only after ownership is verified', async () => {

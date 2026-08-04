@@ -56,4 +56,44 @@ describe('MeetingsRealtimeGateway', () => {
 
     expect(client.disconnect).toHaveBeenCalledWith(true);
   });
+
+  it('timestamps availability broadcasts for propagation-latency measurement', () => {
+    let capturedEvent: string | undefined;
+    let capturedPayload: unknown;
+    const emit = jest.fn((event: string, payload: unknown) => {
+      capturedEvent = event;
+      capturedPayload = payload;
+    });
+    const to = jest.fn(() => ({ emit }));
+    Object.assign(gateway as object, {
+      namespace: { server: { of: jest.fn(() => ({ to })) } },
+    });
+    gateway.availabilityChanged({
+      meetingId: 'meeting-1',
+      participantId: 'participant-1',
+      displayName: 'Alice',
+      availabilities: [],
+    });
+
+    expect(to).toHaveBeenCalledWith('authorized-organizers');
+    const emitted = capturedPayload as {
+      meetingId: string;
+      participantId: string;
+      emittedAt: number;
+    };
+    expect(capturedEvent).toBe('availability:changed');
+    expect(emitted).toMatchObject({
+      meetingId: 'meeting-1',
+      participantId: 'participant-1',
+    });
+    expect(typeof emitted.emittedAt).toBe('number');
+  });
+
+  it('acknowledges latency probes with server receipt time', () => {
+    const before = Date.now();
+    const result = gateway.latencyProbe({ clientSentAt: 123 });
+    expect(result.clientSentAt).toBe(123);
+    expect(typeof result.serverReceivedAt).toBe('number');
+    expect(result.serverReceivedAt).toBeGreaterThanOrEqual(before);
+  });
 });

@@ -13,6 +13,7 @@ import {
   LoaderCircle,
   LockKeyhole,
   Pencil,
+  Plus,
   RefreshCw,
   Sparkles,
   Trash2,
@@ -21,14 +22,11 @@ import {
   UsersRound,
 } from "lucide-react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
-import {
-  AvailabilityGrid,
-  type AvailabilityResponse,
-} from "@/components/meetings/availability-grid";
+import type { AvailabilityResponse } from "@/components/meetings/availability-grid";
 import { BestTimeSuggestions } from "@/components/meetings/best-time-suggestions";
-import { HeatmapGrid } from "@/components/meetings/heatmap-grid";
 import { MeetingScheduledCard } from "@/components/meetings/meeting-scheduled-card";
 import { OrganizerShell } from "@/components/organizer-shell";
 import { Button } from "@/components/ui/button";
@@ -56,6 +54,21 @@ import {
   setMeetingLocked,
 } from "@/lib/meeting-api";
 
+const AvailabilityGrid = dynamic(
+  () =>
+    import("@/components/meetings/availability-grid").then(
+      (module) => module.AvailabilityGrid,
+    ),
+  { loading: () => <GridLoadingState label="availability calendar" /> },
+);
+const HeatmapGrid = dynamic(
+  () =>
+    import("@/components/meetings/heatmap-grid").then(
+      (module) => module.HeatmapGrid,
+    ),
+  { loading: () => <GridLoadingState label="availability heatmap" /> },
+);
+
 export default function MeetingDetailPage() {
   return (
     <OrganizerShell>
@@ -75,6 +88,7 @@ function MeetingDetail() {
     displayName: string;
   }>();
   const [selectedMatch, setSelectedMatch] = useState<BestMatchDto>();
+  const [manualSelection, setManualSelection] = useState(false);
   const toast = useToast();
   const realtimeStatus = useMeetingRealtime(id);
   const meeting = useQuery({
@@ -416,9 +430,32 @@ function MeetingDetail() {
             </DashboardSection>
           )}
 
-          <DashboardSection icon={<Flame />} title="Live availability heatmap">
-            <HeatmapGrid meeting={data} />
-          </DashboardSection>
+          <div id="manual-time-grid">
+            <DashboardSection
+              icon={<Flame />}
+              title={
+                manualSelection
+                  ? "Choose your meeting time"
+                  : "Live availability heatmap"
+              }
+            >
+              <HeatmapGrid
+                manualMode={manualSelection && !data.finalized}
+                meeting={data}
+                onManualSelect={setSelectedMatch}
+                selectedMatch={manualSelection ? selectedMatch : undefined}
+              />
+              {manualSelection && selectedMatch && (
+                <FinalizeChoice
+                  isPending={finalize.isPending}
+                  match={selectedMatch}
+                  onCancel={() => setSelectedMatch(undefined)}
+                  onConfirm={() => finalize.mutate(selectedMatch)}
+                  timezone={data.timezone}
+                />
+              )}
+            </DashboardSection>
+          </div>
         </div>
 
         <aside className="space-y-6 xl:sticky xl:top-6">
@@ -442,10 +479,44 @@ function MeetingDetail() {
           >
             <BestTimeSuggestions
               matches={data.bestTimes}
-              onSelect={data.finalized ? undefined : setSelectedMatch}
+              onSelect={
+                data.finalized
+                  ? undefined
+                  : (match) => {
+                      setManualSelection(false);
+                      setSelectedMatch(match);
+                    }
+              }
               timezone={data.timezone}
             />
-            {selectedMatch && (
+            {!data.finalized && (
+              <Button
+                className="mt-4 w-full"
+                onClick={() => {
+                  const next = !manualSelection;
+                  setManualSelection(next);
+                  setSelectedMatch(undefined);
+                  if (next) {
+                    window.requestAnimationFrame(() =>
+                      document
+                        .getElementById("manual-time-grid")
+                        ?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start",
+                        }),
+                    );
+                  }
+                }}
+                type="button"
+                variant={manualSelection ? "secondary" : "outline"}
+              >
+                <Plus className={manualSelection ? "rotate-45" : ""} />
+                {manualSelection
+                  ? "Cancel custom selection"
+                  : "Create your own"}
+              </Button>
+            )}
+            {selectedMatch && !manualSelection && (
               <FinalizeChoice
                 isPending={finalize.isPending}
                 match={selectedMatch}
@@ -519,6 +590,20 @@ function MeetingDetail() {
         </aside>
       </div>
     </section>
+  );
+}
+
+function GridLoadingState({ label }: { label: string }) {
+  return (
+    <div
+      className="grid min-h-72 place-items-center rounded-lg border border-white/10 bg-black/10"
+      role="status"
+    >
+      <div className="text-center text-sm text-muted-foreground">
+        <LoaderCircle className="mx-auto mb-2 size-5 animate-spin text-primary" />
+        Loading {label}…
+      </div>
+    </div>
   );
 }
 
@@ -676,6 +761,7 @@ function formatTime(value: string, timezone: string) {
 
 function formatDuration(minutes: number) {
   if (minutes < 60) return `${minutes} min`;
-  const hours = minutes / 60;
-  return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return `${hours} ${hours === 1 ? "hour" : "hours"}${remainder ? ` ${remainder} min` : ""}`;
 }

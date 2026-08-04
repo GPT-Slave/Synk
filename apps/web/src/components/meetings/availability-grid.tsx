@@ -309,7 +309,7 @@ export function AvailabilityGrid({
           className="grid min-w-max select-none"
           onPointerMove={continueDrag}
           style={{
-            gridTemplateColumns: `4.75rem repeat(${meeting.dates.length}, minmax(8.5rem, 1fr))`,
+            gridTemplateColumns: `4.25rem repeat(${meeting.dates.length}, minmax(6.75rem, 1fr))`,
           }}
         >
           <div className="sticky left-0 top-0 z-30 border-b border-r border-white/10 bg-card/95 backdrop-blur-xl" />

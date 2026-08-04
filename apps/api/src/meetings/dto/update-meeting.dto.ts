@@ -1,7 +1,9 @@
 import {
-  IsDateString,
+  IsDivisibleBy,
   IsIn,
   IsInt,
+  Max,
+  Min,
   IsOptional,
   IsString,
   IsTimeZone,
@@ -45,19 +47,17 @@ export class UpdateMeetingDto {
 
   @IsOptional()
   @IsInt()
-  @IsIn([30, 60])
+  @IsIn([15, 30, 60])
   slotIntervalMinutes?: number;
 
   @IsOptional()
   @IsInt()
-  @IsIn([30, 60, 90, 120])
+  @Min(15)
+  @Max(360)
+  @IsDivisibleBy(15)
   meetingDurationMinutes?: number;
 
   @IsOptional()
   @IsTimeZone()
   timezone?: string;
-
-  @IsOptional()
-  @IsDateString({ strict: true })
-  responseDeadline?: string | null;
 }

@@ -49,7 +49,6 @@ model Meeting {
   locked                 Boolean       @default(false)
   finalSlotAt            DateTime?     @map("final_slot_at")
   finalSlotEnd           DateTime?     @map("final_slot_end")
-  responseDeadline       DateTime?     @map("response_deadline")
   createdAt              DateTime      @default(now()) @map("created_at")
   participants           Participant[]
 

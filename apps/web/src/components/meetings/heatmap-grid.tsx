@@ -1,8 +1,8 @@
 "use client";
 
-import type { HeatmapCellDto } from "@meet-planner/shared-types";
+import type { BestMatchDto, HeatmapCellDto } from "@meet-planner/shared-types";
 import { motion, useReducedMotion } from "framer-motion";
-import { useMemo, useState } from "react";
+import { PointerEvent as ReactPointerEvent, useMemo, useState } from "react";
 import { StatePanel } from "@/components/ui/state-panel";
 import type { OrganizerMeetingDetail } from "@/lib/meeting-api";
 
@@ -12,7 +12,17 @@ interface TooltipState {
   y: number;
 }
 
-export function HeatmapGrid({ meeting }: { meeting: OrganizerMeetingDetail }) {
+export function HeatmapGrid({
+  manualMode = false,
+  meeting,
+  onManualSelect,
+  selectedMatch,
+}: {
+  manualMode?: boolean;
+  meeting: OrganizerMeetingDetail;
+  onManualSelect?: (match: BestMatchDto) => void;
+  selectedMatch?: BestMatchDto;
+}) {
   const [tooltip, setTooltip] = useState<TooltipState>();
   const times = useMemo(
     () => Array.from(new Set(meeting.heatmap.map((cell) => cell.timeLabel))),
@@ -39,13 +49,21 @@ export function HeatmapGrid({ meeting }: { meeting: OrganizerMeetingDetail }) {
     setTooltip({ cell, x, y });
   }
 
+  function chooseManualTime(cell: HeatmapCellDto) {
+    if (!manualMode || !onManualSelect) return;
+    const match = manualMatchForCell(meeting, cell.datetimeStart);
+    if (match) onManualSelect(match);
+  }
+
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-muted-foreground">
-          {meeting.participantCount
-            ? "Hover or focus a square to see who is available."
-            : "The heatmap will fill as participants respond."}
+          {manualMode
+            ? `Choose a start square or drag across the grid. Synk highlights the full ${formatDuration(meeting.meetingDurationMinutes)} meeting.`
+            : meeting.participantCount
+              ? "Hover or focus a square to see who is available."
+              : "The heatmap will fill as participants respond."}
         </p>
         <div className="flex items-center gap-2" aria-label="Heatmap legend">
           <span className="text-[0.65rem] text-muted-foreground">0%</span>
@@ -58,7 +76,7 @@ export function HeatmapGrid({ meeting }: { meeting: OrganizerMeetingDetail }) {
         <div
           className="grid min-w-max"
           style={{
-            gridTemplateColumns: `4.75rem repeat(${meeting.dates.length}, minmax(8.5rem, 1fr))`,
+            gridTemplateColumns: `4.25rem repeat(${meeting.dates.length}, minmax(6.75rem, 1fr))`,
           }}
         >
           <div className="sticky left-0 top-0 z-30 border-b border-r border-white/10 bg-card/95 backdrop-blur-xl" />
@@ -76,8 +94,11 @@ export function HeatmapGrid({ meeting }: { meeting: OrganizerMeetingDetail }) {
               cellByGridPosition={cellByGridPosition}
               dates={meeting.dates}
               key={time}
+              manualMode={manualMode}
               onHide={() => setTooltip(undefined)}
+              onManualSelect={chooseManualTime}
               onShow={showTooltip}
+              selectedMatch={selectedMatch}
               time={time}
             />
           ))}
@@ -108,14 +129,20 @@ export function HeatmapGrid({ meeting }: { meeting: OrganizerMeetingDetail }) {
 function HeatmapRow({
   cellByGridPosition,
   dates,
+  manualMode,
   onHide,
+  onManualSelect,
   onShow,
+  selectedMatch,
   time,
 }: {
   cellByGridPosition: Map<string, HeatmapCellDto>;
   dates: OrganizerMeetingDetail["dates"];
+  manualMode: boolean;
   onHide: () => void;
+  onManualSelect: (cell: HeatmapCellDto) => void;
   onShow: (cell: HeatmapCellDto, x: number, y: number) => void;
+  selectedMatch?: BestMatchDto;
   time: string;
 }) {
   const reduceMotion = useReducedMotion();
@@ -128,6 +155,11 @@ function HeatmapRow({
         const cell = cellByGridPosition.get(`${date.date}:${time}`);
         if (!cell) return <div key={date.date} />;
         const color = heatmapColor(cell.percentage);
+        const selected = Boolean(
+          selectedMatch &&
+          cell.datetimeStart >= selectedMatch.datetimeStart &&
+          cell.datetimeStart < selectedMatch.datetimeEnd,
+        );
         return (
           <div
             className="min-h-14 border-b border-r border-white/10 p-1.5 last:border-r-0"
@@ -135,7 +167,10 @@ function HeatmapRow({
           >
             <motion.button
               aria-label={`${date.label} at ${time}: ${cell.availableCount} of ${cell.totalParticipants} available${cell.participantNames.length ? ` — ${cell.participantNames.join(", ")}` : ""}`}
-              className="grid size-full min-h-11 place-items-center rounded-xl border text-[0.68rem] font-semibold tabular-nums outline-none transition duration-200 hover:brightness-125 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary"
+              aria-pressed={manualMode ? selected : undefined}
+              className={`grid size-full min-h-11 touch-pan-y place-items-center rounded-xl border text-[0.68rem] font-semibold tabular-nums outline-none transition duration-200 hover:brightness-125 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary ${
+                manualMode ? "cursor-crosshair" : ""
+              } ${selected ? "relative z-[1] ring-2 ring-primary ring-offset-2 ring-offset-card" : ""}`}
               onBlur={onHide}
               onFocus={(event) => {
                 const box = event.currentTarget.getBoundingClientRect();
@@ -148,6 +183,33 @@ function HeatmapRow({
               onMouseMove={(event) =>
                 onShow(cell, event.clientX, event.clientY)
               }
+              onClick={(event) => {
+                const pointerType = (event.nativeEvent as PointerEvent)
+                  .pointerType;
+                if (event.detail === 0 || pointerType === "touch") {
+                  onManualSelect(cell);
+                }
+              }}
+              onPointerDown={(event) => {
+                if (
+                  !manualMode ||
+                  event.pointerType !== "mouse" ||
+                  event.button !== 0
+                ) {
+                  return;
+                }
+                event.preventDefault();
+                onManualSelect(cell);
+              }}
+              onPointerEnter={(event: ReactPointerEvent<HTMLButtonElement>) => {
+                if (
+                  manualMode &&
+                  event.pointerType === "mouse" &&
+                  event.buttons === 1
+                ) {
+                  onManualSelect(cell);
+                }
+              }}
               style={color}
               type="button"
               whileHover={reduceMotion ? undefined : { scale: 1.025 }}
@@ -159,6 +221,53 @@ function HeatmapRow({
       })}
     </>
   );
+}
+
+export function manualMatchForCell(
+  meeting: OrganizerMeetingDetail,
+  datetimeStart: string,
+): BestMatchDto | undefined {
+  const startIndex = meeting.heatmap.findIndex(
+    (cell) => cell.datetimeStart === datetimeStart,
+  );
+  const cellsPerMeeting =
+    meeting.meetingDurationMinutes / meeting.slotIntervalMinutes;
+  if (startIndex < 0 || !Number.isInteger(cellsPerMeeting)) return undefined;
+
+  const window = meeting.heatmap.slice(
+    startIndex,
+    startIndex + cellsPerMeeting,
+  );
+  const first = window[0];
+  if (
+    !first ||
+    window.length !== cellsPerMeeting ||
+    window.some((cell) => cell.date !== first.date) ||
+    window.some(
+      (cell, index) =>
+        index > 0 && window[index - 1].datetimeEnd !== cell.datetimeStart,
+    )
+  ) {
+    return undefined;
+  }
+
+  const participantNames = first.participantNames.filter((name) =>
+    window.every((cell) => cell.participantNames.includes(name)),
+  );
+  const availableCount = participantNames.length;
+  const totalParticipants = first.totalParticipants;
+  return {
+    datetimeStart: first.datetimeStart,
+    datetimeEnd: window.at(-1)!.datetimeEnd,
+    date: first.date,
+    timeLabel: first.timeLabel,
+    availableCount,
+    totalParticipants,
+    percentage: totalParticipants
+      ? Math.round((availableCount / totalParticipants) * 100)
+      : 0,
+    participantNames,
+  };
 }
 
 export function heatmapColor(percentage: number) {
@@ -173,4 +282,11 @@ export function heatmapColor(percentage: number) {
     color:
       normalized >= 0.48 ? "oklch(0.985 0.01 245)" : "oklch(0.78 0.035 245)",
   };
+}
+
+function formatDuration(minutes: number) {
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  if (!hours) return `${remainder} minutes`;
+  return `${hours} ${hours === 1 ? "hour" : "hours"}${remainder ? ` ${remainder} minutes` : ""}`;
 }

@@ -23,7 +23,6 @@ const meeting = {
   locked: false,
   finalSlotAt: null,
   finalSlotEnd: null,
-  responseDeadline: null,
   createdAt: new Date('2026-08-04T00:00:00.000Z'),
 } satisfies Meeting;
 

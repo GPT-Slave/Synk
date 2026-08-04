@@ -22,7 +22,14 @@ export function useMeetingRealtime(meetingId: string): RealtimeStatus {
       reconnectionDelayMax: 5_000,
     });
 
-    async function resync() {
+    async function resync(event?: { emittedAt?: number }) {
+      if (typeof event?.emittedAt === "number") {
+        window.dispatchEvent(
+          new CustomEvent("synk:realtime-latency", {
+            detail: { latencyMs: Math.max(0, Date.now() - event.emittedAt) },
+          }),
+        );
+      }
       await queryClient.invalidateQueries({
         queryKey: ["meetings", meetingId],
       });
@@ -34,10 +41,10 @@ export function useMeetingRealtime(meetingId: string): RealtimeStatus {
       setStatus("live");
       void resync();
     });
-    socket.on("participant:joined", () => void resync());
-    socket.on("participant:removed", () => void resync());
-    socket.on("availability:changed", () => void resync());
-    socket.on("meeting:state-changed", () => void resync());
+    socket.on("participant:joined", (event) => void resync(event));
+    socket.on("participant:removed", (event) => void resync(event));
+    socket.on("availability:changed", (event) => void resync(event));
+    socket.on("meeting:state-changed", (event) => void resync(event));
     socket.on("disconnect", () => {
       if (!disposed) setStatus("offline");
     });

@@ -2,7 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import {
+  MessageBody,
   OnGatewayConnection,
+  SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
@@ -106,28 +108,40 @@ export class MeetingsRealtimeGateway implements OnGatewayConnection<Socket> {
   participantJoined(event: ParticipantJoinedEvent): void {
     this.child(event.meetingId)
       .to(AUTHORIZED_ROOM)
-      .emit('participant:joined', event);
+      .emit('participant:joined', this.timestamp(event));
   }
 
   availabilityChanged(event: AvailabilityChangedEvent): void {
     this.child(event.meetingId)
       .to(AUTHORIZED_ROOM)
-      .emit('availability:changed', event);
+      .emit('availability:changed', this.timestamp(event));
   }
 
   participantRemoved(event: ParticipantRemovedEvent): void {
     this.child(event.meetingId)
       .to(AUTHORIZED_ROOM)
-      .emit('participant:removed', event);
+      .emit('participant:removed', this.timestamp(event));
   }
 
   meetingStateChanged(event: MeetingStateChangedEvent): void {
     this.child(event.meetingId)
       .to(AUTHORIZED_ROOM)
-      .emit('meeting:state-changed', event);
+      .emit('meeting:state-changed', this.timestamp(event));
+  }
+
+  @SubscribeMessage('meeting:latency-probe')
+  latencyProbe(@MessageBody() payload: { clientSentAt?: number }) {
+    return {
+      clientSentAt: payload?.clientSentAt ?? 0,
+      serverReceivedAt: Date.now(),
+    };
   }
 
   private child(meetingId: string): Namespace {
     return this.namespace.server.of(`/meetings/${meetingId}`);
+  }
+
+  private timestamp<T extends { meetingId: string }>(event: T) {
+    return { ...event, emittedAt: Date.now() };
   }
 }

@@ -23,7 +23,6 @@ const meeting = {
   locked: false,
   finalSlotAt: null,
   finalSlotEnd: null,
-  responseDeadline: null,
   createdAt: new Date('2026-08-04T00:00:00.000Z'),
 } satisfies Meeting;
 
@@ -122,8 +121,10 @@ describe('ParticipantsService', () => {
     });
   });
 
-  it('blocks joins after the response deadline or finalization', async () => {
-    meetings.closedReason.mockReturnValue('The response deadline has passed.');
+  it('blocks joins when the meeting is locked or finalized', async () => {
+    meetings.closedReason.mockReturnValue(
+      'The organizer has paused responses.',
+    );
 
     await expect(service.join(meeting.slug, 'Alice')).rejects.toBeInstanceOf(
       ConflictException,

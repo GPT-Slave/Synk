@@ -100,7 +100,17 @@ export class MeetingsService {
       include: {
         participants: {
           orderBy: { joinedAt: 'asc' },
-          include: { availabilities: true },
+          select: {
+            id: true,
+            displayName: true,
+            joinedAt: true,
+            organizerId: true,
+            respondedAt: true,
+            comment: true,
+            availabilities: {
+              select: { datetimeStart: true, datetimeEnd: true },
+            },
+          },
         },
       },
     });
@@ -174,10 +184,6 @@ export class MeetingsService {
       meetingDurationMinutes:
         dto.meetingDurationMinutes ?? meeting.meetingDurationMinutes,
       timezone: dto.timezone ?? meeting.timezone,
-      responseDeadline:
-        dto.responseDeadline === undefined
-          ? meeting.responseDeadline?.toISOString()
-          : dto.responseDeadline,
     };
     const scheduleChanged = Boolean(
       dto.startDate ??
@@ -370,9 +376,6 @@ export class MeetingsService {
   closedReason(meeting: Meeting): string | undefined {
     if (meeting.finalized) return 'This meeting has been finalized.';
     if (meeting.locked) return 'The organizer has paused responses.';
-    if (meeting.responseDeadline && meeting.responseDeadline <= new Date()) {
-      return 'The response deadline has passed.';
-    }
     return undefined;
   }
 
@@ -475,6 +478,15 @@ export class MeetingsService {
         'Meeting duration must be a multiple of the selected time-slot size.',
       );
     }
+    if (
+      meetingDurationMinutes < 15 ||
+      meetingDurationMinutes > 360 ||
+      meetingDurationMinutes % 15 !== 0
+    ) {
+      throw new BadRequestException(
+        'Meeting duration must be between 15 minutes and 6 hours in 15-minute steps.',
+      );
+    }
     if (meetingDurationMinutes > endMinutes - startMinutes) {
       throw new BadRequestException(
         'Meeting duration cannot be longer than the daily scheduling window.',
@@ -500,9 +512,6 @@ export class MeetingsService {
       slotIntervalMinutes,
       meetingDurationMinutes,
       timezone: dto.timezone,
-      responseDeadline: dto.responseDeadline
-        ? new Date(dto.responseDeadline)
-        : null,
     };
   }
 
@@ -535,9 +544,6 @@ export class MeetingsService {
               datetimeEnd: meeting.finalSlotEnd.toISOString(),
             },
           }
-        : {}),
-      ...(meeting.responseDeadline
-        ? { responseDeadline: meeting.responseDeadline.toISOString() }
         : {}),
       createdAt: meeting.createdAt.toISOString(),
     };
