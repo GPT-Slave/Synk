@@ -92,7 +92,8 @@ export default function PublicMeetingPage() {
           <span className="flex items-center gap-2">
             <Clock3 className="size-4 text-primary" />
             {meeting.data.workdayStart}–{meeting.data.workdayEnd} ·{" "}
-            {meeting.data.timezone}
+            {meeting.data.timezone} · {meeting.data.slotIntervalMinutes}-minute
+            slots
           </span>
         </div>
 

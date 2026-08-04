@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { meetingGrid } from '../meetings/meeting-time';
 import { ParticipantsService } from '../participants/participants.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { MeetingsRealtimeGateway } from '../realtime/meetings-realtime.gateway';
 import type { UpdateAvailabilityDto } from './dto/update-availability.dto';
 
 @Injectable()
@@ -9,6 +10,7 @@ export class AvailabilityService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly participants: ParticipantsService,
+    private readonly realtime: MeetingsRealtimeGateway,
   ) {}
 
   async replace(
@@ -50,6 +52,7 @@ export class AvailabilityService {
       };
     });
 
+    const comment = dto.comment?.trim() || null;
     await this.prisma.$transaction(async (transaction) => {
       await transaction.availability.deleteMany({
         where: { participantId: participant.id },
@@ -57,13 +60,24 @@ export class AvailabilityService {
       if (slots.length > 0) {
         await transaction.availability.createMany({ data: slots });
       }
+      await transaction.participant.update({
+        where: { id: participant.id },
+        data: { comment, respondedAt: new Date() },
+      });
     });
 
-    return {
-      availabilities: slots.map((slot) => ({
-        datetimeStart: slot.datetimeStart.toISOString(),
-        datetimeEnd: slot.datetimeEnd.toISOString(),
-      })),
-    };
+    const availabilities = slots.map((slot) => ({
+      datetimeStart: slot.datetimeStart.toISOString(),
+      datetimeEnd: slot.datetimeEnd.toISOString(),
+    }));
+    this.realtime.availabilityChanged({
+      meetingId: participant.meeting.id,
+      participantId: participant.id,
+      displayName: participant.displayName,
+      availabilities,
+      ...(comment ? { comment } : {}),
+    });
+
+    return { availabilities, ...(comment ? { comment } : {}) };
   }
 }

@@ -41,6 +41,7 @@ model Meeting {
   endDate          DateTime      @map("end_date")
   workdayStart     String        @map("workday_start")
   workdayEnd       String        @map("workday_end")
+  slotIntervalMinutes Int        @default(60) @map("slot_interval_minutes")
   finalized        Boolean       @default(false)
   finalSlotAt      DateTime?     @map("final_slot_at")
   responseDeadline DateTime?     @map("response_deadline")
@@ -58,6 +59,8 @@ model Participant {
   displayName           String         @map("display_name")
   displayNameNormalized String         @map("display_name_normalized")
   sessionTokenHash      String         @unique @map("session_token_hash")
+  comment               String?
+  respondedAt           DateTime?      @map("responded_at")
   joinedAt              DateTime       @default(now()) @map("joined_at")
   availabilities        Availability[]
 

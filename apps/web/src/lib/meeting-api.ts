@@ -1,6 +1,10 @@
 import type {
   AvailabilitySlotDto,
+  BestMatchDto,
+  HeatmapCellDto,
   MeetingDto,
+  MeetingGridDateDto,
+  MeetingGridSlotDto,
   OrganizerMeetingDto,
   ParticipantSessionDto,
   PublicMeetingDto,
@@ -14,6 +18,7 @@ export interface MeetingInput {
   endDate: string;
   workdayStart: string;
   workdayEnd: string;
+  slotIntervalMinutes: 30 | 60;
   timezone: string;
   responseDeadline?: string | null;
 }
@@ -24,7 +29,12 @@ export interface OrganizerMeetingDetail extends OrganizerMeetingDto {
     displayName: string;
     joinedAt: string;
     responded: boolean;
+    comment?: string;
   }>;
+  dates: MeetingGridDateDto[];
+  slots: MeetingGridSlotDto[];
+  heatmap: HeatmapCellDto[];
+  bestTimes: BestMatchDto[];
 }
 
 export interface JoinedParticipantSession extends ParticipantSessionDto {
@@ -80,14 +90,14 @@ export function getParticipantSession(token: string, sessionToken: string) {
 export function saveAvailability(
   token: string,
   sessionToken: string,
-  slots: AvailabilitySlotDto[],
+  response: { slots: AvailabilitySlotDto[]; comment?: string },
 ) {
-  return request<{ availabilities: AvailabilitySlotDto[] }>(
+  return request<{ availabilities: AvailabilitySlotDto[]; comment?: string }>(
     `/public/meetings/${token}/availability`,
     {
       method: "PUT",
       headers: { "x-participant-session": sessionToken },
-      body: JSON.stringify({ slots }),
+      body: JSON.stringify(response),
     },
   );
 }

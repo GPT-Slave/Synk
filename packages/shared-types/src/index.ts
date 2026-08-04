@@ -8,6 +8,7 @@ export interface MeetingDto {
   endDate: string;
   workdayStart: string;
   workdayEnd: string;
+  slotIntervalMinutes: 30 | 60;
   finalized: boolean;
   responseDeadline?: string;
   createdAt: string;
@@ -21,16 +22,21 @@ export interface OrganizerMeetingDto extends MeetingDto {
   responseCount: number;
 }
 
+export interface MeetingGridDateDto {
+  date: string;
+  label: string;
+}
+
+export interface MeetingGridSlotDto extends AvailabilitySlotDto {
+  date: string;
+  timeLabel: string;
+}
+
 export interface PublicMeetingDto extends MeetingDto {
   acceptingResponses: boolean;
   closedReason?: string;
-  dates: Array<{ date: string; label: string }>;
-  slots: Array<{
-    datetimeStart: string;
-    datetimeEnd: string;
-    date: string;
-    timeLabel: string;
-  }>;
+  dates: MeetingGridDateDto[];
+  slots: MeetingGridSlotDto[];
 }
 
 export interface ParticipantDto {
@@ -42,6 +48,7 @@ export interface ParticipantDto {
 export interface ParticipantSessionDto {
   participant: ParticipantDto;
   availabilities: AvailabilitySlotDto[];
+  comment?: string;
 }
 
 export interface AvailabilitySlotDto {
@@ -52,13 +59,22 @@ export interface AvailabilitySlotDto {
 export interface HeatmapCellDto {
   datetimeStart: string;
   datetimeEnd: string;
+  date: string;
+  timeLabel: string;
   availableCount: number;
   totalParticipants: number;
+  percentage: number;
+  tier: 0 | 20 | 40 | 60 | 80 | 100;
   participantNames: string[];
 }
 
 export interface BestMatchDto {
   datetimeStart: string;
   datetimeEnd: string;
+  date: string;
+  timeLabel: string;
+  availableCount: number;
+  totalParticipants: number;
   percentage: number;
+  participantNames: string[];
 }

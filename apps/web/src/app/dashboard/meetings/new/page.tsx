@@ -6,7 +6,7 @@ import { OrganizerShell } from "@/components/organizer-shell";
 export default function NewMeetingPage() {
   return (
     <OrganizerShell>
-      <section className="mx-auto max-w-3xl py-10 sm:py-14">
+      <section className="mx-auto max-w-5xl py-10 sm:py-14">
         <Link
           className="inline-flex items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"
           href="/dashboard"
@@ -19,7 +19,7 @@ export default function NewMeetingPage() {
         <p className="mt-3 text-muted-foreground">
           Define the window, then share the secure link with your participants.
         </p>
-        <div className="mt-10 rounded-2xl border border-white/10 bg-white/[0.025] p-5 sm:p-8">
+        <div className="mt-10">
           <MeetingForm />
         </div>
       </section>

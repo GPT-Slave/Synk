@@ -2,11 +2,12 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
+import { AvailabilityModule } from './availability/availability.module';
 import { MeetingsModule } from './meetings/meetings.module';
 import { ParticipantsModule } from './participants/participants.module';
-import { AvailabilityModule } from './availability/availability.module';
+import { PrismaModule } from './prisma/prisma.module';
+import { RealtimeModule } from './realtime/realtime.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { AvailabilityModule } from './availability/availability.module';
     MeetingsModule,
     ParticipantsModule,
     AvailabilityModule,
+    RealtimeModule,
   ],
   controllers: [AppController],
   providers: [AppService],

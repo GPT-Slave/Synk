@@ -3,6 +3,9 @@ import {
   ArrayMaxSize,
   IsArray,
   IsISO8601,
+  IsOptional,
+  IsString,
+  MaxLength,
   ValidateNested,
 } from 'class-validator';
 
@@ -20,4 +23,9 @@ export class UpdateAvailabilityDto {
   @ValidateNested({ each: true })
   @Type(() => AvailabilitySlotInput)
   slots!: AvailabilitySlotInput[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  comment?: string;
 }

@@ -12,7 +12,12 @@ export class AppService {
     return {
       datetimeStart: new Date().toISOString(),
       datetimeEnd: new Date().toISOString(),
+      date: new Date().toISOString().slice(0, 10),
+      timeLabel: '08:00',
+      availableCount: 1,
+      totalParticipants: 1,
       percentage: 100,
+      participantNames: ['Example'],
     };
   }
 }

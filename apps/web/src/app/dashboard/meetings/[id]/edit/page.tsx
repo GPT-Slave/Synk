@@ -24,7 +24,7 @@ function EditMeeting() {
   });
 
   return (
-    <section className="mx-auto max-w-3xl py-10 sm:py-14">
+    <section className="mx-auto max-w-5xl py-10 sm:py-14">
       <Link
         className="inline-flex items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"
         href={`/dashboard/meetings/${id}`}
@@ -48,7 +48,7 @@ function EditMeeting() {
         </p>
       )}
       {meeting.data && !meeting.data.finalized && (
-        <div className="mt-10 rounded-2xl border border-white/10 bg-white/[0.025] p-5 sm:p-8">
+        <div className="mt-10">
           <MeetingForm meeting={meeting.data} />
         </div>
       )}

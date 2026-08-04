@@ -12,6 +12,7 @@ const meeting = {
   endDate: new Date('2026-08-13T00:00:00.000Z'),
   workdayStart: '08:00',
   workdayEnd: '10:00',
+  slotIntervalMinutes: 60,
   finalized: false,
   finalSlotAt: null,
   responseDeadline: null,
@@ -28,6 +29,17 @@ describe('meetingGrid', () => {
       date: '2026-08-12',
       timeLabel: '08:00',
       datetimeStart: '2026-08-12T07:00:00.000Z',
+      datetimeEnd: '2026-08-12T08:00:00.000Z',
+    });
+  });
+
+  it('creates half-hour slots when the meeting requests them', () => {
+    const grid = meetingGrid({ ...meeting, slotIntervalMinutes: 30 });
+
+    expect(grid.slots).toHaveLength(8);
+    expect(grid.slots[1]).toMatchObject({
+      timeLabel: '08:30',
+      datetimeStart: '2026-08-12T07:30:00.000Z',
       datetimeEnd: '2026-08-12T08:00:00.000Z',
     });
   });

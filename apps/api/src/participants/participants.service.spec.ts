@@ -3,6 +3,7 @@ import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import type { Meeting } from '@prisma/client';
 import type { MeetingsService } from '../meetings/meetings.service';
 import type { PrismaService } from '../prisma/prisma.service';
+import type { MeetingsRealtimeGateway } from '../realtime/meetings-realtime.gateway';
 import { ParticipantsService } from './participants.service';
 
 const meeting = {
@@ -16,6 +17,7 @@ const meeting = {
   endDate: new Date('2026-08-13T00:00:00.000Z'),
   workdayStart: '08:00',
   workdayEnd: '10:00',
+  slotIntervalMinutes: 60,
   finalized: false,
   finalSlotAt: null,
   responseDeadline: null,
@@ -39,9 +41,11 @@ describe('ParticipantsService', () => {
     closedReason: jest.fn(),
     findBySlug: jest.fn(),
   };
+  const realtime = { participantJoined: jest.fn() };
   const service = new ParticipantsService(
     prisma as unknown as PrismaService,
     meetings as unknown as MeetingsService,
+    realtime as unknown as MeetingsRealtimeGateway,
   );
 
   beforeEach(() => {
@@ -56,6 +60,7 @@ describe('ParticipantsService', () => {
     transaction.participant.create.mockImplementation(({ data }) =>
       Promise.resolve({
         id: 'participant-1',
+        meetingId: meeting.id,
         displayName: data.displayName,
         joinedAt: new Date('2026-08-04T00:00:00.000Z'),
       }),
@@ -74,6 +79,9 @@ describe('ParticipantsService', () => {
     expect(
       transaction.participant.create.mock.calls[0][0].data.sessionTokenHash,
     ).not.toBe(result.sessionToken);
+    expect(realtime.participantJoined).toHaveBeenCalledWith(
+      expect.objectContaining({ meetingId: 'meeting-1' }),
+    );
   });
 
   it('enforces case-insensitive uniqueness and returns suggestions', async () => {

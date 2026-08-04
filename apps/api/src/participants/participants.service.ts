@@ -8,12 +8,14 @@ import { Prisma, type Meeting } from '@prisma/client';
 import { createHash, randomBytes } from 'node:crypto';
 import { MeetingsService } from '../meetings/meetings.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { MeetingsRealtimeGateway } from '../realtime/meetings-realtime.gateway';
 
 @Injectable()
 export class ParticipantsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly meetings: MeetingsService,
+    private readonly realtime: MeetingsRealtimeGateway,
   ) {}
 
   async join(slug: string, requestedName: string) {
@@ -25,48 +27,51 @@ export class ParticipantsService {
     const sessionToken = randomBytes(32).toString('base64url');
 
     try {
-      const participant = await this.prisma.$transaction(
-        async (transaction) => {
-          const meeting = await transaction.meeting.findUnique({
-            where: { slug },
-          });
-          if (!meeting)
-            throw new NotFoundException('Invitation link not found.');
-          this.ensureOpen(meeting);
+      const result = await this.prisma.$transaction(async (transaction) => {
+        const meeting = await transaction.meeting.findUnique({
+          where: { slug },
+        });
+        if (!meeting) throw new NotFoundException('Invitation link not found.');
+        this.ensureOpen(meeting);
 
-          const taken = await transaction.participant.findUnique({
-            where: {
-              meetingId_displayNameNormalized: {
-                meetingId: meeting.id,
-                displayNameNormalized,
-              },
-            },
-          });
-          if (taken) {
-            throw new ConflictException({
-              message: 'That name is already taken for this meeting.',
-              code: 'NAME_TAKEN',
-              suggestions: await this.suggestions(
-                transaction,
-                meeting.id,
-                displayName,
-              ),
-            });
-          }
-
-          return transaction.participant.create({
-            data: {
+        const taken = await transaction.participant.findUnique({
+          where: {
+            meetingId_displayNameNormalized: {
               meetingId: meeting.id,
-              displayName,
               displayNameNormalized,
-              sessionTokenHash: this.hashToken(sessionToken),
             },
+          },
+        });
+        if (taken) {
+          throw new ConflictException({
+            message: 'That name is already taken for this meeting.',
+            code: 'NAME_TAKEN',
+            suggestions: await this.suggestions(
+              transaction,
+              meeting.id,
+              displayName,
+            ),
           });
-        },
-      );
+        }
+
+        const participant = await transaction.participant.create({
+          data: {
+            meetingId: meeting.id,
+            displayName,
+            displayNameNormalized,
+            sessionTokenHash: this.hashToken(sessionToken),
+          },
+        });
+        return { meetingId: meeting.id, participant };
+      });
+
+      this.realtime.participantJoined({
+        meetingId: result.meetingId,
+        participant: this.serialize(result.participant),
+      });
 
       return {
-        participant: this.serialize(participant),
+        participant: this.serialize(result.participant),
         sessionToken,
         availabilities: [],
       };
@@ -98,6 +103,7 @@ export class ParticipantsService {
         datetimeStart: availability.datetimeStart.toISOString(),
         datetimeEnd: availability.datetimeEnd.toISOString(),
       })),
+      ...(participant.comment ? { comment: participant.comment } : {}),
     };
   }
 

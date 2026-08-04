@@ -42,10 +42,14 @@ export function meetingGrid(meeting: Meeting) {
       }).format(cursor),
     });
 
-    for (let minute = startMinutes; minute + 60 <= endMinutes; minute += 60) {
+    for (
+      let minute = startMinutes;
+      minute + meeting.slotIntervalMinutes <= endMinutes;
+      minute += meeting.slotIntervalMinutes
+    ) {
       const hours = Math.floor(minute / 60);
       const minutes = minute % 60;
-      const nextMinute = minute + 60;
+      const nextMinute = minute + meeting.slotIntervalMinutes;
       const start = zonedDateTimeToUtc(date, hours, minutes, meeting.timezone);
       const finish = zonedDateTimeToUtc(
         date,

@@ -15,6 +15,7 @@ const baseDto = {
   endDate: '2026-08-15',
   workdayStart: '08:00',
   workdayEnd: '20:00',
+  slotIntervalMinutes: 60,
   timezone: 'Africa/Tunis',
 };
 
@@ -30,6 +31,7 @@ function savedMeeting(overrides: Partial<Meeting> = {}): Meeting {
     endDate: new Date('2026-08-15T00:00:00.000Z'),
     workdayStart: '08:00',
     workdayEnd: '20:00',
+    slotIntervalMinutes: 60,
     finalized: false,
     finalSlotAt: null,
     responseDeadline: null,
@@ -88,6 +90,16 @@ describe('MeetingsService', () => {
   it('rejects invalid working hours', async () => {
     await expect(
       service.create('user-1', { ...baseDto, workdayEnd: '08:00' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects working hours that do not align to the slot interval', async () => {
+    await expect(
+      service.create('user-1', {
+        ...baseDto,
+        slotIntervalMinutes: 60,
+        workdayStart: '08:30',
+      }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 

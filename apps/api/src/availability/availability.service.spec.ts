@@ -1,8 +1,9 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { BadRequestException } from '@nestjs/common';
 import type { Meeting } from '@prisma/client';
 import type { ParticipantsService } from '../participants/participants.service';
 import type { PrismaService } from '../prisma/prisma.service';
+import type { MeetingsRealtimeGateway } from '../realtime/meetings-realtime.gateway';
 import { AvailabilityService } from './availability.service';
 
 const meeting = {
@@ -16,6 +17,7 @@ const meeting = {
   endDate: new Date('2026-08-12T00:00:00.000Z'),
   workdayStart: '08:00',
   workdayEnd: '10:00',
+  slotIntervalMinutes: 60,
   finalized: false,
   finalSlotAt: null,
   responseDeadline: null,
@@ -25,6 +27,7 @@ const meeting = {
 describe('AvailabilityService', () => {
   const transaction = {
     availability: { deleteMany: jest.fn(), createMany: jest.fn() },
+    participant: { update: jest.fn() },
   };
   const prisma = {
     $transaction: jest.fn((callback) => callback(transaction)),
@@ -33,15 +36,20 @@ describe('AvailabilityService', () => {
     requireSession: jest.fn(),
     ensureOpen: jest.fn(),
   };
+  const realtime = {
+    availabilityChanged: jest.fn(),
+  };
   const service = new AvailabilityService(
     prisma as unknown as PrismaService,
     participants as unknown as ParticipantsService,
+    realtime as unknown as MeetingsRealtimeGateway,
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
     participants.requireSession.mockResolvedValue({
       id: 'participant-1',
+      displayName: 'Alice',
       meeting,
     });
   });
@@ -61,12 +69,38 @@ describe('AvailabilityService', () => {
       where: { participantId: 'participant-1' },
     });
     expect(transaction.availability.createMany).toHaveBeenCalledTimes(1);
+    expect(transaction.participant.update).toHaveBeenCalledWith({
+      where: { id: 'participant-1' },
+      data: { comment: null, respondedAt: expect.any(Date) },
+    });
+    expect(realtime.availabilityChanged).toHaveBeenCalledWith(
+      expect.objectContaining({
+        meetingId: 'meeting-1',
+        participantId: 'participant-1',
+      }),
+    );
     expect(result.availabilities).toEqual([
       {
         datetimeStart: '2026-08-12T07:00:00.000Z',
         datetimeEnd: '2026-08-12T08:00:00.000Z',
       },
     ]);
+  });
+
+  it('stores an optional comment with an intentional empty response', async () => {
+    const result = await service.replace(meeting.slug, 'session-token', {
+      slots: [],
+      comment: '  Afternoons are easier.  ',
+    });
+
+    expect(transaction.participant.update).toHaveBeenCalledWith({
+      where: { id: 'participant-1' },
+      data: {
+        comment: 'Afternoons are easier.',
+        respondedAt: expect.any(Date),
+      },
+    });
+    expect(result).toMatchObject({ comment: 'Afternoons are easier.' });
   });
 
   it('rejects slots outside meeting dates and working hours', async () => {

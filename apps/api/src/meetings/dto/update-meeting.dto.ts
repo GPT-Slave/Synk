@@ -1,5 +1,7 @@
 import {
   IsDateString,
+  IsIn,
+  IsInt,
   IsOptional,
   IsString,
   IsTimeZone,
@@ -9,7 +11,7 @@ import {
 } from 'class-validator';
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
-const TIME_ONLY = /^([01]\d|2[0-3]):[0-5]\d$/;
+const TIME_ONLY = /^(?:[01]\d|2[0-3]):[0-5]\d$|^24:00$/;
 
 export class UpdateMeetingDto {
   @IsOptional()
@@ -37,6 +39,11 @@ export class UpdateMeetingDto {
   @IsOptional()
   @Matches(TIME_ONLY, { message: 'workdayEnd must use HH:mm.' })
   workdayEnd?: string;
+
+  @IsOptional()
+  @IsInt()
+  @IsIn([30, 60])
+  slotIntervalMinutes?: number;
 
   @IsOptional()
   @IsTimeZone()

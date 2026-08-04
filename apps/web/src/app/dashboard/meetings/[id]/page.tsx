@@ -17,7 +17,10 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { OrganizerShell } from "@/components/organizer-shell";
+import { BestTimeSuggestions } from "@/components/meetings/best-time-suggestions";
+import { HeatmapGrid } from "@/components/meetings/heatmap-grid";
 import { Button } from "@/components/ui/button";
+import { useMeetingRealtime } from "@/hooks/use-meeting-realtime";
 import { deleteMeeting, getMeeting } from "@/lib/meeting-api";
 
 export default function MeetingDetailPage() {
@@ -33,6 +36,7 @@ function MeetingDetail() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
+  const realtimeStatus = useMeetingRealtime(id);
   const meeting = useQuery({
     queryKey: ["meetings", id],
     queryFn: () => getMeeting(id),
@@ -99,6 +103,7 @@ function MeetingDetail() {
                 Finalized
               </span>
             )}
+            <LiveStatus status={realtimeStatus} />
           </div>
           {data.description && (
             <p className="mt-4 max-w-2xl leading-relaxed text-muted-foreground">
@@ -146,11 +151,11 @@ function MeetingDetail() {
         <InfoCard
           icon={<Link2 />}
           label="Timezone"
-          value={`${data.timezone} · ${data.workdayStart}–${data.workdayEnd}`}
+          value={`${data.timezone} · ${data.workdayStart}–${data.workdayEnd} · ${data.slotIntervalMinutes} min`}
         />
       </div>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[0.82fr_1.18fr]">
+      <div className="mt-8 grid gap-6 lg:grid-cols-[0.78fr_1.22fr]">
         <DashboardSection title="Participants" icon={<UsersRound />}>
           {data.participants.length === 0 ? (
             <EmptyText>
@@ -160,10 +165,17 @@ function MeetingDetail() {
             <ul className="divide-y divide-white/10">
               {data.participants.map((participant) => (
                 <li
-                  className="flex items-center justify-between py-3"
+                  className="flex items-start justify-between gap-3 py-3"
                   key={participant.id}
                 >
-                  <span className="text-sm">{participant.displayName}</span>
+                  <div className="min-w-0">
+                    <p className="text-sm">{participant.displayName}</p>
+                    {participant.comment && (
+                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                        “{participant.comment}”
+                      </p>
+                    )}
+                  </div>
                   <span
                     className={
                       participant.responded
@@ -179,19 +191,18 @@ function MeetingDetail() {
           )}
         </DashboardSection>
 
-        <div className="space-y-6">
-          <DashboardSection title="Availability heatmap" icon={<Flame />}>
-            <EmptyText>
-              The live overlap heatmap will appear here in the next phase.
-            </EmptyText>
-          </DashboardSection>
-          <DashboardSection title="Best meeting times" icon={<Sparkles />}>
-            <EmptyText>
-              Ranked suggestions will use participant availability in the next
-              phase.
-            </EmptyText>
-          </DashboardSection>
-        </div>
+        <DashboardSection title="Best meeting times" icon={<Sparkles />}>
+          <BestTimeSuggestions
+            matches={data.bestTimes}
+            timezone={data.timezone}
+          />
+        </DashboardSection>
+      </div>
+
+      <div className="mt-6">
+        <DashboardSection title="Live availability heatmap" icon={<Flame />}>
+          <HeatmapGrid meeting={data} />
+        </DashboardSection>
       </div>
     </section>
   );
@@ -238,6 +249,30 @@ function DashboardSection({
 function EmptyText({ children }: { children: React.ReactNode }) {
   return (
     <p className="text-sm leading-relaxed text-muted-foreground">{children}</p>
+  );
+}
+
+function LiveStatus({
+  status,
+}: {
+  status: "connecting" | "live" | "offline";
+}) {
+  const label = {
+    connecting: "Connecting",
+    live: "Live",
+    offline: "Reconnecting",
+  }[status];
+  return (
+    <span className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 text-xs text-muted-foreground">
+      <span
+        className={`size-1.5 rounded-full ${
+          status === "live"
+            ? "bg-sky-400 shadow-[0_0_10px_oklch(0.75_0.15_235)]"
+            : "animate-pulse bg-white/35"
+        }`}
+      />
+      {label}
+    </span>
   );
 }
 

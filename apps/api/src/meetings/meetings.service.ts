@@ -9,6 +9,7 @@ import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateMeetingDto } from './dto/create-meeting.dto';
 import type { UpdateMeetingDto } from './dto/update-meeting.dto';
+import { aggregateAvailability } from './availability-aggregation';
 import {
   dateOnly,
   meetingGrid,
@@ -50,7 +51,7 @@ export class MeetingsService {
       where: { organizerId },
       orderBy: [{ finalized: 'asc' }, { startDate: 'asc' }],
       include: {
-        participants: { select: { availabilities: { select: { id: true } } } },
+        participants: { select: { respondedAt: true } },
       },
     });
     return meetings.map((meeting) => ({
@@ -58,7 +59,7 @@ export class MeetingsService {
       status: this.status(meeting),
       participantCount: meeting.participants.length,
       responseCount: meeting.participants.filter(
-        (participant) => participant.availabilities.length > 0,
+        (participant) => participant.respondedAt,
       ).length,
     }));
   }
@@ -74,20 +75,23 @@ export class MeetingsService {
       },
     });
     if (!meeting) throw new NotFoundException('Meeting not found.');
+    const availability = aggregateAvailability(meeting, meeting.participants);
 
     return {
       ...this.serialize(meeting),
       status: this.status(meeting),
       participantCount: meeting.participants.length,
       responseCount: meeting.participants.filter(
-        (participant) => participant.availabilities.length > 0,
+        (participant) => participant.respondedAt,
       ).length,
       participants: meeting.participants.map((participant) => ({
         id: participant.id,
         displayName: participant.displayName,
         joinedAt: participant.joinedAt.toISOString(),
-        responded: participant.availabilities.length > 0,
+        responded: Boolean(participant.respondedAt),
+        ...(participant.comment ? { comment: participant.comment } : {}),
       })),
+      ...availability,
     };
   }
 
@@ -106,6 +110,8 @@ export class MeetingsService {
       endDate: dto.endDate ?? dateOnly(meeting.endDate),
       workdayStart: dto.workdayStart ?? meeting.workdayStart,
       workdayEnd: dto.workdayEnd ?? meeting.workdayEnd,
+      slotIntervalMinutes:
+        dto.slotIntervalMinutes ?? meeting.slotIntervalMinutes,
       timezone: dto.timezone ?? meeting.timezone,
       responseDeadline:
         dto.responseDeadline === undefined
@@ -117,6 +123,7 @@ export class MeetingsService {
       dto.endDate ??
       dto.workdayStart ??
       dto.workdayEnd ??
+      dto.slotIntervalMinutes ??
       dto.timezone,
     );
     const updated = await this.prisma.$transaction(async (transaction) => {
@@ -181,8 +188,19 @@ export class MeetingsService {
     if (endDate < startDate) {
       throw new BadRequestException('End date must be on or after start date.');
     }
-    if (minutesFromTime(dto.workdayEnd) <= minutesFromTime(dto.workdayStart)) {
+    const startMinutes = minutesFromTime(dto.workdayStart);
+    const endMinutes = minutesFromTime(dto.workdayEnd);
+    const slotIntervalMinutes = dto.slotIntervalMinutes ?? 60;
+    if (endMinutes <= startMinutes) {
       throw new BadRequestException('Working hours must end after they start.');
+    }
+    if (
+      startMinutes % slotIntervalMinutes !== 0 ||
+      endMinutes % slotIntervalMinutes !== 0
+    ) {
+      throw new BadRequestException(
+        `Working hours must align to ${slotIntervalMinutes}-minute slots.`,
+      );
     }
 
     return {
@@ -192,6 +210,7 @@ export class MeetingsService {
       endDate,
       workdayStart: dto.workdayStart,
       workdayEnd: dto.workdayEnd,
+      slotIntervalMinutes,
       timezone: dto.timezone,
       responseDeadline: dto.responseDeadline
         ? new Date(dto.responseDeadline)
@@ -217,6 +236,7 @@ export class MeetingsService {
       endDate: dateOnly(meeting.endDate),
       workdayStart: meeting.workdayStart,
       workdayEnd: meeting.workdayEnd,
+      slotIntervalMinutes: meeting.slotIntervalMinutes,
       finalized: meeting.finalized,
       ...(meeting.responseDeadline
         ? { responseDeadline: meeting.responseDeadline.toISOString() }

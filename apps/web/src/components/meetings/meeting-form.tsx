@@ -2,10 +2,11 @@
 
 import type { OrganizerMeetingDto } from "@meet-planner/shared-types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Clock3, LoaderCircle } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { SchedulePicker } from "@/components/meetings/schedule-picker";
 import { ApiError } from "@/lib/auth-api";
 import {
   createMeeting,
@@ -24,6 +25,9 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
     meeting?.workdayStart ?? "08:00",
   );
   const [workdayEnd, setWorkdayEnd] = useState(meeting?.workdayEnd ?? "20:00");
+  const [slotIntervalMinutes, setSlotIntervalMinutes] = useState<30 | 60>(
+    meeting?.slotIntervalMinutes ?? 60,
+  );
   const [timezone, setTimezone] = useState(meeting?.timezone ?? "Africa/Tunis");
   const [responseDeadline, setResponseDeadline] = useState(
     meeting?.responseDeadline
@@ -51,7 +55,7 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(undefined);
-    if (endDate < startDate) {
+    if (!endDate || endDate < startDate) {
       setFormError("End date must be on or after the start date.");
       return;
     }
@@ -66,6 +70,7 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
       endDate,
       workdayStart,
       workdayEnd,
+      slotIntervalMinutes,
       timezone,
       responseDeadline: responseDeadline
         ? new Date(responseDeadline).toISOString()
@@ -120,50 +125,19 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
         />
       </div>
 
-      <fieldset className="space-y-3">
-        <legend className="flex items-center gap-2 text-sm font-medium">
-          <CalendarDays className="size-4 text-primary" /> Date range
-        </legend>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <LabeledInput
-            id="start-date"
-            label="Start date"
-            onChange={setStartDate}
-            type="date"
-            value={startDate}
-          />
-          <LabeledInput
-            id="end-date"
-            label="End date"
-            min={startDate}
-            onChange={setEndDate}
-            type="date"
-            value={endDate}
-          />
-        </div>
-      </fieldset>
-
-      <fieldset className="space-y-3">
-        <legend className="flex items-center gap-2 text-sm font-medium">
-          <Clock3 className="size-4 text-primary" /> Working hours
-        </legend>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <LabeledInput
-            id="workday-start"
-            label="From"
-            onChange={setWorkdayStart}
-            type="time"
-            value={workdayStart}
-          />
-          <LabeledInput
-            id="workday-end"
-            label="To"
-            onChange={setWorkdayEnd}
-            type="time"
-            value={workdayEnd}
-          />
-        </div>
-      </fieldset>
+      <SchedulePicker
+        endDate={endDate}
+        minDate={meeting ? undefined : today()}
+        onEndDateChange={setEndDate}
+        onIntervalChange={setSlotIntervalMinutes}
+        onStartDateChange={setStartDate}
+        onWorkdayEndChange={setWorkdayEnd}
+        onWorkdayStartChange={setWorkdayStart}
+        slotIntervalMinutes={slotIntervalMinutes}
+        startDate={startDate}
+        workdayEnd={workdayEnd}
+        workdayStart={workdayStart}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
@@ -245,6 +219,11 @@ function LabeledInput({
 function tomorrow() {
   const date = new Date();
   date.setDate(date.getDate() + 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function today() {
+  const date = new Date();
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 

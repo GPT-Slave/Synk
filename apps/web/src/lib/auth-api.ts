@@ -13,6 +13,8 @@ export interface Credentials {
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+export const SOCKET_URL =
+  process.env.NEXT_PUBLIC_WS_URL ?? API_URL.replace(/^http/, "ws");
 
 export class ApiError extends Error {
   constructor(
@@ -107,4 +109,8 @@ export function signup(credentials: Credentials) {
 
 export function logout() {
   return request<void>("/auth/logout", { method: "POST" });
+}
+
+export function refreshOrganizerSession() {
+  return request<SessionResponse>("/auth/refresh", { method: "POST" });
 }
