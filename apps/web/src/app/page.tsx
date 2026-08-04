@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 export default function Home() {
   return (
     <main className="relative flex min-h-svh flex-col overflow-hidden px-5 sm:px-8">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,oklch(0.65_0.29_25_/_0.12),transparent_38%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,oklch(0.72_0.19_250_/_0.16),transparent_38%)]" />
       <nav className="relative mx-auto flex w-full max-w-6xl items-center justify-between border-b border-white/10 py-5">
         <Link className="flex items-center gap-3" href="/">
           <Image
             alt=""
-            className="brand-neon-red size-11 rounded-xl"
+            className="brand-neon-blue size-11 rounded-xl"
             height={72}
             priority
             src="/logo.png"
@@ -42,7 +42,7 @@ export default function Home() {
           </p>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
             <Button
-              className="h-11 px-5 shadow-[0_0_30px_oklch(0.68_0.29_25_/_0.28)]"
+              className="h-11 px-5 shadow-[0_0_30px_oklch(0.72_0.19_250_/_0.32)]"
               render={<Link href="/signup" />}
             >
               Create your first poll <ArrowRight />
@@ -69,7 +69,7 @@ export default function Home() {
 
         <Image
           alt="Calendra — Find time. Together."
-          className="brand-neon-red mx-auto h-auto w-full max-w-lg"
+          className="brand-neon-blue mx-auto h-auto w-full max-w-lg"
           height={1020}
           priority
           src="/logo+slogan.png"

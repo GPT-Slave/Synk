@@ -87,7 +87,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
     <form className="space-y-5" noValidate onSubmit={handleSubmit}>
       {serverError && (
         <div
-          className="rounded-xl border border-primary/35 bg-primary/10 px-4 py-3 text-sm text-red-100"
+          className="rounded-xl border border-primary/35 bg-primary/10 px-4 py-3 text-sm text-blue-100"
           role="alert"
         >
           {serverError}
@@ -135,7 +135,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           </button>
         </div>
         {errors.password && (
-          <p className="text-xs text-red-300" id="password-error">
+          <p className="text-xs text-blue-300" id="password-error">
             {errors.password}
           </p>
         )}
@@ -155,7 +155,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
       )}
 
       <Button
-        className="h-11 w-full shadow-[0_0_28px_oklch(0.68_0.29_25_/_0.24)]"
+        className="h-11 w-full shadow-[0_0_28px_oklch(0.72_0.19_250_/_0.28)]"
         disabled={mutation.isPending}
         type="submit"
       >
@@ -214,7 +214,7 @@ function Field({
         value={value}
       />
       {error && (
-        <p className="text-xs text-red-300" id={`${id}-error`}>
+        <p className="text-xs text-blue-300" id={`${id}-error`}>
           {error}
         </p>
       )}

@@ -1,0 +1,146 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
+import type { Meeting } from '@prisma/client';
+import type { PrismaService } from '../prisma/prisma.service';
+import { MeetingsService } from './meetings.service';
+
+const baseDto = {
+  title: '  Project sync  ',
+  description: ' Align the team ',
+  startDate: '2026-08-12',
+  endDate: '2026-08-15',
+  workdayStart: '08:00',
+  workdayEnd: '20:00',
+  timezone: 'Africa/Tunis',
+};
+
+function savedMeeting(overrides: Partial<Meeting> = {}): Meeting {
+  return {
+    id: 'meeting-1',
+    organizerId: 'user-1',
+    title: 'Project sync',
+    description: 'Align the team',
+    slug: 'a'.repeat(64),
+    timezone: 'Africa/Tunis',
+    startDate: new Date('2026-08-12T00:00:00.000Z'),
+    endDate: new Date('2026-08-15T00:00:00.000Z'),
+    workdayStart: '08:00',
+    workdayEnd: '20:00',
+    finalized: false,
+    finalSlotAt: null,
+    responseDeadline: null,
+    createdAt: new Date('2026-08-04T00:00:00.000Z'),
+    ...overrides,
+  };
+}
+
+describe('MeetingsService', () => {
+  const transaction = {
+    meeting: { update: jest.fn() },
+    availability: { deleteMany: jest.fn() },
+  };
+  const prisma = {
+    $transaction: jest.fn((callback) => callback(transaction)),
+    meeting: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
+  };
+  const service = new MeetingsService(prisma as unknown as PrismaService);
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('creates a meeting with a 256-bit hexadecimal invitation token', async () => {
+    prisma.meeting.create.mockImplementation(({ data }) =>
+      Promise.resolve(savedMeeting({ ...data })),
+    );
+
+    const result = await service.create('user-1', baseDto);
+
+    expect(result.slug).toMatch(/^[a-f0-9]{64}$/);
+    expect(prisma.meeting.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        organizerId: 'user-1',
+        title: 'Project sync',
+        description: 'Align the team',
+      }),
+    });
+  });
+
+  it('rejects a reversed date range', async () => {
+    await expect(
+      service.create('user-1', {
+        ...baseDto,
+        startDate: '2026-08-15',
+        endDate: '2026-08-12',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects invalid working hours', async () => {
+    await expect(
+      service.create('user-1', { ...baseDto, workdayEnd: '08:00' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('blocks updates after finalization', async () => {
+    prisma.meeting.findFirst.mockResolvedValue(
+      savedMeeting({ finalized: true }),
+    );
+
+    await expect(
+      service.update('user-1', 'meeting-1', { title: 'New title' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(prisma.meeting.update).not.toHaveBeenCalled();
+  });
+
+  it('clears stale responses when the scheduling window changes', async () => {
+    const current = savedMeeting({
+      responseDeadline: new Date('2026-08-10T12:00:00.000Z'),
+    });
+    prisma.meeting.findFirst.mockResolvedValue(current);
+    transaction.meeting.update.mockResolvedValue(
+      savedMeeting({ workdayEnd: '18:00', responseDeadline: null }),
+    );
+
+    await service.update('user-1', 'meeting-1', {
+      workdayEnd: '18:00',
+      responseDeadline: null,
+    });
+
+    expect(transaction.availability.deleteMany).toHaveBeenCalledWith({
+      where: { participant: { meetingId: 'meeting-1' } },
+    });
+    expect(transaction.meeting.update).toHaveBeenCalledWith({
+      where: { id: 'meeting-1' },
+      data: expect.objectContaining({ responseDeadline: null }),
+    });
+  });
+
+  it('does not reveal meetings owned by another organizer', async () => {
+    prisma.meeting.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.detail('other-user', 'meeting-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('deletes only after ownership is verified', async () => {
+    prisma.meeting.findFirst.mockResolvedValue(savedMeeting());
+    prisma.meeting.delete.mockResolvedValue(savedMeeting());
+
+    await service.remove('user-1', 'meeting-1');
+
+    expect(prisma.meeting.delete).toHaveBeenCalledWith({
+      where: { id: 'meeting-1' },
+    });
+  });
+});

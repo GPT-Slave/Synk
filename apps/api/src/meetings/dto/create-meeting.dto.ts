@@ -1,0 +1,42 @@
+import {
+  IsDateString,
+  IsOptional,
+  IsString,
+  IsTimeZone,
+  Length,
+  Matches,
+  MaxLength,
+} from 'class-validator';
+
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_ONLY = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+export class CreateMeetingDto {
+  @IsString()
+  @Length(2, 120)
+  title!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  description?: string;
+
+  @Matches(DATE_ONLY, { message: 'startDate must use YYYY-MM-DD.' })
+  startDate!: string;
+
+  @Matches(DATE_ONLY, { message: 'endDate must use YYYY-MM-DD.' })
+  endDate!: string;
+
+  @Matches(TIME_ONLY, { message: 'workdayStart must use HH:mm.' })
+  workdayStart!: string;
+
+  @Matches(TIME_ONLY, { message: 'workdayEnd must use HH:mm.' })
+  workdayEnd!: string;
+
+  @IsTimeZone()
+  timezone!: string;
+
+  @IsOptional()
+  @IsDateString({ strict: true })
+  responseDeadline?: string | null;
+}

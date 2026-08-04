@@ -30,35 +30,39 @@ model RefreshToken {
 }
 
 model Meeting {
-  id            String        @id @default(cuid())
-  organizerId   String        @map("organizer_id")
-  organizer     User          @relation(fields: [organizerId], references: [id])
-  title         String
-  description   String?
-  slug          String        @unique
-  timezone      String
-  startDate     DateTime      @map("start_date")
-  endDate       DateTime      @map("end_date")
-  workdayStart  String        @map("workday_start")
-  workdayEnd    String        @map("workday_end")
-  finalized     Boolean       @default(false)
-  finalSlotAt   DateTime?     @map("final_slot_at")
-  responseDeadline DateTime?  @map("response_deadline")
-  createdAt     DateTime      @default(now()) @map("created_at")
-  participants  Participant[]
+  id               String        @id @default(cuid())
+  organizerId      String        @map("organizer_id")
+  organizer        User          @relation(fields: [organizerId], references: [id])
+  title            String
+  description      String?
+  slug             String        @unique
+  timezone         String
+  startDate        DateTime      @map("start_date")
+  endDate          DateTime      @map("end_date")
+  workdayStart     String        @map("workday_start")
+  workdayEnd       String        @map("workday_end")
+  finalized        Boolean       @default(false)
+  finalSlotAt      DateTime?     @map("final_slot_at")
+  responseDeadline DateTime?     @map("response_deadline")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  participants     Participant[]
 
+  @@index([organizerId])
   @@map("meetings")
 }
 
 model Participant {
-  id            String         @id @default(cuid())
-  meetingId     String         @map("meeting_id")
-  meeting       Meeting        @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  displayName   String         @map("display_name")
-  joinedAt      DateTime       @default(now()) @map("joined_at")
-  availabilities Availability[]
+  id                    String         @id @default(cuid())
+  meetingId             String         @map("meeting_id")
+  meeting               Meeting        @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  displayName           String         @map("display_name")
+  displayNameNormalized String         @map("display_name_normalized")
+  sessionTokenHash      String         @unique @map("session_token_hash")
+  joinedAt              DateTime       @default(now()) @map("joined_at")
+  availabilities        Availability[]
 
-  @@unique([meetingId, displayName], map: "uniq_meeting_display_name")
+  @@unique([meetingId, displayNameNormalized], map: "uniq_meeting_display_name_normalized")
+  @@index([meetingId])
   @@map("participants")
 }
 
@@ -69,5 +73,7 @@ model Availability {
   datetimeStart DateTime    @map("datetime_start")
   datetimeEnd   DateTime    @map("datetime_end")
 
+  @@unique([participantId, datetimeStart, datetimeEnd], map: "uniq_participant_availability_slot")
+  @@index([participantId])
   @@map("availabilities")
 }
