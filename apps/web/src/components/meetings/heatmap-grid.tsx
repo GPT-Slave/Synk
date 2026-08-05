@@ -2,7 +2,12 @@
 
 import type { BestMatchDto, HeatmapCellDto } from "@meet-planner/shared-types";
 import { motion, useReducedMotion } from "framer-motion";
-import { PointerEvent as ReactPointerEvent, useMemo, useState } from "react";
+import {
+  PointerEvent as ReactPointerEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { StatePanel } from "@/components/ui/state-panel";
 import { useI18n } from "@/lib/i18n";
 import type { OrganizerMeetingDetail } from "@/lib/meeting-api";
@@ -27,6 +32,7 @@ export function HeatmapGrid({
   selectedMatch?: BestMatchDto;
 }) {
   const [tooltip, setTooltip] = useState<TooltipState>();
+  const [suggestionHighlight, setSuggestionHighlight] = useState<BestMatchDto>();
   const { formatDate, t } = useI18n();
   const hours = useMemo(
     () =>
@@ -44,6 +50,19 @@ export function HeatmapGrid({
       ),
     [meeting.heatmap],
   );
+
+  useEffect(() => {
+    function receiveHighlight(event: Event) {
+      setSuggestionHighlight(
+        (event as CustomEvent<BestMatchDto | undefined>).detail,
+      );
+    }
+    window.addEventListener("synk:suggestion-highlight", receiveHighlight);
+    return () =>
+      window.removeEventListener("synk:suggestion-highlight", receiveHighlight);
+  }, []);
+
+  const activeHighlightedMatch = highlightedMatch ?? suggestionHighlight;
 
   if (meeting.dates.length === 0 || meeting.heatmap.length === 0) {
     return (
@@ -110,7 +129,7 @@ export function HeatmapGrid({
               cellByGridPosition={cellByGridPosition}
               dates={meeting.dates}
               formatDate={formatDate}
-              highlightedMatch={highlightedMatch}
+              highlightedMatch={activeHighlightedMatch}
               hour={hour}
               key={hour}
               manualMode={manualMode}
