@@ -13,7 +13,7 @@ const meeting = {
   endDate: new Date('2026-08-12T00:00:00.000Z'),
   workdayStart: '08:00',
   workdayEnd: '10:00',
-  slotIntervalMinutes: 30,
+  slotIntervalMinutes: 15,
   meetingDurationMinutes: 60,
   finalized: false,
   locked: false,
@@ -22,23 +22,28 @@ const meeting = {
   createdAt: new Date('2026-08-04T00:00:00.000Z'),
 } satisfies Meeting;
 
+const quarter = (start: string, end: string) => ({
+  datetimeStart: new Date(start),
+  datetimeEnd: new Date(end),
+});
+
 describe('aggregateAvailability', () => {
   it('builds exact-percentage heatmap cells with participant-name tooltips', () => {
     const result = aggregateAvailability(meeting, [
       {
         displayName: 'Alice',
         availabilities: [
-          {
-            datetimeStart: new Date('2026-08-12T07:00:00.000Z'),
-            datetimeEnd: new Date('2026-08-12T07:30:00.000Z'),
-          },
+          quarter(
+            '2026-08-12T07:00:00.000Z',
+            '2026-08-12T07:15:00.000Z',
+          ),
         ],
       },
       { displayName: 'Bob', availabilities: [] },
       { displayName: 'Charlie', availabilities: [] },
     ]);
 
-    expect(result.heatmap).toHaveLength(4);
+    expect(result.heatmap).toHaveLength(8);
     expect(result.heatmap[0]).toMatchObject({
       availableCount: 1,
       totalParticipants: 3,
@@ -48,80 +53,108 @@ describe('aggregateAvailability', () => {
     expect(result.heatmap[1].percentage).toBe(0);
   });
 
-  it('uses the organizer-selected duration for contiguous matches', () => {
+  it('allows a suggestion to start on any quarter hour', () => {
+    const result = aggregateAvailability(meeting, [
+      {
+        displayName: 'Alice',
+        availabilities: [
+          quarter(
+            '2026-08-12T07:15:00.000Z',
+            '2026-08-12T07:30:00.000Z',
+          ),
+          quarter(
+            '2026-08-12T07:30:00.000Z',
+            '2026-08-12T07:45:00.000Z',
+          ),
+          quarter(
+            '2026-08-12T07:45:00.000Z',
+            '2026-08-12T08:00:00.000Z',
+          ),
+          quarter(
+            '2026-08-12T08:00:00.000Z',
+            '2026-08-12T08:15:00.000Z',
+          ),
+        ],
+      },
+    ]);
+
+    expect(result.bestTimes).toHaveLength(1);
+    expect(result.bestTimes[0]).toMatchObject({
+      timeLabel: '08:15',
+      datetimeStart: '2026-08-12T07:15:00.000Z',
+      datetimeEnd: '2026-08-12T08:15:00.000Z',
+      percentage: 100,
+    });
+  });
+
+  it('requires every quarter in the requested meeting duration', () => {
     const result = aggregateAvailability(
       { ...meeting, meetingDurationMinutes: 90 },
       [
         {
           displayName: 'Alice',
-          availabilities: [
-            {
-              datetimeStart: new Date('2026-08-12T07:00:00.000Z'),
-              datetimeEnd: new Date('2026-08-12T07:30:00.000Z'),
-            },
-            {
-              datetimeStart: new Date('2026-08-12T07:30:00.000Z'),
-              datetimeEnd: new Date('2026-08-12T08:00:00.000Z'),
-            },
-            {
-              datetimeStart: new Date('2026-08-12T08:00:00.000Z'),
-              datetimeEnd: new Date('2026-08-12T08:30:00.000Z'),
-            },
-          ],
+          availabilities: meetingGrid(meeting).slots
+            .slice(0, 6)
+            .map((slot) =>
+              quarter(slot.datetimeStart, slot.datetimeEnd),
+            ),
         },
       ],
     );
 
     expect(result.bestTimes).toHaveLength(1);
     expect(result.bestTimes[0]).toMatchObject({
-      datetimeStart: '2026-08-12T07:00:00.000Z',
+      timeLabel: '08:00',
       datetimeEnd: '2026-08-12T08:30:00.000Z',
       percentage: 100,
     });
   });
 
-  it('ranks contiguous one-hour matches by overlap and then chronologically', () => {
+  it('prefers diverse non-overlapping suggestions over shifted duplicates', () => {
+    const availableSlots = meetingGrid(meeting).slots;
     const result = aggregateAvailability(meeting, [
       {
         displayName: 'Alice',
-        availabilities: [
-          {
-            datetimeStart: new Date('2026-08-12T07:00:00.000Z'),
-            datetimeEnd: new Date('2026-08-12T07:30:00.000Z'),
-          },
-          {
-            datetimeStart: new Date('2026-08-12T07:30:00.000Z'),
-            datetimeEnd: new Date('2026-08-12T08:00:00.000Z'),
-          },
-          {
-            datetimeStart: new Date('2026-08-12T08:00:00.000Z'),
-            datetimeEnd: new Date('2026-08-12T08:30:00.000Z'),
-          },
-        ],
-      },
-      {
-        displayName: 'Bob',
-        availabilities: [
-          {
-            datetimeStart: new Date('2026-08-12T07:30:00.000Z'),
-            datetimeEnd: new Date('2026-08-12T08:00:00.000Z'),
-          },
-          {
-            datetimeStart: new Date('2026-08-12T08:00:00.000Z'),
-            datetimeEnd: new Date('2026-08-12T08:30:00.000Z'),
-          },
-        ],
+        availabilities: availableSlots.map((slot) =>
+          quarter(slot.datetimeStart, slot.datetimeEnd),
+        ),
       },
     ]);
 
     expect(result.bestTimes.map((slot) => slot.timeLabel)).toEqual([
-      '08:30',
+      '08:00',
+      '09:00',
+    ]);
+  });
+
+  it('ranks stronger matches before weaker non-overlapping options', () => {
+    const slots = meetingGrid(meeting).slots;
+    const result = aggregateAvailability(meeting, [
+      {
+        displayName: 'Alice',
+        availabilities: slots.map((slot) =>
+          quarter(slot.datetimeStart, slot.datetimeEnd),
+        ),
+      },
+      {
+        displayName: 'Bob',
+        availabilities: slots.slice(4).map((slot) =>
+          quarter(slot.datetimeStart, slot.datetimeEnd),
+        ),
+      },
+    ]);
+
+    expect(result.bestTimes.map((slot) => slot.timeLabel)).toEqual([
+      '09:00',
       '08:00',
     ]);
     expect(result.bestTimes[0]).toMatchObject({
       availableCount: 2,
       percentage: 100,
-      datetimeEnd: '2026-08-12T08:30:00.000Z',
+    });
+    expect(result.bestTimes[1]).toMatchObject({
+      availableCount: 1,
+      percentage: 50,
     });
   });
 
@@ -130,16 +163,13 @@ describe('aggregateAvailability', () => {
       ...meeting,
       endDate: new Date('2026-09-11T00:00:00.000Z'),
       workdayEnd: '16:00',
-      slotIntervalMinutes: 15,
-      meetingDurationMinutes: 60,
     } satisfies Meeting;
     const availableSlots = meetingGrid(largeMeeting).slots.slice(0, 32);
     const participants = Array.from({ length: 300 }, (_, index) => ({
       displayName: `Participant ${index + 1}`,
-      availabilities: availableSlots.map((slot) => ({
-        datetimeStart: new Date(slot.datetimeStart),
-        datetimeEnd: new Date(slot.datetimeEnd),
-      })),
+      availabilities: availableSlots.map((slot) =>
+        quarter(slot.datetimeStart, slot.datetimeEnd),
+      ),
     }));
 
     const startedAt = performance.now();
