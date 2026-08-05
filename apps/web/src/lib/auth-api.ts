@@ -21,6 +21,7 @@ export class ApiError extends Error {
     message: string,
     public readonly status: number,
     public readonly details?: Record<string, unknown>,
+    public readonly retryAfterMs?: number,
   ) {
     super(message);
   }
@@ -71,7 +72,10 @@ async function requestOnce<T>(
     } catch {
       // Keep the safe fallback for non-JSON errors.
     }
-    throw new ApiError(message, response.status, details);
+    const retryAfterMs = retryAfterMilliseconds(
+      response.headers.get("Retry-After"),
+    );
+    throw new ApiError(message, response.status, details, retryAfterMs);
   }
 
   if (response.status === 204) return undefined as T;
@@ -160,4 +164,13 @@ export function logout() {
 
 export function refreshOrganizerSession() {
   return request<SessionResponse>("/auth/refresh", { method: "POST" });
+}
+
+function retryAfterMilliseconds(value: string | null): number | undefined {
+  if (!value) return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1_000;
+  const date = Date.parse(value);
+  if (Number.isNaN(date)) return undefined;
+  return Math.max(0, date - Date.now());
 }

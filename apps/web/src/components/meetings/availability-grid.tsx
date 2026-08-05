@@ -49,6 +49,10 @@ export interface AvailabilityResponse {
 
 type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 
+const AUTOSAVE_IDLE_MS = 1_200;
+const AUTOSAVE_MIN_INTERVAL_MS = 5_000;
+const AUTOSAVE_ERROR_BACKOFF_MS = 10_000;
+
 export function AvailabilityGrid({
   meeting,
   participantSession,
@@ -112,6 +116,8 @@ export function AvailabilityGrid({
   const responseKey = useMemo(() => availabilityKey(response), [response]);
   const latestKey = useRef(responseKey);
   const lastSavedKey = useRef(responseKey);
+  const lastSaveStartedAt = useRef(0);
+  const autosaveBlockedUntil = useRef(0);
   const toggleSlot = useCallback((slotStart: string) => {
     setSelected((current) => {
       const next = new Set(current);
@@ -134,13 +140,24 @@ export function AvailabilityGrid({
         saveScope ??
         `availability:${token}:${participantSession.participant.id}`,
     },
-    onMutate: () => setSaveState("saving"),
+    onMutate: () => {
+      lastSaveStartedAt.current = Date.now();
+      setSaveState("saving");
+    },
     onSuccess: (_saved, variables) => {
       const savedKey = availabilityKey(variables);
+      autosaveBlockedUntil.current = 0;
       lastSavedKey.current = savedKey;
       setSaveState(latestKey.current === savedKey ? "saved" : "dirty");
     },
-    onError: () => setSaveState("error"),
+    onError: (error) => {
+      const retryAfter =
+        error instanceof ApiError && error.status === 429
+          ? (error.retryAfterMs ?? AUTOSAVE_ERROR_BACKOFF_MS)
+          : AUTOSAVE_ERROR_BACKOFF_MS;
+      autosaveBlockedUntil.current = Date.now() + retryAfter;
+      setSaveState("error");
+    },
   });
   const saveResponse = mutation.mutate;
 
@@ -182,9 +199,23 @@ export function AvailabilityGrid({
       return;
     }
     setSaveState("dirty");
-    const timeout = window.setTimeout(() => saveResponse(response), 700);
+    if (mutation.isPending) return;
+
+    const now = Date.now();
+    const delay = Math.max(
+      AUTOSAVE_IDLE_MS,
+      AUTOSAVE_MIN_INTERVAL_MS - (now - lastSaveStartedAt.current),
+      autosaveBlockedUntil.current - now,
+    );
+    const timeout = window.setTimeout(() => saveResponse(response), delay);
     return () => window.clearTimeout(timeout);
-  }, [meeting.acceptingResponses, response, responseKey, saveResponse]);
+  }, [
+    meeting.acceptingResponses,
+    mutation.isPending,
+    response,
+    responseKey,
+    saveResponse,
+  ]);
 
   function applySlot(slotStart: string) {
     if (!dragging.current || touchedSlot.current === slotStart) return;
@@ -280,7 +311,7 @@ export function AvailabilityGrid({
         <div className="flex flex-wrap items-center gap-3">
           <SaveIndicator state={saveState} />
           <Button
-            disabled={!meeting.acceptingResponses}
+            disabled={!meeting.acceptingResponses || mutation.isPending}
             onClick={() =>
               saveResponse(response, {
                 onSuccess: () =>
@@ -347,8 +378,8 @@ export function AvailabilityGrid({
               slotByCell={slotByCell}
               hour={hour}
               t={t}
-            />
-          ))}
+             />
+         ))}
         </div>
       </div>
 
