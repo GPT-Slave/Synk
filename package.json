@@ -7,9 +7,10 @@
   "scripts": {
     "synk": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/calendra.ps1",
     "calendra": "pnpm run synk",
-    "dev:web": "pnpm --filter web dev",
+    "dev:web": "pnpm --filter web exec next dev --webpack",
+    "dev:web:turbopack": "pnpm --filter web exec next dev --turbopack",
     "dev:api": "pnpm --filter api start:dev",
-    "build": "pnpm --filter web build && pnpm --filter api build",
+    "build": "pnpm --filter web exec next build --webpack && pnpm --filter api build",
     "prisma:generate": "pnpm --filter api exec prisma generate",
     "prisma:migrate": "pnpm --filter api exec prisma migrate dev",
     "prisma:studio": "pnpm --filter api exec prisma studio",
@@ -21,6 +22,6 @@
     "concurrently": "^9.1.2"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20.9.0"
   }
 }
