@@ -5,6 +5,7 @@ import { PwaRegister } from "@/components/pwa-register";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { I18nProvider } from "@/lib/i18n";
 import "./globals.css";
+import "./branding.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,6 +17,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const siteIcon = "/logo_nobg.png?v=31f7d33";
+
 export const metadata: Metadata = {
   title: "Synk — Find time. Together.",
   description: "Availability polling and meeting scheduling made effortless.",
@@ -24,17 +27,17 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: "/logo.png",
+        url: siteIcon,
         type: "image/png",
-        sizes: "796x796",
+        sizes: "499x499",
       },
     ],
-    shortcut: "/logo.png",
+    shortcut: siteIcon,
     apple: [
       {
-        url: "/logo.png",
+        url: siteIcon,
         type: "image/png",
-        sizes: "796x796",
+        sizes: "499x499",
       },
     ],
   },
