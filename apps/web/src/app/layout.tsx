@@ -21,7 +21,23 @@ export const metadata: Metadata = {
   description: "Availability polling and meeting scheduling made effortless.",
   applicationName: "Synk",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent" },
-  icons: { apple: "/logo.png" },
+  icons: {
+    icon: [
+      {
+        url: "/logo.png",
+        type: "image/png",
+        sizes: "796x796",
+      },
+    ],
+    shortcut: "/logo.png",
+    apple: [
+      {
+        url: "/logo.png",
+        type: "image/png",
+        sizes: "796x796",
+      },
+    ],
+  },
 };
 
 export const viewport: Viewport = {
