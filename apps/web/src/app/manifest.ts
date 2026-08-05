@@ -12,8 +12,8 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#4197ff",
     icons: [
       {
-        src: "/logo.png",
-        sizes: "545x545",
+        src: "/logo_nobg.png?v=31f7d33",
+        sizes: "499x499",
         type: "image/png",
         purpose: "any",
       },

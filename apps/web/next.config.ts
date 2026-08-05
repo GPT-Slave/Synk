@@ -24,8 +24,16 @@ const contentSecurityPolicy = [
   ...(production ? ["upgrade-insecure-requests"] : []),
 ].join("; ");
 
+const noCacheHeaders = [
+  {
+    key: "Cache-Control",
+    value: "no-cache, no-store, must-revalidate",
+  },
+];
+
 const nextConfig: NextConfig = {
   compress: true,
+  images: { unoptimized: true },
   poweredByHeader: false,
   reactStrictMode: true,
   transpilePackages: ["@meet-planner/shared-types"],
@@ -63,15 +71,20 @@ const nextConfig: NextConfig = {
             key: "Content-Type",
             value: "application/javascript; charset=utf-8",
           },
-          {
-            key: "Cache-Control",
-            value: "no-cache, no-store, must-revalidate",
-          },
+          ...noCacheHeaders,
           {
             key: "Content-Security-Policy",
             value: "default-src 'self'; script-src 'self'",
           },
         ],
+      },
+      {
+        source: "/logo.png",
+        headers: noCacheHeaders,
+      },
+      {
+        source: "/logo_nobg.png",
+        headers: noCacheHeaders,
       },
     ];
   },
