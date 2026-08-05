@@ -1,0 +1,89 @@
+.light {
+  color-scheme: light;
+  --background: oklch(0.975 0.008 245);
+  --foreground: oklch(0.205 0.025 250);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.205 0.025 250);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.205 0.025 250);
+  --primary: oklch(0.59 0.205 247);
+  --primary-foreground: oklch(0.985 0.005 245);
+  --secondary: oklch(0.93 0.018 245);
+  --secondary-foreground: oklch(0.235 0.03 250);
+  --muted: oklch(0.94 0.014 245);
+  --muted-foreground: oklch(0.49 0.034 248);
+  --accent: oklch(0.9 0.055 245);
+  --accent-foreground: oklch(0.28 0.095 248);
+  --destructive: oklch(0.58 0.22 25);
+  --border: oklch(0.25 0.025 250 / 13%);
+  --input: oklch(0.25 0.025 250 / 17%);
+  --ring: oklch(0.59 0.205 247);
+  --chart-1: oklch(0.59 0.205 247);
+  --chart-2: oklch(0.62 0.16 220);
+  --chart-3: oklch(0.64 0.15 85);
+  --chart-4: oklch(0.64 0.18 45);
+  --chart-5: oklch(0.58 0.2 24);
+  --sidebar: oklch(0.955 0.012 245);
+  --sidebar-foreground: oklch(0.205 0.025 250);
+  --sidebar-primary: oklch(0.59 0.205 247);
+  --sidebar-primary-foreground: oklch(0.985 0.005 245);
+  --sidebar-accent: oklch(0.9 0.055 245);
+  --sidebar-accent-foreground: oklch(0.28 0.095 248);
+  --sidebar-border: oklch(0.25 0.025 250 / 13%);
+  --sidebar-ring: oklch(0.59 0.205 247);
+}
+
+.light body {
+  background-image: linear-gradient(
+    to bottom,
+    oklch(0.82 0.11 245 / 0.26),
+    transparent 18rem
+  );
+}
+
+.light [class*="border-white/"] {
+  border-color: oklch(0.25 0.025 250 / 13%) !important;
+}
+
+.light [class*="divide-white/"] > :not(:last-child) {
+  border-color: oklch(0.25 0.025 250 / 13%) !important;
+}
+
+.light [class*="bg-white/"] {
+  background-color: oklch(0.35 0.025 250 / 5.5%) !important;
+}
+
+.light [class*="bg-black/"] {
+  background-color: oklch(0.2 0.02 250 / 4.5%) !important;
+}
+
+.light [class*="text-white/"] {
+  color: var(--muted-foreground) !important;
+}
+
+.light .text-red-100,
+.light .text-red-200 {
+  color: oklch(0.43 0.18 25) !important;
+}
+
+.light .auth-input {
+  background-color: oklch(1 0 0 / 82%);
+}
+
+.light .heatmap-gradient {
+  background: linear-gradient(
+    to right,
+    oklch(0.91 0.025 245),
+    oklch(0.59 0.205 247)
+  );
+}
+
+html,
+body,
+[role="dialog"],
+[data-slot="popover-content"] {
+  transition:
+    background-color 180ms ease,
+    color 180ms ease,
+    border-color 180ms ease;
+}
