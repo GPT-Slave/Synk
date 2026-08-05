@@ -1,8 +1,7 @@
-const CACHE_NAME = "synk-static-v1";
-const STATIC_PATHS = new Set([
-  "/favicon.ico",
+const CACHE_NAME = "synk-static-v2";
+const BRANDING_PATHS = new Set([
   "/logo.png",
-  "/logo+slogan.png",
+  "/logo_nobg.png",
   "/manifest.webmanifest",
 ]);
 
@@ -31,20 +30,31 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  const cacheable =
-    url.pathname.startsWith("/_next/static/") || STATIC_PATHS.has(url.pathname);
-  if (!cacheable) return;
+
+  if (BRANDING_PATHS.has(url.pathname)) {
+    event.respondWith(
+      caches.open(CACHE_NAME).then(async (cache) => {
+        try {
+          const response = await fetch(request, { cache: "reload" });
+          if (response.ok) await cache.put(request, response.clone());
+          return response;
+        } catch {
+          return (await cache.match(request)) ?? Response.error();
+        }
+      }),
+    );
+    return;
+  }
+
+  if (!url.pathname.startsWith("/_next/static/")) return;
 
   event.respondWith(
     caches.open(CACHE_NAME).then(async (cache) => {
       const cached = await cache.match(request);
-      const fresh = fetch(request)
-        .then((response) => {
-          if (response.ok) void cache.put(request, response.clone());
-          return response;
-        })
-        .catch(() => cached ?? Response.error());
-      return cached ?? fresh;
+      if (cached) return cached;
+      const response = await fetch(request);
+      if (response.ok) await cache.put(request, response.clone());
+      return response;
     }),
   );
 });
