@@ -8,15 +8,23 @@ import { useI18n } from "@/lib/i18n";
 
 export function BestTimeSuggestions({
   matches,
+  onHighlight,
   onSelect,
   timezone,
 }: {
   matches: BestMatchDto[];
+  onHighlight?: (match?: BestMatchDto) => void;
   onSelect?: (match: BestMatchDto) => void;
   timezone: string;
 }) {
   const reduceMotion = useReducedMotion();
   const { formatDate, t } = useI18n();
+  function highlight(match?: BestMatchDto) {
+    onHighlight?.(match);
+    window.dispatchEvent(
+      new CustomEvent("synk:suggestion-highlight", { detail: match }),
+    );
+  }
   if (matches.length === 0) {
     return (
       <StatePanel
@@ -35,7 +43,11 @@ export function BestTimeSuggestions({
           <motion.button
             className="group flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-black/10 p-3 text-start transition duration-200 hover:border-primary/40 hover:bg-primary/[0.07] focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-default disabled:hover:border-white/10 disabled:hover:bg-black/10 sm:gap-4 sm:p-4"
             disabled={!onSelect}
+            onBlur={() => highlight(undefined)}
             onClick={() => onSelect?.(match)}
+            onFocus={() => highlight(match)}
+            onMouseEnter={() => highlight(match)}
+            onMouseLeave={() => highlight(undefined)}
             type="button"
             whileHover={reduceMotion || !onSelect ? undefined : { y: -2 }}
             whileTap={reduceMotion || !onSelect ? undefined : { scale: 0.985 }}

@@ -338,12 +338,9 @@ function TimeRangeGrid({
       >
         {hours.map((hour) => (
           <div
-            className="overflow-hidden rounded-xl border border-white/[0.09] bg-white/[0.02]"
+            className="relative overflow-hidden rounded-xl border border-white/[0.09] bg-white/[0.02]"
             key={hour}
           >
-            <p className="px-2 py-1.5 text-xs font-medium tabular-nums text-muted-foreground">
-              {String(hour).padStart(2, "0")}:00
-            </p>
             <div className="grid grid-cols-4">
               {[0, 15, 30, 45].map((quarter) => {
                 const minute = hour * 60 + quarter;
@@ -354,24 +351,29 @@ function TimeRangeGrid({
                   <motion.button
                     aria-label={`Select ${labelFromMinutes(minute)}`}
                     aria-pressed={active}
-                    className={`min-h-10 px-1 text-[0.65rem] tabular-nums outline-none transition duration-200 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary ${
+                    className={`min-h-14 outline-none transition duration-200 focus-visible:z-20 focus-visible:ring-2 focus-visible:ring-primary ${
                       endpoint
                         ? "bg-primary text-primary-foreground shadow-glow"
                         : active
                           ? "bg-primary/20 text-foreground"
-                          : "text-muted-foreground hover:bg-white/[0.07] hover:text-foreground"
+                          : "hover:bg-white/[0.07]"
                     }`}
                     key={quarter}
                     onClick={() => selectTime(minute)}
                     onMouseEnter={() => setHoveredMinute(minute)}
+                    title={labelFromMinutes(minute)}
                     type="button"
                     whileTap={reduceMotion ? undefined : { scale: 0.94 }}
-                  >
-                    :{String(quarter).padStart(2, "0")}
-                  </motion.button>
+                  />
                 );
               })}
             </div>
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 z-10 grid place-items-center text-sm font-medium tabular-nums text-foreground drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
+            >
+              {String(hour).padStart(2, "0")}:00
+            </span>
           </div>
         ))}
       </div>

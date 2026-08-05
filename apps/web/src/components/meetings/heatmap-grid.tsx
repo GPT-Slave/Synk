@@ -2,7 +2,12 @@
 
 import type { BestMatchDto, HeatmapCellDto } from "@meet-planner/shared-types";
 import { motion, useReducedMotion } from "framer-motion";
-import { PointerEvent as ReactPointerEvent, useMemo, useState } from "react";
+import {
+  PointerEvent as ReactPointerEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { StatePanel } from "@/components/ui/state-panel";
 import { useI18n } from "@/lib/i18n";
 import type { OrganizerMeetingDetail } from "@/lib/meeting-api";
@@ -14,17 +19,20 @@ interface TooltipState {
 }
 
 export function HeatmapGrid({
+  highlightedMatch,
   manualMode = false,
   meeting,
   onManualSelect,
   selectedMatch,
 }: {
+  highlightedMatch?: BestMatchDto;
   manualMode?: boolean;
   meeting: OrganizerMeetingDetail;
   onManualSelect?: (match: BestMatchDto) => void;
   selectedMatch?: BestMatchDto;
 }) {
   const [tooltip, setTooltip] = useState<TooltipState>();
+  const [suggestionHighlight, setSuggestionHighlight] = useState<BestMatchDto>();
   const { formatDate, t } = useI18n();
   const hours = useMemo(
     () =>
@@ -42,6 +50,19 @@ export function HeatmapGrid({
       ),
     [meeting.heatmap],
   );
+
+  useEffect(() => {
+    function receiveHighlight(event: Event) {
+      setSuggestionHighlight(
+        (event as CustomEvent<BestMatchDto | undefined>).detail,
+      );
+    }
+    window.addEventListener("synk:suggestion-highlight", receiveHighlight);
+    return () =>
+      window.removeEventListener("synk:suggestion-highlight", receiveHighlight);
+  }, []);
+
+  const activeHighlightedMatch = highlightedMatch ?? suggestionHighlight;
 
   if (meeting.dates.length === 0 || meeting.heatmap.length === 0) {
     return (
@@ -108,6 +129,7 @@ export function HeatmapGrid({
               cellByGridPosition={cellByGridPosition}
               dates={meeting.dates}
               formatDate={formatDate}
+              highlightedMatch={activeHighlightedMatch}
               hour={hour}
               key={hour}
               manualMode={manualMode}
@@ -146,6 +168,7 @@ function HeatmapRow({
   cellByGridPosition,
   dates,
   formatDate,
+  highlightedMatch,
   hour,
   manualMode,
   onHide,
@@ -160,6 +183,7 @@ function HeatmapRow({
     value: Date | string,
     options?: Intl.DateTimeFormatOptions,
   ) => string;
+  highlightedMatch?: BestMatchDto;
   hour: string;
   manualMode: boolean;
   onHide: () => void;
@@ -187,11 +211,8 @@ function HeatmapRow({
                   />
                 );
               const color = heatmapColor(cell.percentage);
-              const selected = Boolean(
-                selectedMatch &&
-                cell.datetimeStart >= selectedMatch.datetimeStart &&
-                cell.datetimeStart < selectedMatch.datetimeEnd,
-              );
+              const selected = isCellInsideMatch(cell, selectedMatch);
+              const highlighted = isCellInsideMatch(cell, highlightedMatch);
               const dateLabel = formatDate(date.date, {
                 weekday: "short",
                 month: "short",
@@ -201,7 +222,7 @@ function HeatmapRow({
                 <motion.button
                   aria-label={`${dateLabel} at ${time}: ${cell.availableCount} of ${cell.totalParticipants} ${t("available")}${cell.participantNames.length ? ` — ${cell.participantNames.join(", ")}` : ""}`}
                   aria-pressed={manualMode ? selected : undefined}
-                  className={`grid min-h-11 touch-pan-y place-items-center text-[0.58rem] font-semibold tabular-nums outline-none transition duration-200 hover:brightness-125 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary ${manualMode ? "cursor-crosshair" : ""} ${selected ? "relative z-[1] ring-2 ring-inset ring-primary" : ""}`}
+                  className={`grid min-h-11 touch-pan-y place-items-center text-[0.58rem] font-semibold tabular-nums outline-none transition duration-200 hover:brightness-125 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary ${manualMode ? "cursor-crosshair" : ""} ${selected ? "relative z-[1] ring-2 ring-inset ring-primary" : ""} ${highlighted ? "relative z-[2] brightness-125 ring-2 ring-inset ring-primary shadow-[0_0_24px_4px_oklch(0.82_0.18_245_/_0.55)]" : ""}`}
                   key={quarter}
                   onBlur={onHide}
                   onFocus={(event) => {
@@ -254,6 +275,17 @@ function HeatmapRow({
         </div>
       ))}
     </>
+  );
+}
+
+function isCellInsideMatch(
+  cell: HeatmapCellDto,
+  match?: BestMatchDto,
+): boolean {
+  return Boolean(
+    match &&
+      cell.datetimeStart >= match.datetimeStart &&
+      cell.datetimeStart < match.datetimeEnd,
   );
 }
 

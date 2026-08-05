@@ -1,5 +1,5 @@
 import type { Meeting } from '@prisma/client';
-import { meetingGrid } from './meeting-time';
+import { meetingGrid, type MeetingGridSlot } from './meeting-time';
 
 interface ParticipantAvailability {
   displayName: string;
@@ -9,10 +9,33 @@ interface ParticipantAvailability {
   }>;
 }
 
+export type AvailabilityHeatmapCell = MeetingGridSlot & {
+  availableCount: number;
+  totalParticipants: number;
+  percentage: number;
+  participantNames: string[];
+};
+
+export interface RankedMatch {
+  datetimeStart: string;
+  datetimeEnd: string;
+  date: string;
+  timeLabel: string;
+  availableCount: number;
+  totalParticipants: number;
+  percentage: number;
+  participantNames: string[];
+}
+
+export type AvailabilityAggregationResult = ReturnType<typeof meetingGrid> & {
+  heatmap: AvailabilityHeatmapCell[];
+  bestTimes: RankedMatch[];
+};
+
 export function aggregateAvailability(
   meeting: Meeting,
   participants: ParticipantAvailability[],
-) {
+): AvailabilityAggregationResult {
   const grid = meetingGrid(meeting);
   const participantNamesByStart = new Map<string, Set<string>>();
 
@@ -26,7 +49,7 @@ export function aggregateAvailability(
   }
 
   const totalParticipants = participants.length;
-  const heatmap = grid.slots.map((slot) => {
+  const heatmap: AvailabilityHeatmapCell[] = grid.slots.map((slot) => {
     const participantNames = Array.from(
       participantNamesByStart.get(slot.datetimeStart) ?? [],
     );
@@ -43,60 +66,99 @@ export function aggregateAvailability(
     };
   });
 
-  const cellsPerMatch = Math.max(
-    1,
-    meeting.meetingDurationMinutes / meeting.slotIntervalMinutes,
-  );
-  const bestTimes = heatmap
-    .map((cell, index, cells) => {
-      const window = cells.slice(index, index + cellsPerMatch);
-      if (
-        window.length !== cellsPerMatch ||
-        window.some((next) => next.date !== cell.date) ||
-        window.some(
-          (next, windowIndex) =>
-            windowIndex > 0 &&
-            window[windowIndex - 1].datetimeEnd !== next.datetimeStart,
+  const cellsPerMatch =
+    meeting.meetingDurationMinutes / meeting.slotIntervalMinutes;
+  const candidates = Number.isInteger(cellsPerMatch) && cellsPerMatch > 0
+    ? heatmap
+        .map((cell, index, cells) =>
+          rankedMatchForWindow(
+            cells.slice(index, index + cellsPerMatch),
+            cellsPerMatch,
+            participantNamesByStart,
+            totalParticipants,
+          ),
         )
-      ) {
-        return undefined;
-      }
+        .filter((match): match is RankedMatch => Boolean(match))
+        .sort(compareRankedMatches)
+    : [];
 
-      const participantSets = window.map(
-        (next) =>
-          participantNamesByStart.get(next.datetimeStart) ?? new Set<string>(),
-      );
-      const smallest = participantSets.reduce((left, right) =>
-        left.size <= right.size ? left : right,
-      );
-      const participantNames = Array.from(smallest).filter((name) =>
-        participantSets.every((names) => names.has(name)),
-      );
-      const availableCount = participantNames.length;
-      const percentage = totalParticipants
-        ? Math.round((availableCount / totalParticipants) * 100)
-        : 0;
-      return {
-        datetimeStart: cell.datetimeStart,
-        datetimeEnd: window.at(-1)!.datetimeEnd,
-        date: cell.date,
-        timeLabel: cell.timeLabel,
-        availableCount,
-        totalParticipants,
-        percentage,
-        participantNames,
-      };
-    })
-    .filter((match): match is NonNullable<typeof match> =>
-      Boolean(match && match.availableCount > 0),
-    )
-    .sort(
-      (left, right) =>
-        right.percentage - left.percentage ||
-        right.availableCount - left.availableCount ||
-        left.datetimeStart.localeCompare(right.datetimeStart),
-    )
-    .slice(0, 5);
+  return {
+    ...grid,
+    heatmap,
+    bestTimes: selectDiverseMatches(candidates, 5),
+  };
+}
 
-  return { ...grid, heatmap, bestTimes };
+function rankedMatchForWindow(
+  window: AvailabilityHeatmapCell[],
+  cellsPerMatch: number,
+  participantNamesByStart: Map<string, Set<string>>,
+  totalParticipants: number,
+): RankedMatch | undefined {
+  const first = window[0];
+  if (
+    !first ||
+    window.length !== cellsPerMatch ||
+    window.some((cell) => cell.date !== first.date) ||
+    window.some(
+      (cell, index) =>
+        index > 0 && window[index - 1].datetimeEnd !== cell.datetimeStart,
+    )
+  ) {
+    return undefined;
+  }
+
+  const participantSets = window.map(
+    (cell) =>
+      participantNamesByStart.get(cell.datetimeStart) ?? new Set<string>(),
+  );
+  const smallest = participantSets.reduce((left, right) =>
+    left.size <= right.size ? left : right,
+  );
+  const participantNames = Array.from(smallest).filter((name) =>
+    participantSets.every((names) => names.has(name)),
+  );
+  const availableCount = participantNames.length;
+  if (availableCount === 0) return undefined;
+
+  return {
+    datetimeStart: first.datetimeStart,
+    datetimeEnd: window.at(-1)!.datetimeEnd,
+    date: first.date,
+    timeLabel: first.timeLabel,
+    availableCount,
+    totalParticipants,
+    percentage: totalParticipants
+      ? Math.round((availableCount / totalParticipants) * 100)
+      : 0,
+    participantNames,
+  };
+}
+
+function compareRankedMatches(left: RankedMatch, right: RankedMatch): number {
+  return (
+    right.percentage - left.percentage ||
+    right.availableCount - left.availableCount ||
+    left.datetimeStart.localeCompare(right.datetimeStart)
+  );
+}
+
+function selectDiverseMatches(
+  ranked: RankedMatch[],
+  limit: number,
+): RankedMatch[] {
+  const selected: RankedMatch[] = [];
+  for (const candidate of ranked) {
+    if (selected.some((match) => matchesOverlap(match, candidate))) continue;
+    selected.push(candidate);
+    if (selected.length === limit) break;
+  }
+  return selected;
+}
+
+function matchesOverlap(left: RankedMatch, right: RankedMatch): boolean {
+  return (
+    left.datetimeStart < right.datetimeEnd &&
+    right.datetimeStart < left.datetimeEnd
+  );
 }
