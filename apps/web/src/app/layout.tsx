@@ -3,9 +3,11 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { QueryProvider } from "@/components/query-provider";
 import { PwaRegister } from "@/components/pwa-register";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { I18nProvider } from "@/lib/i18n";
 import "./globals.css";
 import "./branding.css";
+import "./theme.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,6 +20,22 @@ const geistMono = Geist_Mono({
 });
 
 const siteIcon = "/logo_nobg.png?v=31f7d33";
+const themeInitializationScript = `
+  (function () {
+    try {
+      var storedTheme = window.localStorage.getItem("synk-theme");
+      var theme = storedTheme === "light" ? "light" : "dark";
+      var root = document.documentElement;
+      root.classList.remove("light", "dark");
+      root.classList.add(theme);
+      root.dataset.theme = theme;
+      root.style.colorScheme = theme;
+    } catch (_) {
+      document.documentElement.classList.add("dark");
+      document.documentElement.dataset.theme = "dark";
+    }
+  })();
+`;
 
 export const metadata: Metadata = {
   title: "Synk — Find time. Together.",
@@ -44,7 +62,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#4197ff",
+  themeColor: [
+    { color: "#f7f9fc", media: "(prefers-color-scheme: light)" },
+    { color: "#080d18", media: "(prefers-color-scheme: dark)" },
+  ],
 };
 
 export default function RootLayout({
@@ -54,12 +75,17 @@ export default function RootLayout({
 }>) {
   return (
     <html
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} dark h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitializationScript }} />
+      </head>
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <I18nProvider>
           <QueryProvider>{children}</QueryProvider>
+          <ThemeToggle />
           <LanguageSwitcher />
         </I18nProvider>
         <PwaRegister />
