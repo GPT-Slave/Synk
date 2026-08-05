@@ -8,6 +8,13 @@ Synk treats the targets in specification §19 as release gates:
 - hundreds of simultaneous participants on one meeting;
 - bounded, non-N+1 heatmap aggregation.
 
+Availability editing is intentionally write-bounded: the browser waits for an
+idle pause, sends at most one autosave every five seconds, never queues a second
+save while one is in flight, and honors `Retry-After` after a 429. The API then
+skips identical responses and persists only the quarter-hour rows that changed.
+Organizer realtime refreshes are coalesced to at most once per second, preventing
+a response burst from turning into one full meeting query per participant.
+
 The meeting and invitation routes dynamically import their schedule grids, so
 the Framer Motion calendar code is emitted as separate client chunks. Meeting
 detail uses one Prisma relation query with a narrow participant/availability
@@ -16,9 +23,11 @@ projection. The in-process aggregation benchmark covers 300 participants and a
 `meetings.slug`, `participants.meeting_id`, and
 `availabilities.participant_id` (plus the compound query indexes).
 
-Run the repeatable end-to-end load test against a disposable meeting. Because
-the security default is 30 requests per minute per IP, start that disposable
-API with `GLOBAL_RATE_LIMIT=100000` and never use this override in production.
+Run the repeatable end-to-end load test against a disposable meeting. Write
+requests default to 30 per minute per organizer/participant identity and reads
+default to 120. Start a disposable load-test API with
+`GLOBAL_RATE_LIMIT=100000` and `GLOBAL_READ_RATE_LIMIT=100000`; never use these
+overrides in production.
 
 ```powershell
 $env:LOAD_TEST_MEETING_SLUG="invitation-slug"

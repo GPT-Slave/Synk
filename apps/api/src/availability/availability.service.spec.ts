@@ -26,6 +26,13 @@ const meeting = {
   createdAt: new Date('2026-08-04T00:00:00.000Z'),
 } satisfies Meeting;
 
+const storedSlot = {
+  id: 'slot-1',
+  participantId: 'participant-1',
+  datetimeStart: new Date('2026-08-12T07:00:00.000Z'),
+  datetimeEnd: new Date('2026-08-12T08:00:00.000Z'),
+};
+
 describe('AvailabilityService', () => {
   const transaction = {
     availability: { deleteMany: jest.fn(), createMany: jest.fn() },
@@ -53,10 +60,13 @@ describe('AvailabilityService', () => {
       id: 'participant-1',
       displayName: 'Alice',
       meeting,
+      availabilities: [],
+      comment: null,
+      respondedAt: null,
     });
   });
 
-  it('transactionally replaces availability with exact meeting grid slots', async () => {
+  it('writes only new exact meeting grid slots', async () => {
     const result = await service.replace(meeting.slug, 'session-token', {
       slots: [
         {
@@ -67,10 +77,17 @@ describe('AvailabilityService', () => {
     });
 
     expect(participants.ensureOpen).toHaveBeenCalledWith(meeting);
-    expect(transaction.availability.deleteMany).toHaveBeenCalledWith({
-      where: { participantId: 'participant-1' },
+    expect(transaction.availability.deleteMany).not.toHaveBeenCalled();
+    expect(transaction.availability.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          participantId: 'participant-1',
+          datetimeStart: new Date('2026-08-12T07:00:00.000Z'),
+          datetimeEnd: new Date('2026-08-12T08:00:00.000Z'),
+        },
+      ],
+      skipDuplicates: true,
     });
-    expect(transaction.availability.createMany).toHaveBeenCalledTimes(1);
     expect(transaction.participant.update).toHaveBeenCalledWith({
       where: { id: 'participant-1' },
       data: { comment: null, respondedAt: expect.any(Date) },
@@ -87,6 +104,29 @@ describe('AvailabilityService', () => {
         datetimeEnd: '2026-08-12T08:00:00.000Z',
       },
     ]);
+  });
+
+  it('skips database writes and realtime broadcasts for identical autosaves', async () => {
+    participants.requireSession.mockResolvedValue({
+      id: 'participant-1',
+      displayName: 'Alice',
+      meeting,
+      availabilities: [storedSlot],
+      comment: null,
+      respondedAt: new Date('2026-08-05T10:00:00.000Z'),
+    });
+
+    await service.replace(meeting.slug, 'session-token', {
+      slots: [
+        {
+          datetimeStart: '2026-08-12T07:00:00.000Z',
+          datetimeEnd: '2026-08-12T08:00:00.000Z',
+        },
+      ],
+    });
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(realtime.availabilityChanged).not.toHaveBeenCalled();
   });
 
   it('stores an optional comment with an intentional empty response', async () => {
