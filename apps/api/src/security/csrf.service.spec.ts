@@ -14,7 +14,7 @@ describe('CsrfService', () => {
     expect(service.pairMatches(token, `${token}tampered`)).toBe(false);
   });
 
-  it('uses a secure cross-site token cookie in production', () => {
+  it('uses a secure partitioned token cookie in production', () => {
     const service = new CsrfService(
       new ConfigService({
         NODE_ENV: 'production',
@@ -26,11 +26,12 @@ describe('CsrfService', () => {
       httpOnly: false,
       secure: true,
       sameSite: 'none',
+      partitioned: true,
       path: '/',
     });
   });
 
-  it('keeps the token cookie lax for local HTTP development', () => {
+  it('keeps the token cookie lax and unpartitioned for local HTTP development', () => {
     const service = new CsrfService(
       new ConfigService({ JWT_REFRESH_SECRET: 'r'.repeat(32) }),
     );
@@ -39,6 +40,7 @@ describe('CsrfService', () => {
       httpOnly: false,
       secure: false,
       sameSite: 'lax',
+      partitioned: false,
       path: '/',
     });
   });
