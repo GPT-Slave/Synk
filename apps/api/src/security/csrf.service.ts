@@ -39,12 +39,13 @@ export class CsrfService {
   }
 
   cookieOptions(): CookieOptions {
+    const secure =
+      this.config.get<string>('COOKIE_SECURE') === 'true' ||
+      this.config.get<string>('NODE_ENV') === 'production';
     return {
       httpOnly: false,
-      secure:
-        this.config.get<string>('COOKIE_SECURE') === 'true' ||
-        this.config.get<string>('NODE_ENV') === 'production',
-      sameSite: 'lax',
+      secure,
+      sameSite: secure ? 'none' : 'lax',
       path: '/',
       maxAge: 24 * 60 * 60 * 1_000,
     };
