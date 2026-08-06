@@ -8,6 +8,7 @@ import { I18nProvider } from "@/lib/i18n";
 import "./globals.css";
 import "./branding.css";
 import "./theme.css";
+import "./performance.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
