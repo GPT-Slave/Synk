@@ -14,7 +14,7 @@ describe('CsrfService', () => {
     expect(service.pairMatches(token, `${token}tampered`)).toBe(false);
   });
 
-  it('marks the token cookie secure in production', () => {
+  it('uses a secure cross-site token cookie in production', () => {
     const service = new CsrfService(
       new ConfigService({
         NODE_ENV: 'production',
@@ -25,6 +25,19 @@ describe('CsrfService', () => {
     expect(service.cookieOptions()).toMatchObject({
       httpOnly: false,
       secure: true,
+      sameSite: 'none',
+      path: '/',
+    });
+  });
+
+  it('keeps the token cookie lax for local HTTP development', () => {
+    const service = new CsrfService(
+      new ConfigService({ JWT_REFRESH_SECRET: 'r'.repeat(32) }),
+    );
+
+    expect(service.cookieOptions()).toMatchObject({
+      httpOnly: false,
+      secure: false,
       sameSite: 'lax',
       path: '/',
     });
