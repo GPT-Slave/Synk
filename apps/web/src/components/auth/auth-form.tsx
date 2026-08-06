@@ -8,7 +8,7 @@ import {
   Eye,
   EyeOff,
   LoaderCircle,
-  LockKeyRound,
+  LockKeyhole,
   Mail,
 } from "lucide-react";
 import Link from "next/link";
@@ -136,7 +136,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
         </label>
         <div className="group relative">
           <span className="pointer-events-none absolute inset-y-0 start-0 grid w-11 place-items-center text-muted-foreground transition group-focus-within:text-primary [&_svg]:size-4">
-            <LockKeyRound />
+            <LockKeyhole />
           </span>
           <Input
             aria-describedby={errors.password ? "password-error" : undefined}
@@ -208,7 +208,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           <Field
             autoComplete="new-password"
             error={errors.confirmPassword}
-            icon={<LockKeyRound />}
+            icon={<LockKeyhole />}
             id="confirm-password"
             label={t("Confirm password")}
             onChange={setConfirmPassword}
