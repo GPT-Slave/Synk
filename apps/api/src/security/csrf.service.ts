@@ -46,6 +46,7 @@ export class CsrfService {
       httpOnly: false,
       secure,
       sameSite: secure ? 'none' : 'lax',
+      partitioned: secure,
       path: '/',
       maxAge: 24 * 60 * 60 * 1_000,
     };

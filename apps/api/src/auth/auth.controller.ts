@@ -113,6 +113,7 @@ export class AuthController {
       httpOnly: true,
       secure,
       sameSite: secure ? 'none' : 'lax',
+      partitioned: secure,
       path,
     };
   }
