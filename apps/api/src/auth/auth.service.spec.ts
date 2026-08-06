@@ -17,6 +17,9 @@ describe('AuthService', () => {
 
   function createFixture() {
     const transactionClient = {
+      user: {
+        create: jest.fn(),
+      },
       refreshToken: {
         create: jest.fn(),
         deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
@@ -41,7 +44,7 @@ describe('AuthService', () => {
       JWT_REFRESH_SECRET: 'refresh-secret-for-tests',
       JWT_ACCESS_TTL: '15m',
       JWT_REFRESH_TTL: '7d',
-      BCRYPT_ROUNDS: 4,
+      BCRYPT_ROUNDS: '4',
     });
     const service = new AuthService(
       prisma as unknown as PrismaService,
@@ -53,22 +56,25 @@ describe('AuthService', () => {
   }
 
   it('normalizes email, hashes the password, and stores a refresh token', async () => {
-    const { prisma, service } = createFixture();
+    const { prisma, service, transactionClient } = createFixture();
     prisma.user.findUnique.mockResolvedValue(null);
-    prisma.user.create.mockImplementation(({ data }) => ({ ...user, ...data }));
+    transactionClient.user.create.mockImplementation(({ data }) => ({
+      ...user,
+      ...data,
+    }));
 
     const session = await service.signup({
       email: '  Organizer@Example.COM ',
       password: 'Strong!Pass1',
     });
 
-    const createData = prisma.user.create.mock.calls[0][0].data;
+    const createData = transactionClient.user.create.mock.calls[0][0].data;
     expect(createData.email).toBe('organizer@example.com');
     expect(createData.passwordHash).not.toBe('Strong!Pass1');
     await expect(
       bcrypt.compare('Strong!Pass1', createData.passwordHash),
     ).resolves.toBe(true);
-    expect(prisma.refreshToken.create).toHaveBeenCalledTimes(1);
+    expect(transactionClient.refreshToken.create).toHaveBeenCalledTimes(1);
     expect(session.user).toEqual({
       id: user.id,
       email: 'organizer@example.com',
@@ -87,17 +93,19 @@ describe('AuthService', () => {
   it('rotates a refresh token and deletes the previous token atomically', async () => {
     const { prisma, service, transactionClient } = createFixture();
     prisma.user.findUnique.mockResolvedValue(null);
-    prisma.user.create.mockResolvedValue(user);
+    transactionClient.user.create.mockResolvedValue(user);
 
     const firstSession = await service.signup({
       email: user.email,
       password: 'Strong!Pass1',
     });
-    const storedRecord = prisma.refreshToken.create.mock.calls[0][0].data;
+    const storedRecord =
+      transactionClient.refreshToken.create.mock.calls[0][0].data;
     prisma.refreshToken.findUnique.mockResolvedValue({
       ...storedRecord,
       user,
     });
+    transactionClient.refreshToken.create.mockClear();
 
     const nextSession = await service.refresh(firstSession.refreshToken);
 

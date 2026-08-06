@@ -42,14 +42,22 @@ export class AuthService {
     });
     if (existingUser) throw new ConflictException('An account already exists.');
 
-    const rounds = this.config.get<number>('BCRYPT_ROUNDS') ?? 12;
-    const passwordHash = await bcrypt.hash(dto.password, rounds);
+    const passwordHash = await bcrypt.hash(
+      dto.password,
+      this.bcryptRounds(),
+    );
 
     try {
-      const user = await this.prisma.user.create({
-        data: { email, passwordHash },
+      return await this.prisma.$transaction(async (transaction) => {
+        const user = await transaction.user.create({
+          data: { email, passwordHash },
+        });
+        const session = await this.buildSession(user);
+        await transaction.refreshToken.create({
+          data: this.refreshTokenRecord(session),
+        });
+        return session;
       });
-      return this.createSession(user);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -198,6 +206,22 @@ export class AuthService {
 
   private normalizeEmail(email: string): string {
     return email.trim().toLowerCase();
+  }
+
+  private bcryptRounds(): number {
+    const configured =
+      this.config.get<string | number>('BCRYPT_ROUNDS') ?? 12;
+    const rounds =
+      typeof configured === 'number' ? configured : Number(configured);
+    const minimum =
+      this.config.get<string>('NODE_ENV') === 'production' ? 10 : 4;
+
+    if (!Number.isInteger(rounds) || rounds < minimum || rounds > 15) {
+      throw new Error(
+        `BCRYPT_ROUNDS must be an integer between ${minimum} and 15.`,
+      );
+    }
+    return rounds;
   }
 
   private parseDuration(value: string): number {
