@@ -1,7 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { json } from 'express';
 import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import { httpsEnforcement } from './security/https-enforcement';
@@ -41,7 +40,7 @@ export function configureApplication(
         : false,
     }),
   );
-  app.use(json({ limit: '128kb', strict: true }));
+  app.useBodyParser('json', { limit: '128kb', strict: true });
   app.use((_request: Request, response: Response, next: NextFunction) => {
     response.setHeader('Cache-Control', 'no-store');
     next();
