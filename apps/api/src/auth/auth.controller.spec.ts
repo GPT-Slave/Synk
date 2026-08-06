@@ -4,7 +4,7 @@ import { AuthController } from './auth.controller';
 import type { AuthService } from './auth.service';
 
 describe('AuthController', () => {
-  it('sets secure httpOnly access and refresh cookies in production', async () => {
+  it('sets secure cross-site httpOnly access and refresh cookies in production', async () => {
     const session = {
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
@@ -34,7 +34,7 @@ describe('AuthController', () => {
       expect.objectContaining({
         httpOnly: true,
         secure: true,
-        sameSite: 'lax',
+        sameSite: 'none',
         path: '/',
       }),
     );
@@ -45,7 +45,7 @@ describe('AuthController', () => {
       expect.objectContaining({
         httpOnly: true,
         secure: true,
-        sameSite: 'lax',
+        sameSite: 'none',
         path: '/auth',
       }),
     );
