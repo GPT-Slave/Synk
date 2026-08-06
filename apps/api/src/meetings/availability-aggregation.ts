@@ -32,6 +32,15 @@ export type AvailabilityAggregationResult = ReturnType<typeof meetingGrid> & {
   bestTimes: RankedMatch[];
 };
 
+interface RankedCandidate {
+  match: RankedMatch;
+  totalCellAvailability: number;
+  minimumCellAvailability: number;
+  perfectCellCount: number;
+  longestPerfectRun: number;
+  attendanceSpread: number;
+}
+
 export function aggregateAvailability(
   meeting: Meeting,
   participants: ParticipantAvailability[],
@@ -78,8 +87,9 @@ export function aggregateAvailability(
             totalParticipants,
           ),
         )
-        .filter((match): match is RankedMatch => Boolean(match))
-        .sort(compareRankedMatches)
+        .filter((candidate): candidate is RankedCandidate => Boolean(candidate))
+        .sort(compareRankedCandidates)
+        .map((candidate) => candidate.match)
     : [];
 
   return {
@@ -94,7 +104,7 @@ function rankedMatchForWindow(
   cellsPerMatch: number,
   participantNamesByStart: Map<string, Set<string>>,
   totalParticipants: number,
-): RankedMatch | undefined {
+): RankedCandidate | undefined {
   const first = window[0];
   if (
     !first ||
@@ -121,26 +131,61 @@ function rankedMatchForWindow(
   const availableCount = participantNames.length;
   if (availableCount === 0) return undefined;
 
+  const cellAvailability = window.map((cell) => cell.availableCount);
+  const totalCellAvailability = cellAvailability.reduce(
+    (sum, count) => sum + count,
+    0,
+  );
+  const minimumCellAvailability = Math.min(...cellAvailability);
+  const maximumCellAvailability = Math.max(...cellAvailability);
+  const perfectCells = cellAvailability.map(
+    (count) => totalParticipants > 0 && count === totalParticipants,
+  );
+
   return {
-    datetimeStart: first.datetimeStart,
-    datetimeEnd: window.at(-1)!.datetimeEnd,
-    date: first.date,
-    timeLabel: first.timeLabel,
-    availableCount,
-    totalParticipants,
-    percentage: totalParticipants
-      ? Math.round((availableCount / totalParticipants) * 100)
-      : 0,
-    participantNames,
+    match: {
+      datetimeStart: first.datetimeStart,
+      datetimeEnd: window.at(-1)!.datetimeEnd,
+      date: first.date,
+      timeLabel: first.timeLabel,
+      availableCount,
+      totalParticipants,
+      percentage: totalParticipants
+        ? Math.round((availableCount / totalParticipants) * 100)
+        : 0,
+      participantNames,
+    },
+    totalCellAvailability,
+    minimumCellAvailability,
+    perfectCellCount: perfectCells.filter(Boolean).length,
+    longestPerfectRun: longestTrueRun(perfectCells),
+    attendanceSpread: maximumCellAvailability - minimumCellAvailability,
   };
 }
 
-function compareRankedMatches(left: RankedMatch, right: RankedMatch): number {
+function compareRankedCandidates(
+  left: RankedCandidate,
+  right: RankedCandidate,
+): number {
   return (
-    right.percentage - left.percentage ||
-    right.availableCount - left.availableCount ||
-    left.datetimeStart.localeCompare(right.datetimeStart)
+    right.match.availableCount - left.match.availableCount ||
+    right.totalCellAvailability - left.totalCellAvailability ||
+    right.minimumCellAvailability - left.minimumCellAvailability ||
+    right.perfectCellCount - left.perfectCellCount ||
+    right.longestPerfectRun - left.longestPerfectRun ||
+    left.attendanceSpread - right.attendanceSpread ||
+    left.match.datetimeStart.localeCompare(right.match.datetimeStart)
   );
+}
+
+function longestTrueRun(values: boolean[]): number {
+  let longest = 0;
+  let current = 0;
+  for (const value of values) {
+    current = value ? current + 1 : 0;
+    longest = Math.max(longest, current);
+  }
+  return longest;
 }
 
 function selectDiverseMatches(

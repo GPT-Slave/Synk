@@ -158,6 +158,74 @@ describe('aggregateAvailability', () => {
     });
   });
 
+  it('prefers a window with stronger quarter-by-quarter attendance when full-duration attendance ties', () => {
+    const slots = meetingGrid({
+      ...meeting,
+      meetingDurationMinutes: 30,
+    }).slots;
+    const result = aggregateAvailability(
+      { ...meeting, meetingDurationMinutes: 30 },
+      [
+        {
+          displayName: 'Alice',
+          availabilities: slots.map((slot) =>
+            quarter(slot.datetimeStart, slot.datetimeEnd),
+          ),
+        },
+        {
+          displayName: 'Bob',
+          availabilities: [
+            quarter(slots[3].datetimeStart, slots[3].datetimeEnd),
+          ],
+        },
+      ],
+    );
+
+    expect(result.bestTimes[0]).toMatchObject({
+      timeLabel: '08:30',
+      availableCount: 1,
+      percentage: 50,
+    });
+  });
+
+  it('prefers balanced attendance over a single spike when total partial coverage ties', () => {
+    const twoDayMeeting = {
+      ...meeting,
+      endDate: new Date('2026-08-13T00:00:00.000Z'),
+      meetingDurationMinutes: 30,
+    } satisfies Meeting;
+    const slots = meetingGrid(twoDayMeeting).slots;
+    const dayOne = slots.filter((slot) => slot.date === '2026-08-12');
+    const dayTwo = slots.filter((slot) => slot.date === '2026-08-13');
+    const result = aggregateAvailability(twoDayMeeting, [
+      {
+        displayName: 'Alice',
+        availabilities: [dayOne[0], dayOne[1], dayTwo[0], dayTwo[1]].map(
+          (slot) => quarter(slot.datetimeStart, slot.datetimeEnd),
+        ),
+      },
+      {
+        displayName: 'Bob',
+        availabilities: [dayOne[1], dayTwo[0]].map((slot) =>
+          quarter(slot.datetimeStart, slot.datetimeEnd),
+        ),
+      },
+      {
+        displayName: 'Charlie',
+        availabilities: [dayOne[1], dayTwo[1]].map((slot) =>
+          quarter(slot.datetimeStart, slot.datetimeEnd),
+        ),
+      },
+    ]);
+
+    expect(result.bestTimes[0]).toMatchObject({
+      date: '2026-08-13',
+      timeLabel: '08:00',
+      availableCount: 1,
+      percentage: 33,
+    });
+  });
+
   it('aggregates a 31-day grid for 300 participants within the one-second budget', () => {
     const largeMeeting = {
       ...meeting,
