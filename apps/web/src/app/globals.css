@@ -123,10 +123,12 @@
   }
 
   .heatmap-gradient {
+    border-color: transparent !important;
     background: linear-gradient(
       to right,
-      oklch(0.17 0.025 245 / 0.65),
-      oklch(0.66 0.18 245)
+      oklch(0 0 0) 0%,
+      oklch(0 0 0) 4%,
+      oklch(0.66 0.18 245) 100%
     );
   }
 
