@@ -112,7 +112,7 @@ export class AuthController {
     return {
       httpOnly: true,
       secure,
-      sameSite: 'lax',
+      sameSite: secure ? 'none' : 'lax',
       path,
     };
   }
