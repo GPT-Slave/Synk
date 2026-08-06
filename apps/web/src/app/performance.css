@@ -27,6 +27,16 @@ label.fixed[class*="backdrop-blur"],
   will-change: auto !important;
 }
 
+/* Selected participant availability is a borderless green signal. */
+button[data-slot-start][aria-pressed="true"] {
+  border: 0 !important;
+  background: oklch(0.72 0.19 145) !important;
+  color: oklch(0.14 0.035 145) !important;
+  box-shadow:
+    0 0 24px -5px oklch(0.72 0.19 145 / 0.9),
+    inset 0 0 14px oklch(0.93 0.12 145 / 0.28) !important;
+}
+
 /*
  * Missing quarter-hour cells sit outside the configured working window. Make
  * them visibly unavailable—for example, the final two quarters when work ends
@@ -47,18 +57,36 @@ label.fixed[class*="backdrop-blur"],
 }
 
 /*
- * Heatmap cells previously painted a large variable inset glow per cell. The
- * background intensity already communicates availability, so avoid repainting
- * hundreds of shadows while retaining an accessible selected/focus outline.
+ * Heatmap cells normally avoid per-cell shadows for smooth scrolling. A chosen
+ * or recommendation-highlighted meeting window is the deliberate exception.
  */
 button[style*="box-shadow"] {
   box-shadow: none !important;
 }
 
-button[style*="box-shadow"][class~="ring-primary"],
-button[style*="box-shadow"]:focus-visible {
+button[style*="box-shadow"]:focus-visible:not([aria-pressed="true"]):not(
+    .brightness-125
+  ) {
   outline: 2px solid var(--ring) !important;
   outline-offset: -2px;
+}
+
+button[style*="box-shadow"][aria-pressed="true"],
+button[style*="box-shadow"].brightness-125 {
+  border-color: transparent !important;
+  outline: 0 !important;
+  background-color: oklch(0.72 0.19 145) !important;
+  color: oklch(0.14 0.035 145) !important;
+  box-shadow:
+    0 0 28px 3px oklch(0.72 0.19 145 / 0.62),
+    inset 0 0 16px oklch(0.93 0.12 145 / 0.32) !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+}
+
+/* The timezone sentence no longer needs a decorative TZ badge. */
+p[class*="text-primary/65"] > span:first-child {
+  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
