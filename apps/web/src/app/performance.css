@@ -1,0 +1,50 @@
+/* Keep scrolling cheap on pages with dense timetable grids. */
+body {
+  /* A fixed page background forces a full repaint on every scroll frame. */
+  background-attachment: scroll !important;
+}
+
+/*
+ * These controls stay fixed while the document moves. Sampling the page behind
+ * them with backdrop-filter makes the compositor re-blur that area every frame.
+ */
+button.fixed[class*="backdrop-blur"],
+label.fixed[class*="backdrop-blur"],
+[role="tooltip"].fixed[class*="backdrop-blur"] {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background-color: var(--popover) !important;
+}
+
+/*
+ * Calendar and quarter-hour views can render hundreds of Framer Motion buttons.
+ * Their tap/hover transforms are decorative, but can promote many cells to
+ * separate compositing layers. Keep interaction feedback in CSS instead.
+ */
+.grid-cols-4 > button,
+.grid-cols-7 > button {
+  transform: none !important;
+  will-change: auto !important;
+}
+
+/*
+ * Heatmap cells previously painted a large variable inset glow per cell. The
+ * background intensity already communicates availability, so avoid repainting
+ * hundreds of shadows while retaining an accessible selected/focus outline.
+ */
+button[style*="box-shadow"] {
+  box-shadow: none !important;
+}
+
+button[style*="box-shadow"][class~="ring-primary"],
+button[style*="box-shadow"]:focus-visible {
+  outline: 2px solid var(--ring) !important;
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button,
+  [role="button"] {
+    transform: none !important;
+  }
+}
