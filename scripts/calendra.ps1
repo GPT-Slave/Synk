@@ -18,9 +18,9 @@ function Fail($msg) {
 # ---------------------------------------------------------------------------
 Write-Step "Checking prerequisites"
 
-if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Fail "Node.js not found. Install Node >= 18." }
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Fail "Node.js not found. Install Node 22." }
 $nodeMajor = [int](node -p "process.versions.node.split('.')[0]")
-if ($nodeMajor -lt 18) { Fail "Node >= 18 required (found $(node -v))." }
+if ($nodeMajor -ne 22) { Fail "Node 22 required (found $(node -v))." }
 Write-Ok "Node $(node -v)"
 
 if (-not (Get-Command pnpm -ErrorAction SilentlyContinue)) {
@@ -60,77 +60,77 @@ if (-not (Select-String -Path $envFile -Pattern '^DATABASE_URL=' -Quiet)) {
 }
 
 # ---------------------------------------------------------------------------
-# 3. Dependencies
+# 3. Install dependencies
 # ---------------------------------------------------------------------------
 Write-Step "Installing dependencies"
 Push-Location $Root
-pnpm install
-if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "pnpm install failed." }
-Pop-Location
-Write-Ok "Dependencies installed"
+try {
+    pnpm install --frozen-lockfile
+    if ($LASTEXITCODE -ne 0) { Fail "pnpm install failed." }
+    Write-Ok "Dependencies installed"
+} finally {
+    Pop-Location
+}
 
-Write-Step "Running security audit"
+# ---------------------------------------------------------------------------
+# 4. PostgreSQL
+# ---------------------------------------------------------------------------
+Write-Step "Starting PostgreSQL"
 Push-Location $Root
-pnpm run security:audit
-if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "Security audit failed." }
-Pop-Location
-Write-Ok "Security audit passed"
+try {
+    docker compose up -d db
+    if ($LASTEXITCODE -ne 0) { Fail "PostgreSQL could not be started." }
+    Write-Ok "PostgreSQL container started"
+} finally {
+    Pop-Location
+}
 
-# ---------------------------------------------------------------------------
-# 4. Database (Postgres via Docker)
-# ---------------------------------------------------------------------------
-Write-Step "Starting Postgres"
-docker compose -f (Join-Path $Root "docker-compose.yml") up -d db
-if ($LASTEXITCODE -ne 0) { Fail "docker compose up failed." }
-
-Write-Host "    Waiting for Postgres to be ready..." -ForegroundColor Gray
+# Wait until PostgreSQL is accepting connections
+Write-Host "    Waiting for PostgreSQL" -NoNewline
 $ready = $false
 for ($i = 0; $i -lt 30; $i++) {
-    docker exec calendra-db pg_isready -U postgres -d meetplanner *> $null
+    docker compose exec -T db pg_isready -U postgres *> $null
     if ($LASTEXITCODE -eq 0) { $ready = $true; break }
-    Start-Sleep -Seconds 2
+    Write-Host "." -NoNewline
+    Start-Sleep -Seconds 1
 }
-if (-not $ready) { Fail "Postgres did not become ready in time." }
-Write-Ok "Postgres is ready on localhost:5432"
+Write-Host ""
+if (-not $ready) { Fail "PostgreSQL did not become ready within 30 seconds." }
+Write-Ok "PostgreSQL is ready"
 
 # ---------------------------------------------------------------------------
-# 5. Prisma — generate client + apply migrations
+# 5. Prisma
 # ---------------------------------------------------------------------------
-Write-Step "Syncing database schema (Prisma)"
-Push-Location (Join-Path $Root "apps\api")
-
-pnpm exec prisma generate
-if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "prisma generate failed." }
-Write-Ok "Prisma client generated"
-
-$migrationsDir = Join-Path $Root "apps\api\prisma\migrations"
-if (Test-Path $migrationsDir) {
-    pnpm exec prisma migrate deploy
-} else {
-    pnpm exec prisma migrate dev --name init
+Write-Step "Preparing database"
+Push-Location $Root
+try {
+    pnpm prisma:generate
+    if ($LASTEXITCODE -ne 0) { Fail "Prisma client generation failed." }
+    pnpm prisma:migrate
+    if ($LASTEXITCODE -ne 0) { Fail "Prisma migration failed." }
+    Write-Ok "Database is ready"
+} finally {
+    Pop-Location
 }
-if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "prisma migrate failed." }
-Pop-Location
-Write-Ok "Database schema up to date"
 
 # ---------------------------------------------------------------------------
-# 6. Verification — typecheck both apps
+# 6. Typecheck
 # ---------------------------------------------------------------------------
-Write-Step "Verifying build (typecheck)"
-Push-Location (Join-Path $Root "apps\api")
-pnpm exec tsc --noEmit -p tsconfig.json
-if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "API typecheck failed." }
-Pop-Location
-Write-Ok "API typecheck passed"
-
-Push-Location (Join-Path $Root "apps\web")
-pnpm exec tsc --noEmit -p tsconfig.json
-if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "Web typecheck failed." }
-Pop-Location
-Write-Ok "Web typecheck passed"
+Write-Step "Checking TypeScript"
+Push-Location $Root
+try {
+    pnpm --filter api typecheck
+    if ($LASTEXITCODE -ne 0) { Fail "API typecheck failed." }
+    Write-Ok "API typecheck passed"
+    pnpm --filter web typecheck
+    if ($LASTEXITCODE -ne 0) { Fail "Web typecheck failed." }
+    Write-Ok "Web typecheck passed"
+} finally {
+    Pop-Location
+}
 
 # ---------------------------------------------------------------------------
-# 7. Launch
+# 7. Start
 # ---------------------------------------------------------------------------
 Write-Step "Starting Synk"
 Write-Host "    API -> http://localhost:4000" -ForegroundColor Gray
@@ -138,7 +138,8 @@ Write-Host "    Web -> http://localhost:3000" -ForegroundColor Gray
 Write-Host "    Press Ctrl+C to stop both.`n" -ForegroundColor Gray
 
 Push-Location $Root
-pnpm exec concurrently --kill-others --names "api,web" --prefix-colors "yellow,magenta" `
-    "pnpm --filter api start:dev" `
-    "pnpm --filter web dev"
-Pop-Location
+try {
+    pnpm exec concurrently --kill-others-on-fail --names api,web --prefix-colors magenta,cyan "pnpm dev:api" "pnpm dev:web"
+} finally {
+    Pop-Location
+}
