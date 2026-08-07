@@ -210,6 +210,8 @@ export class MeetingsService {
       }
       return result;
     });
+
+    this.realtime.meetingUpdated({ meetingId: updated.id });
     return this.serialize(updated);
   }
 
