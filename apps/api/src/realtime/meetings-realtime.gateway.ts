@@ -44,6 +44,10 @@ export interface ParticipantRemovedEvent {
   participantId: string;
 }
 
+export interface MeetingUpdatedEvent {
+  meetingId: string;
+}
+
 export interface MeetingStateChangedEvent {
   meetingId: string;
   finalized: boolean;
@@ -121,6 +125,12 @@ export class MeetingsRealtimeGateway implements OnGatewayConnection<Socket> {
     this.child(event.meetingId)
       .to(AUTHORIZED_ROOM)
       .emit('participant:removed', this.timestamp(event));
+  }
+
+  meetingUpdated(event: MeetingUpdatedEvent): void {
+    this.child(event.meetingId)
+      .to(AUTHORIZED_ROOM)
+      .emit('meeting:updated', this.timestamp(event));
   }
 
   meetingStateChanged(event: MeetingStateChangedEvent): void {
