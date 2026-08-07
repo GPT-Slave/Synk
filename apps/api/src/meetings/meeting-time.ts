@@ -61,13 +61,19 @@ export function meetingGrid(meeting: Meeting) {
       label: dateLabelFormatter.format(cursor),
     });
 
+    const possibleOffsets = timezoneOffsetsForDate(date, meeting.timezone);
     const boundaries: ZonedBoundary[] = [];
     for (
       let minute = startMinutes;
       minute <= endMinutes;
       minute += meeting.slotIntervalMinutes
     ) {
-      const instant = zonedDateTimeToUtc(date, minute, meeting.timezone);
+      const instant = zonedDateTimeToUtc(
+        date,
+        minute,
+        meeting.timezone,
+        possibleOffsets,
+      );
       if (instant) boundaries.push({ minuteOfDay: minute, instant });
     }
 
@@ -104,6 +110,7 @@ function zonedDateTimeToUtc(
   date: string,
   minuteOfDay: number,
   timezone: string,
+  possibleOffsets: readonly number[],
 ): Date | null {
   const local = localDateTime(date, minuteOfDay);
   const desired = Date.UTC(
@@ -113,15 +120,9 @@ function zonedDateTimeToUtc(
     local.hour,
     local.minute,
   );
-  const offsets = new Set<number>();
-
-  for (const sampleHour of OFFSET_SAMPLE_HOURS) {
-    offsets.add(timezoneOffsetAt(desired + sampleHour * 3_600_000, timezone));
-  }
-
-  const candidates = Array.from(offsets)
-    .map((offset) => desired - offset)
-    .filter((candidate, index, values) => values.indexOf(candidate) === index)
+  const candidates = Array.from(
+    new Set(possibleOffsets.map((offset) => desired - offset)),
+  )
     .filter((candidate) =>
       sameLocalDateTime(zonedParts(new Date(candidate), timezone), local),
     )
@@ -131,6 +132,28 @@ function zonedDateTimeToUtc(
   // fall-back overlap there are two candidates; choosing the earlier one is a
   // deterministic policy and keeps visible wall-clock labels unique.
   return candidates.length > 0 ? new Date(candidates[0]) : null;
+}
+
+function timezoneOffsetsForDate(date: string, timezone: string): number[] {
+  const localNoon = localDateTime(date, 12 * 60);
+  const approximateNoon = Date.UTC(
+    localNoon.year,
+    localNoon.month - 1,
+    localNoon.day,
+    localNoon.hour,
+    localNoon.minute,
+  );
+
+  return Array.from(
+    new Set(
+      OFFSET_SAMPLE_HOURS.map((sampleHour) =>
+        timezoneOffsetAt(
+          approximateNoon + sampleHour * 3_600_000,
+          timezone,
+        ),
+      ),
+    ),
+  );
 }
 
 function localDateTime(date: string, minuteOfDay: number): LocalDateTime {
