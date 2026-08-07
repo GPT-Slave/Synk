@@ -147,10 +147,7 @@ function timezoneOffsetsForDate(date: string, timezone: string): number[] {
   return Array.from(
     new Set(
       OFFSET_SAMPLE_HOURS.map((sampleHour) =>
-        timezoneOffsetAt(
-          approximateNoon + sampleHour * 3_600_000,
-          timezone,
-        ),
+        timezoneOffsetAt(approximateNoon + sampleHour * 3_600_000, timezone),
       ),
     ),
   );
@@ -158,9 +155,7 @@ function timezoneOffsetsForDate(date: string, timezone: string): number[] {
 
 function localDateTime(date: string, minuteOfDay: number): LocalDateTime {
   const [year, month, day] = date.split('-').map(Number);
-  const normalized = new Date(
-    Date.UTC(year, month - 1, day, 0, minuteOfDay),
-  );
+  const normalized = new Date(Date.UTC(year, month - 1, day, 0, minuteOfDay));
   return {
     year: normalized.getUTCFullYear(),
     month: normalized.getUTCMonth() + 1,
