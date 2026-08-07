@@ -180,7 +180,7 @@ function MeetingCard({
       </p>
       <p className="relative z-10 mt-2 flex items-center gap-2 text-sm text-muted-foreground transition-colors group-hover:text-foreground/80">
         <UsersRound className="size-4 text-primary/75 transition-transform duration-200 group-hover:scale-110" />{" "}
-        {meeting.responseCount} of {meeting.participantCount} responded
+        {meeting.responseCount}/{meeting.participantCount} {t("Responses")}
       </p>
       <div
         aria-hidden="true"
