@@ -5,7 +5,6 @@ import type {
   OrganizerMeetingDto,
 } from "@meet-planner/shared-types";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { motion, useReducedMotion } from "framer-motion";
 import { CalendarPlus, Clock3, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { OrganizerShell } from "@/components/organizer-shell";
@@ -41,7 +40,7 @@ function DashboardContent() {
   const items = meetings.data?.pages.flatMap((page) => page.items) ?? [];
 
   return (
-    <section className="mx-auto max-w-6xl py-12 sm:py-16">
+    <section className="synk-enter mx-auto max-w-6xl py-12 sm:py-16">
       <p className="text-sm text-muted-foreground">
         {t("Signed in as")} {session?.user.email}
       </p>
@@ -57,10 +56,11 @@ function DashboardContent() {
           </p>
         </div>
         <Button
-          className="h-10 px-4"
+          className="group h-10 px-4"
           render={<Link href="/dashboard/meetings/new" />}
         >
-          <CalendarPlus /> {t("Create meeting")}
+          <CalendarPlus className="transition-transform duration-200 group-hover:scale-110 group-hover:rotate-6" />{" "}
+          {t("Create meeting")}
         </Button>
       </div>
 
@@ -103,8 +103,12 @@ function DashboardContent() {
                 {t(group.title)}
               </h2>
               <div className="grid gap-3 md:grid-cols-2">
-                {groupItems.map((meeting) => (
-                  <MeetingCard key={meeting.id} meeting={meeting} />
+                {groupItems.map((meeting, index) => (
+                  <MeetingCard
+                    index={index}
+                    key={meeting.id}
+                    meeting={meeting}
+                  />
                 ))}
               </div>
             </section>
@@ -128,49 +132,66 @@ function DashboardContent() {
   );
 }
 
-function MeetingCard({ meeting }: { meeting: OrganizerMeetingDto }) {
-  const reduceMotion = useReducedMotion();
+function MeetingCard({
+  index,
+  meeting,
+}: {
+  index: number;
+  meeting: OrganizerMeetingDto;
+}) {
   const { formatDate, t } = useI18n();
+  const responseProgress = meeting.participantCount
+    ? Math.min(
+        100,
+        Math.round((meeting.responseCount / meeting.participantCount) * 100),
+      )
+    : 0;
+
   return (
-    <motion.div
-      whileHover={reduceMotion ? undefined : { y: -2 }}
-      transition={{ duration: 0.18 }}
+    <Link
+      className="synk-card-lift synk-enter synk-shine group block rounded-2xl border border-white/10 bg-white/[0.025] p-5 hover:border-primary/35 hover:bg-primary/[0.035]"
+      href={`/dashboard/meetings/${meeting.id}`}
+      style={{ animationDelay: `${Math.min(index, 8) * 55}ms` }}
     >
-      <Link
-        className="group block rounded-2xl border border-white/10 bg-white/[0.025] p-5 transition-colors duration-200 hover:border-primary/35 hover:bg-primary/[0.035]"
-        href={`/dashboard/meetings/${meeting.id}`}
+      <div className="relative z-10 flex items-start justify-between gap-4">
+        <h3 className="font-medium tracking-tight transition-colors group-hover:text-primary">
+          {meeting.title}
+        </h3>
+        <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground transition-colors group-hover:border-primary/25 group-hover:text-foreground">
+          {t(
+            groups.find((group) => group.status === meeting.status)?.title ??
+              meeting.status,
+          )}
+        </span>
+      </div>
+      <p className="relative z-10 mt-4 flex items-center gap-2 text-sm text-muted-foreground transition-colors group-hover:text-foreground/80">
+        <Clock3 className="size-4 text-primary/75 transition-transform duration-200 group-hover:scale-110" />{" "}
+        {formatDate(meeting.startDate, {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        })}{" "}
+        –{" "}
+        {formatDate(meeting.endDate, {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        })}
+      </p>
+      <p className="relative z-10 mt-2 flex items-center gap-2 text-sm text-muted-foreground transition-colors group-hover:text-foreground/80">
+        <UsersRound className="size-4 text-primary/75 transition-transform duration-200 group-hover:scale-110" />{" "}
+        {meeting.responseCount} of {meeting.participantCount} responded
+      </p>
+      <div
+        aria-hidden="true"
+        className="relative z-10 mt-4 h-1 overflow-hidden rounded-full bg-white/[0.06]"
       >
-        <div className="flex items-start justify-between gap-4">
-          <h3 className="font-medium tracking-tight group-hover:text-primary">
-            {meeting.title}
-          </h3>
-          <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-            {t(
-              groups.find((group) => group.status === meeting.status)?.title ??
-                meeting.status,
-            )}
-          </span>
-        </div>
-        <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-          <Clock3 className="size-4" />{" "}
-          {formatDate(meeting.startDate, {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}{" "}
-          –{" "}
-          {formatDate(meeting.endDate, {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}
-        </p>
-        <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-          <UsersRound className="size-4" /> {meeting.responseCount} of{" "}
-          {meeting.participantCount} responded
-        </p>
-      </Link>
-    </motion.div>
+        <span
+          className="block h-full rounded-full bg-primary/70 transition-[width] duration-500"
+          style={{ width: `${responseProgress}%` }}
+        />
+      </div>
+    </Link>
   );
 }
 
