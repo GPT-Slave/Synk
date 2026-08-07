@@ -177,10 +177,7 @@ function timezoneOffsetAt(value: number, timezone: string): number {
   return represented - value;
 }
 
-function sameLocalDateTime(
-  left: LocalDateTime,
-  right: LocalDateTime,
-): boolean {
+function sameLocalDateTime(left: LocalDateTime, right: LocalDateTime): boolean {
   return (
     left.year === right.year &&
     left.month === right.month &&
