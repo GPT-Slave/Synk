@@ -73,7 +73,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="synk-card-lift synk-float relative mx-auto grid aspect-square w-full max-w-md place-items-center rounded-lg border border-primary/20 bg-primary/[0.045] shadow-[0_0_100px_-38px_oklch(0.82_0.18_245)]">
+        <div className="synk-float relative mx-auto grid aspect-square w-full max-w-md place-items-center rounded-lg border border-primary/20 bg-primary/[0.045] shadow-[0_0_100px_-38px_oklch(0.82_0.18_245)]">
           <div className="pointer-events-none absolute inset-8 rounded-[2rem] border border-white/[0.06]" />
           <div className="synk-orbit pointer-events-none absolute inset-[18%] rounded-full border border-primary/20">
             <span className="absolute -top-1 left-1/2 size-2 -translate-x-1/2 rounded-full bg-primary shadow-[0_0_16px_var(--primary)]" />
