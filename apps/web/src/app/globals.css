@@ -118,6 +118,38 @@
     @apply h-11 w-full rounded-md border border-input bg-white/[0.035] px-3 text-sm shadow-xs outline-none transition duration-180 placeholder:text-muted-foreground/70 hover:border-white/20 focus:border-primary focus:ring-3 focus:ring-primary/15 aria-invalid:border-destructive aria-invalid:ring-destructive/15;
   }
 
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    border-color: color-mix(in oklab, var(--primary) 55%, transparent) !important;
+    -webkit-text-fill-color: var(--foreground) !important;
+    caret-color: var(--foreground);
+    -webkit-box-shadow: 0 0 0 1000px
+      color-mix(in oklab, var(--primary) 12%, var(--background)) inset !important;
+    box-shadow: 0 0 0 1000px
+      color-mix(in oklab, var(--primary) 12%, var(--background)) inset !important;
+    transition: background-color 9999s ease-out 0s;
+  }
+
+  input:-moz-autofill {
+    border-color: color-mix(in oklab, var(--primary) 55%, transparent) !important;
+    color: var(--foreground) !important;
+    caret-color: var(--foreground);
+    box-shadow: 0 0 0 1000px
+      color-mix(in oklab, var(--primary) 12%, var(--background)) inset !important;
+    filter: none;
+  }
+
+  .brand-wordmark {
+    font-family:
+      var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco,
+      Consolas, monospace;
+    font-weight: 800;
+    font-variant-ligatures: none;
+    letter-spacing: -0.08em;
+  }
+
   .brand-neon-blue {
     filter: hue-rotate(105deg) saturate(1.45) brightness(1.12);
   }
