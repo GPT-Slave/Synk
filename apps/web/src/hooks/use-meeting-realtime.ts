@@ -65,6 +65,7 @@ export function useMeetingRealtime(meetingId: string): RealtimeStatus {
     socket.on("participant:joined", (event) => resync(event));
     socket.on("participant:removed", (event) => resync(event));
     socket.on("availability:changed", (event) => resync(event));
+    socket.on("meeting:updated", (event) => resync(event));
     socket.on("meeting:state-changed", (event) => resync(event));
     socket.on("disconnect", () => {
       if (!disposed) setStatus("offline");
