@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
 import type { Meeting } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
+import type { MeetingsRealtimeGateway } from '../realtime/meetings-realtime.gateway';
 import { MeetingsService } from './meetings.service';
 
 function savedMeeting(overrides: Partial<Meeting> = {}): Meeting {
@@ -36,9 +37,12 @@ describe('MeetingsService update regressions', () => {
     $transaction: jest.fn((callback) => callback(transaction)),
     meeting: { findFirst: jest.fn() },
   };
+  const realtime = {
+    meetingUpdated: jest.fn(),
+  };
   const service = new MeetingsService(
     prisma as unknown as PrismaService,
-    {} as never,
+    realtime as unknown as MeetingsRealtimeGateway,
   );
 
   beforeEach(() => {
@@ -69,6 +73,10 @@ describe('MeetingsService update regressions', () => {
     });
     expect(transaction.availability.deleteMany).not.toHaveBeenCalled();
     expect(transaction.participant.updateMany).not.toHaveBeenCalled();
+    expect(realtime.meetingUpdated).toHaveBeenCalledTimes(1);
+    expect(realtime.meetingUpdated).toHaveBeenCalledWith({
+      meetingId: 'meeting-1',
+    });
   });
 
   it('stores an explicitly cleared description as null', async () => {
@@ -82,6 +90,7 @@ describe('MeetingsService update regressions', () => {
     });
     expect(result).not.toHaveProperty('description');
     expect(transaction.availability.deleteMany).not.toHaveBeenCalled();
+    expect(realtime.meetingUpdated).toHaveBeenCalledTimes(1);
   });
 
   it('still clears stale responses when the actual scheduling grid changes', async () => {
@@ -96,5 +105,18 @@ describe('MeetingsService update regressions', () => {
       where: { meetingId: 'meeting-1' },
       data: { respondedAt: null },
     });
+    expect(realtime.meetingUpdated).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not broadcast an update when the transaction fails', async () => {
+    prisma.$transaction.mockRejectedValueOnce(new Error('transaction failed'));
+
+    await expect(
+      service.update('user-1', 'meeting-1', {
+        title: 'This should roll back',
+      }),
+    ).rejects.toThrow('transaction failed');
+
+    expect(realtime.meetingUpdated).not.toHaveBeenCalled();
   });
 });
