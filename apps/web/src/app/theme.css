@@ -71,10 +71,12 @@
 }
 
 .light .heatmap-gradient {
+  border-color: transparent !important;
   background: linear-gradient(
     to right,
-    oklch(0.91 0.025 245),
-    oklch(0.59 0.205 247)
+    oklch(0 0 0) 0%,
+    oklch(0 0 0) 4%,
+    oklch(0.59 0.205 247) 100%
   );
 }
 

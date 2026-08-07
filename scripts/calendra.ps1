@@ -18,9 +18,9 @@ function Fail($msg) {
 # ---------------------------------------------------------------------------
 Write-Step "Checking prerequisites"
 
-if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Fail "Node.js not found. Install Node >= 18." }
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Fail "Node.js not found. Install Node 22." }
 $nodeMajor = [int](node -p "process.versions.node.split('.')[0]")
-if ($nodeMajor -lt 18) { Fail "Node >= 18 required (found $(node -v))." }
+if ($nodeMajor -ne 22) { Fail "Node 22 required (found $(node -v))." }
 Write-Ok "Node $(node -v)"
 
 if (-not (Get-Command pnpm -ErrorAction SilentlyContinue)) {
