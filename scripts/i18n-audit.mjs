@@ -18,7 +18,7 @@ const UI_STRING_PROPS = new Set([
   "alt",
 ]);
 const UI_OBJECT_KEYS = new Set(["title", "description", "label", "placeholder"]);
-const RAW_TEXT_ALLOWLIST = new Set(["Synk"]);
+const RAW_TEXT_ALLOWLIST = new Set(["Synk", "TZ", "you@example.com"]);
 
 function walk(dir, files = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -119,6 +119,10 @@ function addRawIssue(issues, file, sourceFile, node, text, context) {
   });
 }
 
+function isLocalizationImplementation(file) {
+  return path.basename(file).startsWith("i18n");
+}
+
 function scanSource(file, usedKeys, rawIssues) {
   const source = fs.readFileSync(file, "utf8");
   const sourceFile = ts.createSourceFile(
@@ -140,7 +144,7 @@ function scanSource(file, usedKeys, rawIssues) {
       if (key !== undefined) usedKeys.add(key);
     }
 
-    if (!file.endsWith("i18n.tsx") && !file.endsWith("i18n-extra.ts")) {
+    if (!isLocalizationImplementation(file)) {
       if (ts.isJsxText(node)) {
         addRawIssue(rawIssues, file, sourceFile, node, node.getText(sourceFile), "JSX text");
       }
@@ -196,6 +200,17 @@ function scanSource(file, usedKeys, rawIssues) {
   visit(sourceFile);
 }
 
+function sourceFileFor(file) {
+  const source = fs.readFileSync(file, "utf8");
+  return ts.createSourceFile(
+    file,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+}
+
 function findVariableObject(sourceFile, variableName) {
   let found;
   function visit(node) {
@@ -212,9 +227,7 @@ function findVariableObject(sourceFile, variableName) {
 
 function extractLocaleTables(file, variableName) {
   if (!fs.existsSync(file)) return {};
-  const source = fs.readFileSync(file, "utf8");
-  const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const object = findVariableObject(sourceFile, variableName);
+  const object = findVariableObject(sourceFileFor(file), variableName);
   if (!object) return {};
 
   const result = {};
@@ -233,9 +246,21 @@ function extractLocaleTables(file, variableName) {
   return result;
 }
 
+function extractFlatTable(file, variableName) {
+  if (!fs.existsSync(file)) return new Set();
+  const object = findVariableObject(sourceFileFor(file), variableName);
+  const keys = new Set();
+  if (!object) return keys;
+  for (const entry of object.properties) {
+    if (!ts.isPropertyAssignment(entry)) continue;
+    const key = propertyNameText(entry.name);
+    if (key !== undefined) keys.add(key);
+  }
+  return keys;
+}
+
 function extractSupportedLocales(file) {
-  const source = fs.readFileSync(file, "utf8");
-  const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const sourceFile = sourceFileFor(file);
   let locales = [];
   function visit(node) {
     if (
@@ -273,13 +298,20 @@ const usedKeys = new Set();
 const rawIssues = [];
 for (const file of files) scanSource(file, usedKeys, rawIssues);
 
-const i18nFile = path.join(webRoot, "src", "lib", "i18n.tsx");
-const extraFile = path.join(webRoot, "src", "lib", "i18n-extra.ts");
-const supportedLocales = extractSupportedLocales(i18nFile);
+const libRoot = path.join(webRoot, "src", "lib");
+const legacyFile = path.join(libRoot, "i18n.tsx");
+const runtimeFile = path.join(libRoot, "i18n-runtime.tsx");
+const extraFile = path.join(libRoot, "i18n-extra.ts");
+const supportedLocales = [...extractSupportedLocales(legacyFile), "it"];
 const tables = mergeTables(
-  extractLocaleTables(i18nFile, "translations"),
+  extractLocaleTables(legacyFile, "translations"),
+  extractLocaleTables(runtimeFile, "supplementalTranslations"),
   extractLocaleTables(extraFile, "extraTranslations"),
 );
+tables.it ??= new Set();
+for (const key of extractFlatTable(runtimeFile, "italianTranslations")) {
+  tables.it.add(key);
+}
 
 const missingByLocale = {};
 for (const locale of supportedLocales) {
