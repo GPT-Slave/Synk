@@ -33,6 +33,19 @@ const context = await browser.newContext({
 });
 const page = await context.newPage();
 
+page.on("response", async (response) => {
+  if (!response.url().startsWith("http://localhost:4000") || response.ok()) return;
+  let body = "";
+  try {
+    body = await response.text();
+  } catch {
+    body = "<response body unavailable>";
+  }
+  console.error(
+    `API ${response.status()} ${response.request().method()} ${response.url()}\n${body}`,
+  );
+});
+
 try {
   await page.goto(`${baseUrl}/signup`, { waitUntil: "networkidle" });
   await page.getByLabel("Email").fill(`visual-${Date.now()}@example.com`);
@@ -45,9 +58,19 @@ try {
   await page.waitForURL(/\/dashboard\/meetings\/new/, { timeout: 20_000 });
   await page.getByLabel("Meeting title").fill("Localization visual validation");
   await page.getByRole("button", { name: "Create meeting" }).click();
-  await page.waitForURL(/\/dashboard\/meetings\/[a-zA-Z0-9-]+$/, {
-    timeout: 30_000,
-  });
+  try {
+    await page.waitForURL(/\/dashboard\/meetings\/[a-zA-Z0-9-]+$/, {
+      timeout: 30_000,
+    });
+  } catch (error) {
+    console.error(`Meeting creation stayed on: ${page.url()}`);
+    console.error(await page.locator("body").innerText());
+    await page.screenshot({
+      path: path.join(outputDir, "meeting-create-failure.png"),
+      fullPage: true,
+    });
+    throw error;
+  }
   await page.getByText("You (organizer)", { exact: true }).first().waitFor({ timeout: 30_000 });
 
   const languageSelect = page.locator("select").first();
