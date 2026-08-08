@@ -185,18 +185,19 @@ export class MeetingsService {
         dto.meetingDurationMinutes ?? meeting.meetingDurationMinutes,
       timezone: dto.timezone ?? meeting.timezone,
     };
-    const scheduleChanged = Boolean(
-      dto.startDate ??
-      dto.endDate ??
-      dto.workdayStart ??
-      dto.workdayEnd ??
-      dto.slotIntervalMinutes ??
-      dto.timezone,
-    );
+    const validated = this.validatedData(merged);
+    const scheduleChanged =
+      dateOnly(validated.startDate) !== dateOnly(meeting.startDate) ||
+      dateOnly(validated.endDate) !== dateOnly(meeting.endDate) ||
+      validated.workdayStart !== meeting.workdayStart ||
+      validated.workdayEnd !== meeting.workdayEnd ||
+      validated.slotIntervalMinutes !== meeting.slotIntervalMinutes ||
+      validated.timezone !== meeting.timezone;
+
     const updated = await this.prisma.$transaction(async (transaction) => {
       const result = await transaction.meeting.update({
         where: { id: meeting.id },
-        data: this.validatedData(merged),
+        data: validated,
       });
       if (scheduleChanged) {
         await transaction.availability.deleteMany({
@@ -209,6 +210,8 @@ export class MeetingsService {
       }
       return result;
     });
+
+    this.realtime.meetingUpdated({ meetingId: updated.id });
     return this.serialize(updated);
   }
 

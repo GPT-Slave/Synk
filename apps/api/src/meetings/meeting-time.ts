@@ -7,6 +7,19 @@ export interface MeetingGridSlot {
   timeLabel: string;
 }
 
+interface LocalDateTime {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+}
+
+interface ZonedBoundary {
+  minuteOfDay: number;
+  instant: Date;
+}
+
 const dateLabelFormatter = new Intl.DateTimeFormat('en', {
   weekday: 'short',
   month: 'short',
@@ -14,6 +27,7 @@ const dateLabelFormatter = new Intl.DateTimeFormat('en', {
   timeZone: 'UTC',
 });
 const zonedFormatterByTimezone = new Map<string, Intl.DateTimeFormat>();
+const OFFSET_SAMPLE_HOURS = [-48, -24, -6, 0, 6, 24, 48] as const;
 
 export function dateOnly(value: Date): string {
   return value.toISOString().slice(0, 10);
@@ -37,6 +51,8 @@ export function meetingGrid(meeting: Meeting) {
   const end = dateOnly(meeting.endDate);
   const startMinutes = minutesFromTime(meeting.workdayStart);
   const endMinutes = minutesFromTime(meeting.workdayEnd);
+  const intervalMs = meeting.slotIntervalMinutes * 60_000;
+  const seenStarts = new Set<string>();
 
   while (dateOnly(cursor) <= end) {
     const date = dateOnly(cursor);
@@ -45,28 +61,45 @@ export function meetingGrid(meeting: Meeting) {
       label: dateLabelFormatter.format(cursor),
     });
 
+    const possibleOffsets = timezoneOffsetsForDate(date, meeting.timezone);
+    const boundaries: ZonedBoundary[] = [];
     for (
       let minute = startMinutes;
-      minute + meeting.slotIntervalMinutes <= endMinutes;
+      minute <= endMinutes;
       minute += meeting.slotIntervalMinutes
     ) {
-      const hours = Math.floor(minute / 60);
-      const minutes = minute % 60;
-      const nextMinute = minute + meeting.slotIntervalMinutes;
-      const start = zonedDateTimeToUtc(date, hours, minutes, meeting.timezone);
-      const finish = zonedDateTimeToUtc(
+      const instant = zonedDateTimeToUtc(
         date,
-        Math.floor(nextMinute / 60),
-        nextMinute % 60,
+        minute,
         meeting.timezone,
+        possibleOffsets,
       );
+      if (instant) boundaries.push({ minuteOfDay: minute, instant });
+    }
+
+    for (let index = 0; index + 1 < boundaries.length; index += 1) {
+      const start = boundaries[index];
+      const finish = boundaries[index + 1];
+
+      // A wall-clock transition must never create a slot with the wrong real
+      // duration. Missing spring-forward boundaries can still join across the
+      // skipped hour when the elapsed UTC time is exactly one slot interval.
+      if (finish.instant.getTime() - start.instant.getTime() !== intervalMs) {
+        continue;
+      }
+
+      const datetimeStart = start.instant.toISOString();
+      if (seenStarts.has(datetimeStart)) continue;
+      seenStarts.add(datetimeStart);
+
       slots.push({
-        datetimeStart: start.toISOString(),
-        datetimeEnd: finish.toISOString(),
+        datetimeStart,
+        datetimeEnd: finish.instant.toISOString(),
         date,
-        timeLabel: `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`,
+        timeLabel: timeLabel(start.minuteOfDay),
       });
     }
+
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
 
@@ -75,30 +108,93 @@ export function meetingGrid(meeting: Meeting) {
 
 function zonedDateTimeToUtc(
   date: string,
-  hour: number,
-  minute: number,
+  minuteOfDay: number,
   timezone: string,
-): Date {
-  const [year, month, day] = date.split('-').map(Number);
-  const desired = Date.UTC(year, month - 1, day, hour, minute);
-  let candidate = desired;
+  possibleOffsets: readonly number[],
+): Date | null {
+  const local = localDateTime(date, minuteOfDay);
+  const desired = Date.UTC(
+    local.year,
+    local.month - 1,
+    local.day,
+    local.hour,
+    local.minute,
+  );
+  const candidates = Array.from(
+    new Set(possibleOffsets.map((offset) => desired - offset)),
+  )
+    .filter((candidate) =>
+      sameLocalDateTime(zonedParts(new Date(candidate), timezone), local),
+    )
+    .sort((left, right) => left - right);
 
-  // Two passes account for daylight-saving offsets around transitions.
-  for (let pass = 0; pass < 2; pass += 1) {
-    const parts = zonedParts(new Date(candidate), timezone);
-    const represented = Date.UTC(
-      parts.year,
-      parts.month - 1,
-      parts.day,
-      parts.hour,
-      parts.minute,
-    );
-    candidate += desired - represented;
-  }
-  return new Date(candidate);
+  // Nonexistent wall times have no round-tripping candidate. During the
+  // fall-back overlap there are two candidates; choosing the earlier one is a
+  // deterministic policy and keeps visible wall-clock labels unique.
+  return candidates.length > 0 ? new Date(candidates[0]) : null;
 }
 
-function zonedParts(value: Date, timezone: string) {
+function timezoneOffsetsForDate(date: string, timezone: string): number[] {
+  const localNoon = localDateTime(date, 12 * 60);
+  const approximateNoon = Date.UTC(
+    localNoon.year,
+    localNoon.month - 1,
+    localNoon.day,
+    localNoon.hour,
+    localNoon.minute,
+  );
+
+  return Array.from(
+    new Set(
+      OFFSET_SAMPLE_HOURS.map((sampleHour) =>
+        timezoneOffsetAt(approximateNoon + sampleHour * 3_600_000, timezone),
+      ),
+    ),
+  );
+}
+
+function localDateTime(date: string, minuteOfDay: number): LocalDateTime {
+  const [year, month, day] = date.split('-').map(Number);
+  const normalized = new Date(Date.UTC(year, month - 1, day, 0, minuteOfDay));
+  return {
+    year: normalized.getUTCFullYear(),
+    month: normalized.getUTCMonth() + 1,
+    day: normalized.getUTCDate(),
+    hour: normalized.getUTCHours(),
+    minute: normalized.getUTCMinutes(),
+  };
+}
+
+function timezoneOffsetAt(value: number, timezone: string): number {
+  const parts = zonedParts(new Date(value), timezone);
+  const represented = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+  );
+  return represented - value;
+}
+
+function sameLocalDateTime(left: LocalDateTime, right: LocalDateTime): boolean {
+  return (
+    left.year === right.year &&
+    left.month === right.month &&
+    left.day === right.day &&
+    left.hour === right.hour &&
+    left.minute === right.minute
+  );
+}
+
+function timeLabel(minuteOfDay: number): string {
+  const normalized = minuteOfDay % (24 * 60);
+  const hours = Math.floor(normalized / 60);
+  const minutes = normalized % 60;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
+function zonedParts(value: Date, timezone: string): LocalDateTime {
   let formatter = zonedFormatterByTimezone.get(timezone);
   if (!formatter) {
     formatter = new Intl.DateTimeFormat('en-CA', {
@@ -118,11 +214,5 @@ function zonedParts(value: Date, timezone: string) {
       .filter((part) => part.type !== 'literal')
       .map((part) => [part.type, Number(part.value)]),
   );
-  return values as {
-    year: number;
-    month: number;
-    day: number;
-    hour: number;
-    minute: number;
-  };
+  return values as unknown as LocalDateTime;
 }
