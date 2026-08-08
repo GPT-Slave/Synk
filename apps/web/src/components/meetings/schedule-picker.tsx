@@ -264,7 +264,7 @@ function TimeRangeGrid({
   rangeStart: string;
 }) {
   const reduceMotion = useReducedMotion();
-  const { t } = useI18n();
+  const { formatDuration, t } = useI18n();
   const [selectingEnd, setSelectingEnd] = useState(false);
   const [hoveredMinute, setHoveredMinute] = useState<number>();
   const hours = useMemo(
@@ -347,9 +347,10 @@ function TimeRangeGrid({
                 const active = minute >= preview.start && minute < preview.end;
                 const endpoint =
                   minute === preview.start || minute + 15 === preview.end;
+                const time = labelFromMinutes(minute);
                 return (
                   <motion.button
-                    aria-label={`Select ${labelFromMinutes(minute)}`}
+                    aria-label={t("Select {time}", { time })}
                     aria-pressed={active}
                     className={`min-h-14 outline-none transition duration-200 focus-visible:z-20 focus-visible:ring-2 focus-visible:ring-primary ${
                       endpoint
@@ -361,7 +362,7 @@ function TimeRangeGrid({
                     key={quarter}
                     onClick={() => selectTime(minute)}
                     onMouseEnter={() => setHoveredMinute(minute)}
-                    title={labelFromMinutes(minute)}
+                    title={time}
                     type="button"
                     whileTap={reduceMotion ? undefined : { scale: 0.94 }}
                   />
@@ -476,11 +477,4 @@ function orderMinuteRange(first: number, second: number, interval: number) {
   return first <= second
     ? { start: first, end: Math.min(1_440, second + interval) }
     : { start: second, end: Math.min(1_440, first + interval) };
-}
-
-function formatDuration(minutes: number) {
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  if (!hours) return `${rest} min`;
-  return rest ? `${hours}h ${rest}m` : `${hours}h`;
 }
