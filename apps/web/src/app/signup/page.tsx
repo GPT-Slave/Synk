@@ -8,7 +8,7 @@ export default function SignupPage() {
   return (
     <AuthShell
       description="Create polls, share one secure link, and find the overlap."
-      title="Start organizing"
+      titleKey="Start organizing"
     >
       <AuthForm mode="signup" />
     </AuthShell>
