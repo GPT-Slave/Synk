@@ -32,7 +32,6 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/meetplanner?schema=public
       DIRECT_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/meetplanner?schema=public
-      PORT: "4000"
       JWT_SECRET: visual-validation-jwt-secret-0123456789abcdef
       JWT_REFRESH_SECRET: visual-validation-refresh-secret-0123456789abcdef
       CSRF_SECRET: visual-validation-csrf-secret-0123456789abcdef
@@ -69,10 +68,10 @@ jobs:
 
       - name: Start Synk
         run: |
-          pnpm dev:api > /tmp/synk-api.log 2>&1 &
-          pnpm dev:web > /tmp/synk-web.log 2>&1 &
+          PORT=4000 pnpm dev:api > /tmp/synk-api.log 2>&1 &
+          PORT=3000 pnpm dev:web > /tmp/synk-web.log 2>&1 &
           for attempt in {1..90}; do
-            if curl --silent --output /dev/null http://localhost:4000 && curl --fail --silent --output /dev/null http://localhost:3000/signup; then
+            if curl --fail --silent --output /dev/null http://localhost:4000 && curl --fail --silent --output /dev/null http://localhost:3000/signup; then
               exit 0
             fi
             sleep 1
