@@ -33,7 +33,7 @@ export function HeatmapGrid({
 }) {
   const [tooltip, setTooltip] = useState<TooltipState>();
   const [suggestionHighlight, setSuggestionHighlight] = useState<BestMatchDto>();
-  const { formatDate, t } = useI18n();
+  const { formatDate, formatDuration, t } = useI18n();
   const hours = useMemo(
     () =>
       Array.from(
@@ -67,7 +67,9 @@ export function HeatmapGrid({
   if (meeting.dates.length === 0 || meeting.heatmap.length === 0) {
     return (
       <StatePanel
-        description="The heatmap will appear when this meeting has valid schedule slots."
+        description={t(
+          "The heatmap will appear when this meeting has valid schedule slots.",
+        )}
         title={t("No heatmap data")}
       />
     );
@@ -150,8 +152,10 @@ export function HeatmapGrid({
           style={{ left: tooltip.x, top: tooltip.y }}
         >
           <p className="font-medium text-foreground">
-            {tooltip.cell.availableCount} / {tooltip.cell.totalParticipants}{" "}
-            {t("available")}
+            {t("{available} of {total} available", {
+              available: tooltip.cell.availableCount,
+              total: tooltip.cell.totalParticipants,
+            })}
           </p>
           <p className="mt-1 text-muted-foreground">
             {tooltip.cell.participantNames.length
@@ -190,7 +194,7 @@ function HeatmapRow({
   onManualSelect: (cell: HeatmapCellDto) => void;
   onShow: (cell: HeatmapCellDto, x: number, y: number) => void;
   selectedMatch?: BestMatchDto;
-  t: (message: string) => string;
+  t: (message: string, variables?: Record<string, string | number>) => string;
 }) {
   const reduceMotion = useReducedMotion();
   return (
@@ -218,9 +222,21 @@ function HeatmapRow({
                 month: "short",
                 day: "numeric",
               });
+              const participantNames = cell.participantNames.length
+                ? ` — ${cell.participantNames.join(", ")}`
+                : "";
               return (
                 <motion.button
-                  aria-label={`${dateLabel} at ${time}: ${cell.availableCount} of ${cell.totalParticipants} ${t("available")}${cell.participantNames.length ? ` — ${cell.participantNames.join(", ")}` : ""}`}
+                  aria-label={t(
+                    "{date} at {time}: {available} of {total} available{names}",
+                    {
+                      date: dateLabel,
+                      time,
+                      available: cell.availableCount,
+                      total: cell.totalParticipants,
+                      names: participantNames,
+                    },
+                  )}
                   aria-pressed={manualMode ? selected : undefined}
                   className={`grid min-h-11 touch-pan-y place-items-center text-[0.58rem] font-semibold tabular-nums outline-none transition duration-200 hover:brightness-125 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary ${manualMode ? "cursor-crosshair" : ""} ${selected ? "relative z-[1] ring-2 ring-inset ring-primary" : ""} ${highlighted ? "relative z-[2] brightness-125 ring-2 ring-inset ring-primary shadow-[0_0_24px_4px_oklch(0.82_0.18_245_/_0.55)]" : ""}`}
                   key={quarter}
@@ -348,11 +364,4 @@ export function heatmapColor(percentage: number) {
     color:
       normalized >= 0.48 ? "oklch(0.985 0.01 245)" : "oklch(0.78 0.035 245)",
   };
-}
-
-function formatDuration(minutes: number) {
-  const hours = Math.floor(minutes / 60);
-  const remainder = minutes % 60;
-  if (!hours) return `${remainder} minutes`;
-  return `${hours} ${hours === 1 ? "hour" : "hours"}${remainder ? ` ${remainder} minutes` : ""}`;
 }
