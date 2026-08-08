@@ -104,6 +104,7 @@ try {
     fullPage: true,
   });
 
+  await context.clearCookies();
   await page.goto(`${baseUrl}/signup`, { waitUntil: "networkidle" });
   await page.locator("select").first().selectOption("it");
   await page.getByRole("heading", { name: "Inizia a organizzare" }).waitFor();
