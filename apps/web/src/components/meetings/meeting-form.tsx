@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
-import { ApiError } from "@/lib/auth-api";
 import { useI18n } from "@/lib/i18n";
+import { localizedErrorMessage } from "@/lib/localized-error";
 import {
   createMeeting,
   type MeetingInput,
@@ -30,7 +30,7 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const toast = useToast();
-  const { formatDuration, t } = useI18n();
+  const { formatDuration, locale, t } = useI18n();
   const [title, setTitle] = useState(meeting?.title ?? "");
   const [description, setDescription] = useState(meeting?.description ?? "");
   const [startDate, setStartDate] = useState(meeting?.startDate ?? tomorrow());
@@ -102,9 +102,12 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
   }
 
   const serverError = mutation.error
-    ? mutation.error instanceof ApiError
-      ? mutation.error.message
-      : t("Unable to reach Synk. Is the API running?")
+    ? localizedErrorMessage(
+        mutation.error,
+        locale,
+        t,
+        "Unable to reach Synk. Is the API running?",
+      )
     : undefined;
 
   return (
