@@ -10,6 +10,7 @@ import {
   type SynkLocale,
 } from "./i18n-runtime";
 import { extraTranslations } from "./i18n-extra";
+import { uiTranslations } from "./i18n-ui";
 
 export { localeNames, resolveLocale, supportedLocales };
 export type { SynkLocale };
@@ -31,7 +32,9 @@ function CompleteI18nBridge({ children }: { children: React.ReactNode }) {
   const runtime = useRuntimeI18n();
   const t = useCallback(
     (message: string, variables?: Variables) => {
-      const translated = extraTranslations[runtime.locale]?.[message];
+      const translated =
+        uiTranslations[runtime.locale]?.[message] ??
+        extraTranslations[runtime.locale]?.[message];
       return translated
         ? interpolate(translated, variables)
         : runtime.t(message, variables);
