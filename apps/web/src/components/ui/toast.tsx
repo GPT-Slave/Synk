@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 type ToastVariant = "success" | "error" | "info";
@@ -27,6 +28,7 @@ interface ToastRecord extends ToastInput {
 const ToastContext = createContext<((toast: ToastInput) => void) | null>(null);
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useI18n();
   const [toasts, setToasts] = useState<ToastRecord[]>([]);
   const nextId = useRef(0);
   const reduceMotion = useReducedMotion();
@@ -78,7 +80,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 )}
               </div>
               <button
-                aria-label="Dismiss notification"
+                aria-label={t("Dismiss notification")}
                 className="grid size-7 shrink-0 place-items-center rounded-sm text-muted-foreground transition hover:bg-white/[0.06] hover:text-foreground"
                 onClick={() => dismiss(toast.id)}
                 type="button"
