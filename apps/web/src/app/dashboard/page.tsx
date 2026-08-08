@@ -180,7 +180,10 @@ function MeetingCard({
       </p>
       <p className="relative z-10 mt-2 flex items-center gap-2 text-sm text-muted-foreground transition-colors group-hover:text-foreground/80">
         <UsersRound className="size-4 text-primary/75 transition-transform duration-200 group-hover:scale-110" />{" "}
-        {meeting.responseCount}/{meeting.participantCount} {t("Responses")}
+        {t("{responses} of {participants} responded", {
+          responses: meeting.responseCount,
+          participants: meeting.participantCount,
+        })}
       </p>
       <div
         aria-hidden="true"
@@ -196,6 +199,7 @@ function MeetingCard({
 }
 
 function MeetingListSkeleton() {
+  const { t } = useI18n();
   return (
     <div className="mt-12 grid gap-3 md:grid-cols-2" role="status">
       {[0, 1].map((item) => (
@@ -204,7 +208,7 @@ function MeetingListSkeleton() {
           key={item}
         />
       ))}
-      <span className="sr-only">Loading meetings…</span>
+      <span className="sr-only">{t("Loading meetings…")}</span>
     </div>
   );
 }
