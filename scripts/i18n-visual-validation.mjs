@@ -27,10 +27,7 @@ const reportedEnglishLeaks = [
 ];
 
 const browser = await chromium.launch({ headless: true });
-const context = await browser.newContext({
-  viewport: { width: 1440, height: 1100 },
-  reducedMotion: "reduce",
-});
+const context = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
 const page = await context.newPage();
 
 page.on("response", async (response) => {
@@ -52,16 +49,14 @@ try {
   await page.getByLabel("Password", { exact: true }).fill("SynkVisual1!");
   await page.getByLabel("Confirm password").fill("SynkVisual1!");
   await page.getByRole("button", { name: "Create organizer account" }).click();
-  await page.waitForURL(/\/dashboard(?:\?.*)?$/, { timeout: 30_000 });
+  await page.getByRole("heading", { name: "Your meetings" }).waitFor({ timeout: 30_000 });
 
   await page.getByRole("link", { name: "Create meeting" }).click();
-  await page.waitForURL(/\/dashboard\/meetings\/new/, { timeout: 20_000 });
+  await page.getByRole("heading", { name: "Create meeting" }).waitFor({ timeout: 20_000 });
   await page.getByLabel("Meeting title").fill("Localization visual validation");
   await page.getByRole("button", { name: "Create meeting" }).click();
   try {
-    await page.waitForURL(/\/dashboard\/meetings\/[a-zA-Z0-9-]+$/, {
-      timeout: 30_000,
-    });
+    await page.getByText("You (organizer)", { exact: true }).first().waitFor({ timeout: 30_000 });
   } catch (error) {
     console.error(`Meeting creation stayed on: ${page.url()}`);
     console.error(await page.locator("body").innerText());
@@ -71,7 +66,6 @@ try {
     });
     throw error;
   }
-  await page.getByText("You (organizer)", { exact: true }).first().waitFor({ timeout: 30_000 });
 
   const languageSelect = page.locator("select").first();
   const options = await languageSelect.locator("option").evaluateAll((nodes) =>
