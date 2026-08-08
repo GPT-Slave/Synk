@@ -13,11 +13,8 @@ const UI_STRING_PROPS = new Set([
   "aria-description",
   "placeholder",
   "title",
-  "description",
-  "label",
   "alt",
 ]);
-const UI_OBJECT_KEYS = new Set(["title", "description", "label", "placeholder"]);
 const RAW_TEXT_ALLOWLIST = new Set(["Synk", "TZ", "you@example.com"]);
 
 function walk(dir, files = []) {
@@ -149,7 +146,11 @@ function scanSource(file, usedKeys, rawIssues) {
         addRawIssue(rawIssues, file, sourceFile, node, node.getText(sourceFile), "JSX text");
       }
 
-      if (ts.isJsxExpression(node) && node.expression) {
+      if (
+        ts.isJsxExpression(node) &&
+        node.expression &&
+        !ts.isJsxAttribute(node.parent)
+      ) {
         for (const text of renderedLiteralCandidates(node.expression)) {
           addRawIssue(rawIssues, file, sourceFile, node, text, "rendered JSX expression");
         }
@@ -175,20 +176,6 @@ function scanSource(file, usedKeys, rawIssues) {
             for (const text of renderedLiteralCandidates(node.initializer.expression)) {
               addRawIssue(rawIssues, file, sourceFile, node, text, `JSX ${name}`);
             }
-          }
-        }
-      }
-
-      if (ts.isPropertyAssignment(node)) {
-        const key = propertyNameText(node.name);
-        if (
-          key &&
-          UI_OBJECT_KEYS.has(key) &&
-          !isTranslationCall(node.initializer)
-        ) {
-          const text = literalText(node.initializer);
-          if (text !== undefined) {
-            addRawIssue(rawIssues, file, sourceFile, node, text, `object ${key}`);
           }
         }
       }
@@ -302,11 +289,13 @@ const libRoot = path.join(webRoot, "src", "lib");
 const legacyFile = path.join(libRoot, "i18n.tsx");
 const runtimeFile = path.join(libRoot, "i18n-runtime.tsx");
 const extraFile = path.join(libRoot, "i18n-extra.ts");
+const uiFile = path.join(libRoot, "i18n-ui.ts");
 const supportedLocales = [...extractSupportedLocales(legacyFile), "it"];
 const tables = mergeTables(
   extractLocaleTables(legacyFile, "translations"),
   extractLocaleTables(runtimeFile, "supplementalTranslations"),
   extractLocaleTables(extraFile, "extraTranslations"),
+  extractLocaleTables(uiFile, "uiTranslations"),
 );
 tables.it ??= new Set();
 for (const key of extractFlatTable(runtimeFile, "italianTranslations")) {
