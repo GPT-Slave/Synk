@@ -297,15 +297,24 @@ export function AvailabilityGrid({
             {mode === "organizer" ? t("Your availability") : t("Responding as")}
           </p>
           <h2 className="mt-1 text-xl font-semibold">
-            {participantSession.participant.displayName}
+            {mode === "organizer"
+              ? t("You (organizer)")
+              : participantSession.participant.displayName}
           </h2>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Tap one square or paint across several. The complete timetable is
-            always shown below.
+            {t(
+              "Tap one square or paint across several. The complete timetable is always shown below.",
+            )}
           </p>
           <p className="mt-2 flex items-center gap-2 text-xs text-primary/65">
-            <ClockBadge /> Times are fixed to {meeting.timezone} (meeting
-            timezone) · {meeting.slotIntervalMinutes}-minute slots
+            <ClockBadge />{" "}
+            {t(
+              "Times are fixed to {timezone} (meeting timezone) · {minutes}-minute slots",
+              {
+                timezone: meeting.timezone,
+                minutes: meeting.slotIntervalMinutes,
+              },
+            )}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -378,8 +387,8 @@ export function AvailabilityGrid({
               slotByCell={slotByCell}
               hour={hour}
               t={t}
-             />
-         ))}
+            />
+          ))}
         </div>
       </div>
 
@@ -434,7 +443,7 @@ function GridRow({
   ) => void;
   selected: Set<string>;
   slotByCell: Map<string, PublicMeetingDto["slots"][number]>;
-  t: (message: string) => string;
+  t: (message: string, variables?: Record<string, string | number>) => string;
 }) {
   const reduceMotion = useReducedMotion();
   return (
@@ -463,7 +472,10 @@ function GridRow({
               });
               return (
                 <motion.button
-                  aria-label={`${t(active ? "Remove" : "Select")} ${dateLabel} at ${time}`}
+                  aria-label={t(
+                    active ? "Remove {date} at {time}" : "Select {date} at {time}",
+                    { date: dateLabel, time },
+                  )}
                   aria-pressed={active}
                   className={`relative min-h-11 touch-pan-y transition duration-200 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-primary ${
                     active
