@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 const baseUrl = process.env.SYNK_WEB_URL ?? "http://localhost:3000";
+const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 const outputDir = process.env.SYNK_SCREENSHOT_DIR ?? path.resolve("artifacts/i18n-screenshots");
 await fs.mkdir(outputDir, { recursive: true });
 
@@ -31,7 +32,7 @@ const context = await browser.newContext({ viewport: { width: 1440, height: 1100
 const page = await context.newPage();
 
 page.on("response", async (response) => {
-  if (!response.url().startsWith("http://localhost:4000") || response.ok()) return;
+  if (!response.url().startsWith(apiUrl) || response.ok()) return;
   let body = "";
   try {
     body = await response.text();
@@ -43,29 +44,57 @@ page.on("response", async (response) => {
   );
 });
 
-try {
-  await page.goto(`${baseUrl}/signup`, { waitUntil: "networkidle" });
-  await page.getByLabel("Email").fill(`visual-${Date.now()}@example.com`);
-  await page.getByLabel("Password", { exact: true }).fill("SynkVisual1!");
-  await page.getByLabel("Confirm password").fill("SynkVisual1!");
-  await page.getByRole("button", { name: "Create organizer account" }).click();
-  await page.getByRole("heading", { name: "Your meetings" }).waitFor({ timeout: 30_000 });
+async function mutateApi(pathname, body) {
+  return page.evaluate(
+    async ({ apiUrl: browserApiUrl, pathname: browserPath, body: browserBody }) => {
+      const csrfResponse = await fetch(`${browserApiUrl}/auth/csrf`, {
+        credentials: "include",
+        headers: { Accept: "application/json" },
+      });
+      if (!csrfResponse.ok) {
+        throw new Error(`CSRF request failed: ${csrfResponse.status}`);
+      }
+      const csrfBody = await csrfResponse.json();
+      const response = await fetch(`${browserApiUrl}${browserPath}`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrfBody.token,
+        },
+        body: JSON.stringify(browserBody),
+      });
+      const text = await response.text();
+      if (!response.ok) {
+        throw new Error(`${browserPath} failed (${response.status}): ${text}`);
+      }
+      return text ? JSON.parse(text) : null;
+    },
+    { apiUrl, pathname, body },
+  );
+}
 
-  await page.getByRole("link", { name: "Create meeting" }).click();
-  await page.getByRole("heading", { name: "Create meeting" }).waitFor({ timeout: 20_000 });
-  await page.getByLabel("Meeting title").fill("Localization visual validation");
-  await page.getByRole("button", { name: "Create meeting" }).click();
-  try {
-    await page.getByText("You (organizer)", { exact: true }).first().waitFor({ timeout: 30_000 });
-  } catch (error) {
-    console.error(`Meeting creation stayed on: ${page.url()}`);
-    console.error(await page.locator("body").innerText());
-    await page.screenshot({
-      path: path.join(outputDir, "meeting-create-failure.png"),
-      fullPage: true,
-    });
-    throw error;
-  }
+try {
+  await page.goto(baseUrl, { waitUntil: "networkidle" });
+  const email = `visual-${Date.now()}@example.com`;
+  await mutateApi("/auth/signup", { email, password: "SynkVisual1!" });
+  const meeting = await mutateApi("/meetings", {
+    title: "Localization visual validation",
+    description: "",
+    startDate: "2026-08-09",
+    endDate: "2026-08-10",
+    workdayStart: "08:00",
+    workdayEnd: "12:00",
+    slotIntervalMinutes: 15,
+    meetingDurationMinutes: 60,
+    timezone: "Africa/Tunis",
+  });
+  if (!meeting?.id) throw new Error("Meeting creation did not return an id.");
+
+  await page.goto(`${baseUrl}/dashboard/meetings/${meeting.id}`, {
+    waitUntil: "networkidle",
+  });
+  await page.getByText("You (organizer)", { exact: true }).first().waitFor({ timeout: 30_000 });
 
   const languageSelect = page.locator("select").first();
   const options = await languageSelect.locator("option").evaluateAll((nodes) =>
