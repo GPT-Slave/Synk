@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
-import { ApiError } from "@/lib/auth-api";
 import { useI18n } from "@/lib/i18n";
+import { localizedErrorMessage } from "@/lib/localized-error";
 import {
   createMeeting,
   type MeetingInput,
@@ -23,23 +23,14 @@ const SchedulePicker = dynamic(
     import("@/components/meetings/schedule-picker").then(
       (module) => module.SchedulePicker,
     ),
-  {
-    loading: () => (
-      <div
-        className="min-h-96 animate-pulse rounded-lg border border-white/10 bg-white/[0.025]"
-        role="status"
-      >
-        <span className="sr-only">Loading schedule picker…</span>
-      </div>
-    ),
-  },
+  { loading: () => <MeetingFormLoading /> },
 );
 
 export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const toast = useToast();
-  const { t } = useI18n();
+  const { formatDuration, locale, t } = useI18n();
   const [title, setTitle] = useState(meeting?.title ?? "");
   const [description, setDescription] = useState(meeting?.description ?? "");
   const [startDate, setStartDate] = useState(meeting?.startDate ?? tomorrow());
@@ -111,9 +102,12 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
   }
 
   const serverError = mutation.error
-    ? mutation.error instanceof ApiError
-      ? mutation.error.message
-      : t("Unable to reach Synk. Is the API running?")
+    ? localizedErrorMessage(
+        mutation.error,
+        locale,
+        t,
+        "Unable to reach Synk. Is the API running?",
+      )
     : undefined;
 
   return (
@@ -136,7 +130,7 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
           maxLength={120}
           minLength={2}
           onChange={(event) => setTitle(event.target.value)}
-          placeholder="INSAT Robotics Weekly Meeting"
+          placeholder={t("Weekly robotics meeting")}
           required
           value={title}
         />
@@ -152,7 +146,7 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
           id="description"
           maxLength={2000}
           onChange={(event) => setDescription(event.target.value)}
-          placeholder="What should participants know before choosing a time?"
+          placeholder={t("What should participants know before choosing a time?")}
           value={description}
         />
       </div>
@@ -244,11 +238,16 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
   );
 }
 
-function formatDuration(minutes: number) {
-  if (minutes < 60) return `${minutes} minutes`;
-  const hours = Math.floor(minutes / 60);
-  const remainder = minutes % 60;
-  return `${hours} ${hours === 1 ? "hour" : "hours"}${remainder ? ` ${remainder} min` : ""}`;
+function MeetingFormLoading() {
+  const { t } = useI18n();
+  return (
+    <div
+      className="min-h-96 animate-pulse rounded-lg border border-white/10 bg-white/[0.025]"
+      role="status"
+    >
+      <span className="sr-only">{t("Loading schedule picker…")}</span>
+    </div>
+  );
 }
 
 function minutesFromTime(value: string) {
