@@ -8,7 +8,7 @@ export default function LoginPage() {
   return (
     <AuthShell
       description="Welcome back. Your meetings and responses are waiting."
-      title="Log in to Synk"
+      titleKey="Log in to Synk"
     >
       <AuthForm mode="login" />
     </AuthShell>
