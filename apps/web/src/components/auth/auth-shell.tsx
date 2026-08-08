@@ -20,11 +20,11 @@ const previewRows = [
 export function AuthShell({
   children,
   description,
-  title,
+  titleKey,
 }: {
   children: React.ReactNode;
   description: string;
-  title: string;
+  titleKey: string;
 }) {
   const { t } = useI18n();
 
@@ -176,7 +176,7 @@ export function AuthShell({
                 {t("Organizer access")}
               </div>
               <h1 className="text-3xl font-semibold tracking-[-0.045em] sm:text-4xl">
-                {t(title)}
+                {t(titleKey)}
               </h1>
               <p className="mt-3 max-w-md leading-6 text-muted-foreground">
                 {t(description)}
