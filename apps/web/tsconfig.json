@@ -19,7 +19,7 @@
       }
     ],
     "paths": {
-      "@/lib/i18n": ["./src/lib/i18n-runtime.tsx"],
+      "@/lib/i18n": ["./src/lib/i18n-complete.tsx"],
       "@/*": ["./src/*"]
     }
   },
