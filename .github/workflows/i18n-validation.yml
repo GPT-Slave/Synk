@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - agent/complete-i18n-italian
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
