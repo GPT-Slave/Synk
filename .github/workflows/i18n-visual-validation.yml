@@ -1,0 +1,106 @@
+name: i18n visual validation
+
+on:
+  push:
+    branches:
+      - agent/complete-i18n-italian
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: meetplanner
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d meetplanner"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/meetplanner?schema=public
+      DIRECT_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/meetplanner?schema=public
+      PORT: "4000"
+      JWT_SECRET: visual-validation-jwt-secret-0123456789abcdef
+      JWT_REFRESH_SECRET: visual-validation-refresh-secret-0123456789abcdef
+      CSRF_SECRET: visual-validation-csrf-secret-0123456789abcdef
+      JWT_ACCESS_TTL: 15m
+      JWT_REFRESH_TTL: 7d
+      CORS_ORIGIN: http://localhost:3000
+      COOKIE_SECURE: "false"
+      TRUST_PROXY: "false"
+      BCRYPT_ROUNDS: "4"
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      NEXT_PUBLIC_WS_URL: ws://localhost:4000
+      SYNK_WEB_URL: http://localhost:3000
+      SYNK_SCREENSHOT_DIR: artifacts/i18n-screenshots
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare database
+        run: |
+          pnpm --filter api exec prisma generate --config prisma.config.ts
+          pnpm --filter api exec prisma migrate deploy --config prisma.config.ts
+
+      - name: Start Synk
+        run: |
+          pnpm dev:api > /tmp/synk-api.log 2>&1 &
+          pnpm dev:web > /tmp/synk-web.log 2>&1 &
+          for attempt in {1..90}; do
+            if curl --silent --output /dev/null http://localhost:4000 && curl --fail --silent --output /dev/null http://localhost:3000/signup; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Synk did not become ready."
+          cat /tmp/synk-api.log || true
+          cat /tmp/synk-web.log || true
+          exit 1
+
+      - name: Install Playwright
+        run: |
+          mkdir -p /tmp/synk-playwright
+          cd /tmp/synk-playwright
+          npm init -y >/dev/null 2>&1
+          npm install playwright@1.54.2
+          npx playwright install --with-deps chromium
+          cp "$GITHUB_WORKSPACE/scripts/i18n-visual-validation.mjs" ./i18n-visual-validation.mjs
+
+      - name: Validate all locales and capture screenshots
+        run: |
+          cd /tmp/synk-playwright
+          node i18n-visual-validation.mjs
+
+      - name: Upload screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i18n-visual-validation
+          path: |
+            artifacts/i18n-screenshots
+            /tmp/synk-api.log
+            /tmp/synk-web.log
+          if-no-files-found: warn
