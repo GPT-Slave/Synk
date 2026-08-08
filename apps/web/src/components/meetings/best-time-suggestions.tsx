@@ -76,8 +76,11 @@ export function BestTimeSuggestions({
                 </span>
               </div>
               <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <UsersRound className="size-3.5" /> {match.availableCount} of{" "}
-                {match.totalParticipants} available
+                <UsersRound className="size-3.5" />{" "}
+                {t("{available} of {total} available", {
+                  available: match.availableCount,
+                  total: match.totalParticipants,
+                })}
               </p>
             </div>
             <div className="shrink-0 text-end">
