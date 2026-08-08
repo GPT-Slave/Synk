@@ -90,7 +90,7 @@ export function MeetingForm({ meeting }: { meeting?: OrganizerMeetingDto }) {
     }
     mutation.mutate({
       title: title.trim(),
-      description: description.trim() || undefined,
+      description: description.trim(),
       startDate,
       endDate,
       workdayStart,
