@@ -17,8 +17,9 @@ import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { sessionQueryKey, useSession } from "@/hooks/use-session";
-import { ApiError, login, signup } from "@/lib/auth-api";
+import { login, signup } from "@/lib/auth-api";
 import { useI18n } from "@/lib/i18n";
+import { localizedErrorMessage } from "@/lib/localized-error";
 
 type Mode = "login" | "signup";
 
@@ -29,7 +30,7 @@ interface FormErrors {
 }
 
 export function AuthForm({ mode }: { mode: Mode }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const isSignup = mode === "signup";
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -90,9 +91,12 @@ export function AuthForm({ mode }: { mode: Mode }) {
   }
 
   const serverError = mutation.error
-    ? mutation.error instanceof ApiError
-      ? mutation.error.message
-      : t("Unable to connect to Synk. Is the API running?")
+    ? localizedErrorMessage(
+        mutation.error,
+        locale,
+        t,
+        "Unable to connect to Synk. Is the API running?",
+      )
     : null;
 
   const passwordChecks = [

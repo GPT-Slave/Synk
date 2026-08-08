@@ -166,8 +166,11 @@ function MeetingCard({ meeting }: { meeting: OrganizerMeetingDto }) {
           })}
         </p>
         <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-          <UsersRound className="size-4" /> {meeting.responseCount} of{" "}
-          {meeting.participantCount} responded
+          <UsersRound className="size-4" />{" "}
+          {t("{responses} of {participants} responded", {
+            responses: meeting.responseCount,
+            participants: meeting.participantCount,
+          })}
         </p>
       </Link>
     </motion.div>
@@ -175,6 +178,7 @@ function MeetingCard({ meeting }: { meeting: OrganizerMeetingDto }) {
 }
 
 function MeetingListSkeleton() {
+  const { t } = useI18n();
   return (
     <div className="mt-12 grid gap-3 md:grid-cols-2" role="status">
       {[0, 1].map((item) => (
@@ -183,7 +187,7 @@ function MeetingListSkeleton() {
           key={item}
         />
       ))}
-      <span className="sr-only">Loading meetings…</span>
+      <span className="sr-only">{t("Loading meetings…")}</span>
     </div>
   );
 }

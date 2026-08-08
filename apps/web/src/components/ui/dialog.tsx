@@ -3,6 +3,7 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { X } from "lucide-react";
 import type * as React from "react";
+import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 const Dialog = DialogPrimitive.Root;
@@ -15,6 +16,7 @@ function DialogContent({
   showCloseButton = true,
   ...props
 }: DialogPrimitive.Popup.Props & { showCloseButton?: boolean }) {
+  const { t } = useI18n();
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/72 backdrop-blur-sm transition-opacity duration-180 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
@@ -30,7 +32,7 @@ function DialogContent({
           {children}
           {showCloseButton && (
             <DialogPrimitive.Close
-              aria-label="Close dialog"
+              aria-label={t("Close dialog")}
               className="absolute right-3 top-3 grid size-9 place-items-center rounded-sm text-muted-foreground transition duration-180 hover:bg-white/[0.06] hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary"
             >
               <X className="size-4" />

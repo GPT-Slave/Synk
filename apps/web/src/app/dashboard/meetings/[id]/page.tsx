@@ -79,7 +79,7 @@ export default function MeetingDetailPage() {
 }
 
 function MeetingDetail() {
-  const { formatDate, t } = useI18n();
+  const { formatDate, formatDuration, t } = useI18n();
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -218,9 +218,7 @@ function MeetingDetail() {
   ]
     .filter(Boolean)
     .map((error) =>
-      error instanceof ApiError
-        ? error.message
-        : "That action did not complete.",
+      error instanceof ApiError ? error.message : t("That action did not complete."),
     )[0];
 
   return (
@@ -405,7 +403,16 @@ function MeetingDetail() {
         <InfoCard
           icon={<Link2 />}
           label={t("Schedule")}
-          value={`${data.timezone} · ${data.workdayStart}–${data.workdayEnd} · ${data.slotIntervalMinutes}-min slots · ${formatDuration(data.meetingDurationMinutes)} meeting`}
+          value={t(
+            "{timezone} · {start}–{end} · {minutes}-minute slots · {duration} meeting",
+            {
+              timezone: data.timezone,
+              start: data.workdayStart,
+              end: data.workdayEnd,
+              minutes: data.slotIntervalMinutes,
+              duration: formatDuration(data.meetingDurationMinutes),
+            },
+          )}
         />
       </div>
 
@@ -467,7 +474,7 @@ function MeetingDetail() {
           <DashboardSection
             action={
               <Button
-                aria-label="Refresh suggestions"
+                aria-label={t("Refresh suggestions")}
                 disabled={meeting.isFetching}
                 onClick={() => meeting.refetch()}
                 size="icon-sm"
@@ -516,9 +523,7 @@ function MeetingDetail() {
                 variant={manualSelection ? "secondary" : "outline"}
               >
                 <Plus className={manualSelection ? "rotate-45" : ""} />
-                {manualSelection
-                  ? "Cancel custom selection"
-                  : t("Create your own")}
+                {manualSelection ? t("Cancel") : t("Create your own")}
               </Button>
             )}
             {selectedMatch && !manualSelection && (
@@ -536,9 +541,11 @@ function MeetingDetail() {
             {data.participants.length === 0 ? (
               <StatePanel
                 className="min-h-36"
-                description="Add your availability or share the invite link to collect the first response."
+                description={t(
+                  "Add your availability or share the invite link to collect the first response.",
+                )}
                 icon={<UsersRound />}
-                title="No responses yet"
+                title={t("No responses yet")}
               />
             ) : (
               <ul className="divide-y divide-white/10">
@@ -550,7 +557,7 @@ function MeetingDetail() {
                     <div className="min-w-0">
                       <p className="text-sm">
                         {participant.isOrganizer
-                          ? "You (organizer)"
+                          ? t("You (organizer)")
                           : participant.displayName}
                       </p>
                       {participant.comment && (
@@ -567,11 +574,13 @@ function MeetingDetail() {
                             : "text-xs text-muted-foreground"
                         }
                       >
-                        {participant.responded ? "Responded" : "Not answered"}
+                        {participant.responded ? t("Responded") : t("Not answered")}
                       </span>
                       {!participant.isOrganizer && (
                         <Button
-                          aria-label={`Remove ${participant.displayName}`}
+                          aria-label={t("Remove {name}", {
+                            name: participant.displayName,
+                          })}
                           disabled={removeParticipant.isPending}
                           onClick={() =>
                             setParticipantToDelete({
@@ -599,6 +608,7 @@ function MeetingDetail() {
 }
 
 function GridLoadingState({ label }: { label: string }) {
+  const { t } = useI18n();
   return (
     <div
       className="grid min-h-72 place-items-center rounded-lg border border-white/10 bg-black/10"
@@ -606,7 +616,7 @@ function GridLoadingState({ label }: { label: string }) {
     >
       <div className="text-center text-sm text-muted-foreground">
         <LoaderCircle className="mx-auto mb-2 size-5 animate-spin text-primary" />
-        Loading {label}…
+        {t("Loading {label}…", { label: t(label) })}
       </div>
     </div>
   );
@@ -625,26 +635,44 @@ function FinalizeChoice({
   onConfirm: () => void;
   timezone: string;
 }) {
+  const { formatDate, t } = useI18n();
   return (
     <div className="mt-4 rounded-2xl border border-primary/35 bg-primary/[0.09] p-4">
       <p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">
-        Final confirmation
+        {t("Final confirmation")}
       </p>
       <p className="mt-2 text-sm font-medium">
-        {formatLongDate(match.datetimeStart, timezone)}
+        {formatDate(match.datetimeStart, {
+          weekday: "long",
+          month: "short",
+          day: "numeric",
+          timeZone: timezone,
+        })}
       </p>
       <p className="mt-1 text-sm text-muted-foreground">
-        {formatTime(match.datetimeStart, timezone)}–
-        {formatTime(match.datetimeEnd, timezone)} · {match.percentage}%
-        available
+        {formatDate(match.datetimeStart, {
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+          timeZone: timezone,
+        })}
+        –
+        {formatDate(match.datetimeEnd, {
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+          timeZone: timezone,
+        })}{" "}
+        · {t("{percentage}% available", { percentage: match.percentage })}
       </p>
       <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-        Finalizing locks every response and shows this confirmed time to all
-        participants.
+        {t(
+          "Finalizing locks every response and shows this confirmed time to all participants.",
+        )}
       </p>
       <div className="mt-4 flex gap-2">
         <Button onClick={onCancel} type="button" variant="ghost">
-          Cancel
+          {t("Cancel")}
         </Button>
         <Button disabled={isPending} onClick={onConfirm} type="button">
           {isPending ? (
@@ -652,7 +680,7 @@ function FinalizeChoice({
           ) : (
             <CalendarCheck2 />
           )}
-          Finalize meeting
+          {t("Finalize meeting")}
         </Button>
       </div>
     </div>
@@ -664,10 +692,11 @@ function MeetingBadge({
 }: {
   meeting: { finalized: boolean; locked: boolean };
 }) {
+  const { t } = useI18n();
   if (!meeting.finalized && !meeting.locked) return null;
   return (
     <span className="rounded-full bg-primary/15 px-3 py-1 text-xs font-medium text-primary">
-      {meeting.finalized ? "Finalized" : "Responses locked"}
+      {meeting.finalized ? t("Finalized") : t("Responses locked")}
     </span>
   );
 }
@@ -718,10 +747,11 @@ function DashboardSection({
 }
 
 function LiveStatus({ status }: { status: "connecting" | "live" | "offline" }) {
+  const { t } = useI18n();
   const label = {
-    connecting: "Connecting",
-    live: "Live",
-    offline: "Reconnecting",
+    connecting: t("Connecting"),
+    live: t("Live"),
+    offline: t("Reconnecting"),
   }[status];
   return (
     <span className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 text-xs text-muted-foreground">
@@ -735,29 +765,4 @@ function LiveStatus({ status }: { status: "connecting" | "live" | "offline" }) {
       {label}
     </span>
   );
-}
-
-function formatLongDate(value: string, timezone: string) {
-  return new Intl.DateTimeFormat("en", {
-    weekday: "long",
-    month: "short",
-    day: "numeric",
-    timeZone: timezone,
-  }).format(new Date(value));
-}
-
-function formatTime(value: string, timezone: string) {
-  return new Intl.DateTimeFormat("en", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-    timeZone: timezone,
-  }).format(new Date(value));
-}
-
-function formatDuration(minutes: number) {
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const remainder = minutes % 60;
-  return `${hours} ${hours === 1 ? "hour" : "hours"}${remainder ? ` ${remainder} min` : ""}`;
 }

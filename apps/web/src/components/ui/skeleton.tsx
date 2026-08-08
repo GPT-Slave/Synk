@@ -1,4 +1,7 @@
+"use client";
+
 import type * as React from "react";
+import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
@@ -16,6 +19,7 @@ export function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 export function DashboardSkeleton() {
+  const { t } = useI18n();
   return (
     <div className="mx-auto max-w-7xl py-10" role="status">
       <Skeleton className="h-5 w-28" />
@@ -32,7 +36,7 @@ export function DashboardSkeleton() {
           <Skeleton className="h-52" />
         </div>
       </div>
-      <span className="sr-only">Loading Synk…</span>
+      <span className="sr-only">{t("Loading Synk…")}</span>
     </div>
   );
 }
