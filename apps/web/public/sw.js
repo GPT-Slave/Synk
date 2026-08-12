@@ -2,11 +2,14 @@ const CACHE_NAME = "synk-branding-v3";
 const SYNK_CACHE_PREFIX = "synk-";
 const LEGACY_CODE_CACHE_PREFIX = "synk-static-";
 const LEGACY_REFRESH_PARAM = "__synk_sw_refresh";
+const LEGACY_CLEANUP_WINDOW_MS = 5_000;
 const BRANDING_PATHS = new Set([
   "/logo.png",
   "/logo_nobg.png",
   "/manifest.webmanifest",
 ]);
+
+let legacyCleanupUntil = 0;
 
 self.addEventListener("install", () => self.skipWaiting());
 
@@ -17,6 +20,10 @@ self.addEventListener("activate", (event) => {
       const hadLegacyCodeCache = keys.some((key) =>
         key.startsWith(LEGACY_CODE_CACHE_PREFIX),
       );
+
+      if (hadLegacyCodeCache) {
+        legacyCleanupUntil = Date.now() + LEGACY_CLEANUP_WINDOW_MS;
+      }
 
       await deleteCaches((key) =>
         key.startsWith(SYNK_CACHE_PREFIX) && key !== CACHE_NAME,
@@ -41,7 +48,7 @@ self.addEventListener("activate", (event) => {
       // clients have moved to this worker, give those handlers a moment to
       // drain and remove legacy code caches one final time.
       await new Promise((resolve) => setTimeout(resolve, 500));
-      await deleteCaches((key) => key.startsWith(LEGACY_CODE_CACHE_PREFIX));
+      await deleteLegacyCodeCaches();
     })(),
   );
 });
@@ -51,9 +58,13 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin || !BRANDING_PATHS.has(url.pathname)) {
-    return;
+  if (url.origin !== self.location.origin) return;
+
+  if (Date.now() < legacyCleanupUntil) {
+    event.waitUntil(deleteLegacyCodeCaches());
   }
+
+  if (!BRANDING_PATHS.has(url.pathname)) return;
 
   event.respondWith(
     caches.open(CACHE_NAME).then(async (cache) => {
@@ -67,6 +78,10 @@ self.addEventListener("fetch", (event) => {
     }),
   );
 });
+
+async function deleteLegacyCodeCaches() {
+  await deleteCaches((key) => key.startsWith(LEGACY_CODE_CACHE_PREFIX));
+}
 
 async function deleteCaches(matches) {
   const keys = await caches.keys();
