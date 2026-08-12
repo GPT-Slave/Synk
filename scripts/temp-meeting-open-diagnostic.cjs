@@ -12,9 +12,16 @@ function scriptResources(page) {
 }
 
 async function waitForServiceWorker(page) {
+  await page.waitForLoadState('domcontentloaded');
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
   });
+  if (!(await page.evaluate(() => Boolean(navigator.serviceWorker.controller)))) {
+    await page.reload();
+    await page.evaluate(async () => {
+      await navigator.serviceWorker.ready;
+    });
+  }
   await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
 }
 
@@ -28,22 +35,42 @@ async function waitForServiceWorker(page) {
     if (!allowDeploymentFailure) unexpectedPageErrors.push(error.stack || error.message);
   });
 
-  // Production-only PWA behavior: install the worker, then emulate an existing
-  // user carrying the old synk-static-v2 cache into this deployment.
+  // Production-only PWA behavior: keep the active worker controlling the page,
+  // seed the legacy code cache, then install an updated worker at the same scope.
+  // This mirrors the real upgrade sequence instead of unregistering first.
   await page.goto(base);
   await waitForServiceWorker(page);
   await page.evaluate(async () => {
-    const registration = await navigator.serviceWorker.getRegistration();
-    await registration?.unregister();
     const oldCache = await caches.open('synk-static-v2');
     await oldCache.put(
       '/_next/static/stale-test.js',
       new Response('stale build asset', { headers: { 'Content-Type': 'application/javascript' } }),
     );
+    void navigator.serviceWorker.register('/sw.js?legacy-upgrade-test=1', {
+      scope: '/',
+      updateViaCache: 'none',
+    });
   });
-  await page.reload();
+  await page.waitForFunction(
+    async () => !(await caches.keys()).includes('synk-static-v2'),
+    undefined,
+    { timeout: 15_000 },
+  );
+  await page.waitForLoadState('domcontentloaded');
   await waitForServiceWorker(page);
-  await page.waitForFunction(async () => !(await caches.keys()).includes('synk-static-v2'));
+
+  // The app registration restores the canonical /sw.js URL after the synthetic
+  // update. Its controller-change handling may perform one additional reload.
+  await page.waitForFunction(async () => {
+    const registration = await navigator.serviceWorker.getRegistration();
+    const scriptUrl = registration?.active?.scriptURL;
+    return Boolean(
+      navigator.serviceWorker.controller &&
+        scriptUrl &&
+        new URL(scriptUrl).pathname === '/sw.js' &&
+        !new URL(scriptUrl).search,
+    );
+  }, undefined, { timeout: 15_000 });
 
   const staticResources = await scriptResources(page);
   if (!staticResources.length) throw new Error('no Next.js static script resource was observed');
