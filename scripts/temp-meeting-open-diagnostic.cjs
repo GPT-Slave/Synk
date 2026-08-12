@@ -2,14 +2,73 @@ const { chromium } = require('/tmp/pw/node_modules/playwright');
 const base = 'http://localhost:3000';
 const api = 'http://localhost:4000';
 
+function scriptResources(page) {
+  return page.evaluate(() =>
+    performance
+      .getEntriesByType('resource')
+      .map((entry) => entry.name)
+      .filter((url) => url.includes('/_next/static/') && /\.js(?:\?|$)/.test(url)),
+  );
+}
+
+async function waitForServiceWorker(page) {
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.ready;
+  });
+  await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
+}
+
 (async () => {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const page = await context.newPage();
-  const consoleErrors = [];
-  const pageErrors = [];
-  page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
-  page.on('pageerror', error => pageErrors.push(error.stack || error.message));
+  const unexpectedPageErrors = [];
+  let allowDeploymentFailure = false;
+  page.on('pageerror', (error) => {
+    if (!allowDeploymentFailure) unexpectedPageErrors.push(error.stack || error.message);
+  });
+
+  // Production-only PWA behavior: install the worker, then emulate an existing
+  // user carrying the old synk-static-v2 cache into this deployment.
+  await page.goto(base);
+  await waitForServiceWorker(page);
+  await page.evaluate(async () => {
+    const registration = await navigator.serviceWorker.getRegistration();
+    await registration?.unregister();
+    const oldCache = await caches.open('synk-static-v2');
+    await oldCache.put(
+      '/_next/static/stale-test.js',
+      new Response('stale build asset', { headers: { 'Content-Type': 'application/javascript' } }),
+    );
+  });
+  await page.reload();
+  await waitForServiceWorker(page);
+  await page.waitForFunction(async () => !(await caches.keys()).includes('synk-static-v2'));
+
+  const staticResources = await scriptResources(page);
+  if (!staticResources.length) throw new Error('no Next.js static script resource was observed');
+  const deploymentAsset = staticResources.find((url) => new URL(url).searchParams.has('dpl'));
+  if (!deploymentAsset) throw new Error(`deploymentId missing from static assets: ${staticResources.slice(0, 5).join(', ')}`);
+
+  await page.evaluate(async (url) => {
+    await fetch(url, { cache: 'reload' });
+  }, staticResources[0]);
+  const cachedNextAssets = await page.evaluate(async () => {
+    const matches = [];
+    for (const key of await caches.keys()) {
+      if (!key.startsWith('synk-')) continue;
+      const cache = await caches.open(key);
+      for (const request of await cache.keys()) {
+        if (new URL(request.url).pathname.startsWith('/_next/static/')) {
+          matches.push({ cache: key, url: request.url });
+        }
+      }
+    }
+    return matches;
+  });
+  if (cachedNextAssets.length) {
+    throw new Error(`service worker still caches Next.js code: ${JSON.stringify(cachedNextAssets)}`);
+  }
 
   const password = 'MeetingRegressionPass1!';
   await page.goto(`${base}/signup`);
@@ -24,39 +83,88 @@ const api = 'http://localhost:4000';
     if (!csrfResponse.ok) throw new Error(`csrf ${csrfResponse.status}: ${await csrfResponse.text()}`);
     const csrf = await csrfResponse.json();
     const response = await fetch(`${api}/meetings`, {
-      method: 'POST', credentials: 'include',
+      method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf.token },
       body: JSON.stringify({
         title: 'Meeting open regression',
-        startDate: '2026-08-13', endDate: '2026-08-13',
-        workdayStart: '08:00', workdayEnd: '10:00',
-        slotIntervalMinutes: 15, meetingDurationMinutes: 30,
-        timezone: 'Africa/Tunis'
-      })
+        startDate: '2026-08-13',
+        endDate: '2026-08-13',
+        workdayStart: '08:00',
+        workdayEnd: '10:00',
+        slotIntervalMinutes: 15,
+        meetingDurationMinutes: 30,
+        timezone: 'Africa/Tunis',
+      }),
     });
     if (!response.ok) throw new Error(`create ${response.status}: ${await response.text()}`);
     return response.json();
   }, { api });
 
-  const detailResponses = [];
-  page.on('response', response => {
-    if (response.url().includes(`/meetings/${meeting.id}`)) detailResponses.push({ url: response.url(), status: response.status() });
-  });
+  const detailUrl = `${base}/dashboard/meetings/${meeting.id}`;
+  await page.goto(`${base}/dashboard`);
+  const dashboardScripts = new Set(await scriptResources(page));
 
-  await page.goto(`${base}/dashboard/meetings/${meeting.id}`);
+  // Baseline organizer flow must work normally before testing recovery.
+  await page.goto(detailUrl);
   await page.getByRole('heading', { name: 'Meeting open regression' }).waitFor({ state: 'visible' });
   await page.locator('[data-unified-heatmap="true"]').waitFor({ state: 'visible' });
-  if (await page.getByText('Something went wrong').count()) throw new Error('global error boundary rendered on first open');
-  if (await page.getByText('Meeting not found').count()) throw new Error('meeting not found rendered on first open');
+  if (await page.getByText('Something went wrong').count()) throw new Error('global error boundary rendered on baseline open');
+  if (await page.getByText('Meeting not found').count()) throw new Error('meeting not found rendered on baseline open');
+  if (unexpectedPageErrors.length) throw new Error(`baseline page errors: ${unexpectedPageErrors.join('\n')}`);
+
+  const meetingScripts = await scriptResources(page);
+  const meetingOnlyScripts = meetingScripts.filter((url) => !dashboardScripts.has(url));
+  if (!meetingOnlyScripts.length) {
+    throw new Error(`no meeting-specific script found; meeting scripts: ${meetingScripts.join(', ')}`);
+  }
+  const targetChunk = meetingOnlyScripts[meetingOnlyScripts.length - 1];
+
+  // Reproduce the production failure mode: an old client asks for a route/code
+  // chunk that disappeared during a deployment. Fail that asset once; the app
+  // must hard-recover and render the meeting on the next request.
+  await page.goto(`${base}/dashboard`);
+  let blocked = false;
+  await page.route(targetChunk, async (route) => {
+    if (!blocked) {
+      blocked = true;
+      await route.fulfill({
+        status: 404,
+        contentType: 'text/plain; charset=utf-8',
+        body: 'simulated stale deployment chunk',
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  allowDeploymentFailure = true;
+  await page.goto(detailUrl);
+  await page.getByRole('heading', { name: 'Meeting open regression' }).waitFor({
+    state: 'visible',
+    timeout: 20_000,
+  });
+  await page.locator('[data-unified-heatmap="true"]').waitFor({ state: 'visible' });
+  allowDeploymentFailure = false;
+  if (!blocked) throw new Error(`simulated stale chunk was never requested: ${targetChunk}`);
+  if (await page.getByText('Something went wrong').count()) throw new Error('global error boundary remained after deployment recovery');
+  if (await page.getByText('Meeting not found').count()) throw new Error('meeting not found remained after deployment recovery');
 
   await page.reload();
   await page.getByRole('heading', { name: 'Meeting open regression' }).waitFor({ state: 'visible' });
   await page.locator('[data-unified-heatmap="true"]').waitFor({ state: 'visible' });
-  if (await page.getByText('Something went wrong').count()) throw new Error('global error boundary rendered after reload');
-  if (await page.getByText('Meeting not found').count()) throw new Error('meeting not found rendered after reload');
 
-  await page.screenshot({ path: '/tmp/meeting-diagnostic/meeting-open.png', fullPage: true });
-  console.log(JSON.stringify({ detailResponses, consoleErrors, pageErrors }, null, 2));
-  if (pageErrors.length) throw new Error(`page errors: ${pageErrors.join('\n')}`);
+  await page.screenshot({ path: '/tmp/meeting-diagnostic/meeting-open-fixed.png', fullPage: true });
+  console.log(JSON.stringify({
+    deploymentAsset,
+    targetChunk,
+    oldCachePurged: true,
+    cachedNextAssets,
+    recoveryMarker: await page.evaluate(() => sessionStorage.getItem('synk:deployment-recovery-at')),
+  }, null, 2));
+
   await browser.close();
-})().catch(error => { console.error(error); process.exit(1); });
+})().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
