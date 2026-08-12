@@ -2,6 +2,7 @@ from pathlib import Path
 
 path = Path(__file__).resolve().parents[1] / "apps/web/src/components/meetings/interactive-availability-heatmap.tsx"
 text = path.read_text(encoding="utf-8")
+text = text.replace("const DAY_SWIPE_THRESHOLD = 42;\n", "")
 start = text.find("function DaySwipeNavigator({")
 end = text.find("function optimisticHeatmap(", start)
 if start < 0 or end < 0:
