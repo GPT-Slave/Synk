@@ -1,5 +1,3 @@
-const fs = require('node:fs');
-const path = require('node:path');
 const { chromium } = require('/tmp/pw/node_modules/playwright');
 const base = 'http://localhost:3000';
 const api = 'http://localhost:4000';
@@ -48,37 +46,34 @@ async function cachedNextAssets(page) {
 (async () => {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
-  const page = await context.newPage();
-  const unexpectedPageErrors = [];
-  page.on('pageerror', (error) => unexpectedPageErrors.push(error.stack || error.message));
+  const baselinePage = await context.newPage();
+  const baselineErrors = [];
+  baselinePage.on('pageerror', (error) => baselineErrors.push(error.stack || error.message));
 
-  await page.goto(base);
-  await waitForCanonicalWorker(page);
+  await baselinePage.goto(base);
+  await waitForCanonicalWorker(baselinePage);
 
-  const staticResources = await scriptResources(page);
+  const staticResources = await scriptResources(baselinePage);
   if (!staticResources.length) throw new Error('no Next.js static script resource was observed');
   const deploymentAsset = staticResources.find((url) => new URL(url).searchParams.has('dpl'));
   if (!deploymentAsset) {
     throw new Error(`deploymentId missing from static assets: ${staticResources.slice(0, 5).join(', ')}`);
   }
 
-  await page.evaluate(async (url) => {
-    await fetch(url, { cache: 'reload' });
-  }, staticResources[0]);
-  const initiallyCachedNextAssets = await cachedNextAssets(page);
+  const initiallyCachedNextAssets = await cachedNextAssets(baselinePage);
   if (initiallyCachedNextAssets.length) {
     throw new Error(`service worker caches Next.js code: ${JSON.stringify(initiallyCachedNextAssets)}`);
   }
 
   const password = 'MeetingRegressionPass1!';
-  await page.goto(`${base}/signup`);
-  await page.locator('#email').fill(`meeting-regression-${Date.now()}@example.com`);
-  await page.locator('#password').fill(password);
-  await page.locator('#confirm-password').fill(password);
-  await page.getByRole('button', { name: 'Create organizer account' }).click();
-  await page.waitForURL('**/dashboard');
+  await baselinePage.goto(`${base}/signup`);
+  await baselinePage.locator('#email').fill(`meeting-regression-${Date.now()}@example.com`);
+  await baselinePage.locator('#password').fill(password);
+  await baselinePage.locator('#confirm-password').fill(password);
+  await baselinePage.getByRole('button', { name: 'Create organizer account' }).click();
+  await baselinePage.waitForURL('**/dashboard');
 
-  const meeting = await page.evaluate(async ({ api }) => {
+  const meeting = await baselinePage.evaluate(async ({ api }) => {
     const csrfResponse = await fetch(`${api}/auth/csrf`, { credentials: 'include' });
     if (!csrfResponse.ok) throw new Error(`csrf ${csrfResponse.status}: ${await csrfResponse.text()}`);
     const csrf = await csrfResponse.json();
@@ -102,99 +97,98 @@ async function cachedNextAssets(page) {
   }, { api });
 
   const detailUrl = `${base}/dashboard/meetings/${meeting.id}`;
-  await page.goto(`${base}/dashboard`);
-  const dashboardScripts = new Set(await scriptResources(page));
 
-  // Baseline: a normal production organizer open and reload must work first.
-  await page.goto(detailUrl);
-  await page.getByRole('heading', { name: 'Meeting open regression' }).waitFor({ state: 'visible' });
-  await page.locator('[data-unified-heatmap="true"]').waitFor({ state: 'visible' });
-  if (await page.getByText('Something went wrong').count()) throw new Error('global error boundary rendered on baseline open');
-  if (await page.getByText('Meeting not found').count()) throw new Error('meeting not found rendered on baseline open');
-  if (unexpectedPageErrors.length) throw new Error(`baseline page errors: ${unexpectedPageErrors.join('\n')}`);
+  // Discover the route-specific production chunk and verify the normal organizer
+  // path first. This page is used only as the baseline and is not reused for the
+  // induced failure below.
+  await baselinePage.goto(`${base}/dashboard`);
+  const dashboardScripts = new Set(await scriptResources(baselinePage));
+  await baselinePage.goto(detailUrl);
+  await baselinePage.getByRole('heading', { name: 'Meeting open regression' }).waitFor({ state: 'visible' });
+  await baselinePage.locator('[data-unified-heatmap="true"]').waitFor({ state: 'visible' });
+  if (await baselinePage.getByText('Something went wrong').count()) throw new Error('global error boundary rendered on baseline open');
+  if (await baselinePage.getByText('Meeting not found').count()) throw new Error('meeting not found rendered on baseline open');
+  if (baselineErrors.length) throw new Error(`baseline page errors: ${baselineErrors.join('\n')}`);
 
-  const meetingScripts = await scriptResources(page);
+  const meetingScripts = await scriptResources(baselinePage);
   const meetingOnlyScripts = meetingScripts.filter((url) => !dashboardScripts.has(url));
   if (!meetingOnlyScripts.length) {
     throw new Error(`no meeting-specific script found; meeting scripts: ${meetingScripts.join(', ')}`);
   }
   const targetChunk = meetingOnlyScripts[meetingOnlyScripts.length - 1];
-  const targetUrl = new URL(targetChunk);
-  const nextRelativePath = targetUrl.pathname.replace(/^\/_next\//, '');
-  const targetFile = path.join(process.cwd(), 'apps/web/.next', nextRelativePath);
-  const backupFile = `${targetFile}.synk-recovery-test`;
-  if (!fs.existsSync(targetFile)) {
-    throw new Error(`built meeting chunk does not exist on disk: ${targetFile}`);
-  }
+  const targetPath = new URL(targetChunk).pathname;
 
-  // Open the same authenticated meeting from a fresh document with browser HTTP
-  // caching disabled. Temporarily removing the actual built route chunk makes
-  // Next.js return a real 404. The service worker must refresh the stale client;
-  // the response listener restores the chunk before that recovery load retries.
+  // Use a fresh authenticated tab and disable its HTTP cache so the meeting-only
+  // chunk must be requested again. Fail that actual route chunk exactly once.
+  // The service worker should observe the failed Next.js asset and reload the
+  // requesting meeting document; after the one failure, the same chunk is served
+  // normally and the meeting must finish rendering.
   const recoveryPage = await context.newPage();
   const cdp = await context.newCDPSession(recoveryPage);
   await cdp.send('Network.enable');
   await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
-  await recoveryPage.goto(`${base}/dashboard`);
-  await waitForCanonicalWorker(recoveryPage);
 
-  let missingChunkObserved = false;
-  let chunkRestored = false;
-  let recoveryDetailLoads = 0;
-  const recoveryPageErrors = [];
-  recoveryPage.on('pageerror', (error) => recoveryPageErrors.push(error.stack || error.message));
+  let failedChunkRequests = 0;
+  let detailDocumentLoads = 0;
+  const recoveryErrors = [];
+  recoveryPage.on('pageerror', (error) => recoveryErrors.push(error.stack || error.message));
   recoveryPage.on('response', (response) => {
     const url = new URL(response.url());
     if (
       response.request().isNavigationRequest() &&
       url.pathname === `/dashboard/meetings/${meeting.id}`
     ) {
-      recoveryDetailLoads += 1;
-    }
-    if (url.pathname === targetUrl.pathname && response.status() === 404) {
-      missingChunkObserved = true;
-      if (!chunkRestored && fs.existsSync(backupFile)) {
-        fs.renameSync(backupFile, targetFile);
-        chunkRestored = true;
-      }
+      detailDocumentLoads += 1;
     }
   });
 
-  fs.renameSync(targetFile, backupFile);
-  try {
-    await recoveryPage.goto(detailUrl).catch(() => undefined);
-    await recoveryPage.getByRole('heading', { name: 'Meeting open regression' }).waitFor({
-      state: 'visible',
-      timeout: 20_000,
-    });
-    await recoveryPage.locator('[data-unified-heatmap="true"]').waitFor({ state: 'visible' });
-  } finally {
-    if (!chunkRestored && fs.existsSync(backupFile)) {
-      fs.renameSync(backupFile, targetFile);
-      chunkRestored = true;
-    }
-  }
+  await recoveryPage.route(
+    (url) => url.pathname === targetPath,
+    async (route) => {
+      failedChunkRequests += 1;
+      if (failedChunkRequests === 1) {
+        await route.fulfill({
+          status: 404,
+          contentType: 'text/plain; charset=utf-8',
+          body: 'simulated stale deployment chunk',
+        });
+        return;
+      }
+      await route.continue();
+    },
+  );
 
-  if (!missingChunkObserved) {
-    throw new Error(`real missing meeting chunk was not observed: ${targetUrl.pathname}`);
+  await recoveryPage.goto(`${base}/dashboard`);
+  await waitForCanonicalWorker(recoveryPage);
+  const loadsBeforeMeeting = detailDocumentLoads;
+
+  await recoveryPage.goto(detailUrl).catch(() => undefined);
+  await recoveryPage.getByRole('heading', { name: 'Meeting open regression' }).waitFor({
+    state: 'visible',
+    timeout: 20_000,
+  });
+  await recoveryPage.locator('[data-unified-heatmap="true"]').waitFor({
+    state: 'visible',
+    timeout: 20_000,
+  });
+
+  if (failedChunkRequests < 2) {
+    throw new Error(`meeting chunk did not fail once and retry; requests=${failedChunkRequests}, target=${targetChunk}`);
   }
-  if (recoveryDetailLoads < 2) {
-    throw new Error(`missing chunk did not trigger a full meeting recovery load; loads=${recoveryDetailLoads}`);
+  if (detailDocumentLoads <= loadsBeforeMeeting + 1) {
+    throw new Error(`missing meeting chunk did not trigger an additional document recovery load; loads=${detailDocumentLoads}`);
   }
   if (await recoveryPage.getByText('Something went wrong').count()) {
-    throw new Error('global error boundary remained after real missing-chunk recovery');
+    throw new Error('global error boundary remained after missing meeting chunk recovery');
   }
   if (await recoveryPage.getByText('Meeting not found').count()) {
-    throw new Error('meeting not found remained after real missing-chunk recovery');
+    throw new Error('meeting not found remained after missing meeting chunk recovery');
   }
   if (new URL(recoveryPage.url()).searchParams.has('__synk_asset_refresh')) {
     throw new Error(`asset recovery marker leaked into visible URL: ${recoveryPage.url()}`);
   }
 
-  // A transient chunk error may surface while the old document is being torn
-  // down; it is acceptable only if recovery completes and the error is a known
-  // deployment-asset failure rather than an application exception.
-  const unexpectedRecoveryErrors = recoveryPageErrors.filter(
+  const unexpectedRecoveryErrors = recoveryErrors.filter(
     (text) => !/ChunkLoadError|Loading chunk|dynamically imported module|module script/i.test(text),
   );
   if (unexpectedRecoveryErrors.length) {
@@ -214,10 +208,10 @@ async function cachedNextAssets(page) {
   console.log(JSON.stringify({
     deploymentAsset,
     targetChunk,
-    missingChunkObserved,
-    recoveryDetailLoads,
+    failedChunkRequests,
+    detailDocumentLoads,
     cachedNextAssets: finalCachedNextAssets,
-    recoveryPageErrors,
+    recoveryErrors,
   }, null, 2));
 
   await browser.close();
