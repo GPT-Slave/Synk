@@ -2,11 +2,11 @@
 
 import { useEffect } from "react";
 
-const LEGACY_REFRESH_PARAM = "__synk_sw_refresh";
+const ASSET_RECOVERY_PARAM = "__synk_asset_refresh";
 
 export function PwaRegister() {
   useEffect(() => {
-    removeLegacyRefreshMarker();
+    removeAssetRecoveryMarker();
 
     if (
       process.env.NODE_ENV !== "production" ||
@@ -36,10 +36,10 @@ export function PwaRegister() {
   return null;
 }
 
-function removeLegacyRefreshMarker() {
+function removeAssetRecoveryMarker() {
   const url = new URL(window.location.href);
-  if (!url.searchParams.has(LEGACY_REFRESH_PARAM)) return;
+  if (!url.searchParams.has(ASSET_RECOVERY_PARAM)) return;
 
-  url.searchParams.delete(LEGACY_REFRESH_PARAM);
+  url.searchParams.delete(ASSET_RECOVERY_PARAM);
   window.history.replaceState(window.history.state, "", url.href);
 }
