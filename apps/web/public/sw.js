@@ -1,6 +1,7 @@
 const CACHE_NAME = "synk-branding-v3";
 const SYNK_CACHE_PREFIX = "synk-";
 const LEGACY_CODE_CACHE_PREFIX = "synk-static-";
+const LEGACY_REFRESH_PARAM = "__synk_sw_refresh";
 const BRANDING_PATHS = new Set([
   "/logo.png",
   "/logo_nobg.png",
@@ -32,7 +33,11 @@ self.addEventListener("activate", (event) => {
         includeUncontrolled: true,
       });
       await Promise.allSettled(
-        windows.map((client) => client.navigate(client.url)),
+        windows.map((client) => {
+          const url = new URL(client.url);
+          url.searchParams.set(LEGACY_REFRESH_PARAM, String(Date.now()));
+          return client.navigate(url.href);
+        }),
       );
     })(),
   );
