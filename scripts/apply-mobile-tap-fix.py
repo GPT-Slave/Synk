@@ -3,7 +3,7 @@ from pathlib import Path
 path = Path(__file__).resolve().parents[1] / "apps/web/src/components/meetings/interactive-availability-heatmap.tsx"
 text = path.read_text(encoding="utf-8")
 
-old_ref = '''  const dragging = useRef(false);\n  const touchedSlot = useRef<string | undefined>(undefined);\n  const touchGesture = useRef<TouchGesture | undefined>(undefined);\n'''
+old_ref = '''  const dragging = useRef(false);\n  const touchedSlot = useRef<string>();\n  const touchGesture = useRef<TouchGesture>();\n'''
 new_ref = '''  const dragging = useRef(false);\n  const touchedSlot = useRef<string | undefined>(undefined);\n  const touchGesture = useRef<TouchGesture | undefined>(undefined);\n  const suppressNextMobileClick = useRef(false);\n'''
 if old_ref not in text:
     raise RuntimeError("touch state refs anchor missing")
