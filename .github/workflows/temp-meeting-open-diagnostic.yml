@@ -43,12 +43,23 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm prisma:generate
-      - run: pnpm --filter api run db:migrate:deploy
-      - name: Start app
+      - name: Static validation
         run: |
-          PORT=4000 pnpm --filter api start >/tmp/api.log 2>&1 &
-          PORT=3000 pnpm --filter web exec next dev --webpack >/tmp/web.log 2>&1 &
+          pnpm prisma:generate
+          pnpm --filter api run db:migrate:deploy
+          node scripts/i18n-audit.mjs
+          pnpm --filter web lint
+          pnpm --filter api lint
+          pnpm --filter web typecheck
+          pnpm --filter api typecheck
+      - name: Production builds
+        run: |
+          pnpm --filter api build
+          pnpm --filter web build
+      - name: Start production app
+        run: |
+          PORT=4000 pnpm --filter api start:prod >/tmp/api.log 2>&1 &
+          PORT=3000 pnpm --filter web start >/tmp/web.log 2>&1 &
           for i in {1..60}; do
             if curl -fsS http://localhost:4000/ >/dev/null 2>&1 && curl -fsS http://localhost:3000/ >/dev/null 2>&1; then exit 0; fi
             sleep 2
@@ -61,7 +72,7 @@ jobs:
           mkdir -p /tmp/pw /tmp/meeting-diagnostic
           npm install --prefix /tmp/pw playwright@1.54.2
           node /tmp/pw/node_modules/playwright/cli.js install chromium
-      - name: Open and reload organizer meeting
+      - name: Validate meeting open and deployment recovery
         run: node scripts/temp-meeting-open-diagnostic.cjs
       - name: Logs on failure
         if: failure()
@@ -73,6 +84,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: meeting-open-diagnostic
+          name: meeting-open-recovery-validation
           path: /tmp/meeting-diagnostic/*.png
           if-no-files-found: ignore
