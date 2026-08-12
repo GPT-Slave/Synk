@@ -2,6 +2,7 @@ import type { Meeting } from '@prisma/client';
 import { meetingGrid, type MeetingGridSlot } from './meeting-time';
 
 interface ParticipantAvailability {
+  id?: string;
   displayName: string;
   availabilities: Array<{
     datetimeStart: Date;
@@ -13,6 +14,7 @@ export type AvailabilityHeatmapCell = MeetingGridSlot & {
   availableCount: number;
   totalParticipants: number;
   percentage: number;
+  participantIds: string[];
   participantNames: string[];
 };
 
@@ -24,6 +26,7 @@ export interface RankedMatch {
   availableCount: number;
   totalParticipants: number;
   percentage: number;
+  participantIds: string[];
   participantNames: string[];
 }
 
@@ -46,23 +49,30 @@ export function aggregateAvailability(
   participants: ParticipantAvailability[],
 ): AvailabilityAggregationResult {
   const grid = meetingGrid(meeting);
-  const participantNamesByStart = new Map<string, Set<string>>();
+  const participantIdsByStart = new Map<string, Set<string>>();
+  const participantNameById = new Map<string, string>();
 
-  for (const participant of participants) {
+  participants.forEach((participant, index) => {
+    const participantId =
+      participant.id ?? `participant:${index}:${participant.displayName}`;
+    participantNameById.set(participantId, participant.displayName);
     for (const availability of participant.availabilities) {
       const start = availability.datetimeStart.toISOString();
-      const names = participantNamesByStart.get(start) ?? new Set<string>();
-      names.add(participant.displayName);
-      participantNamesByStart.set(start, names);
+      const ids = participantIdsByStart.get(start) ?? new Set<string>();
+      ids.add(participantId);
+      participantIdsByStart.set(start, ids);
     }
-  }
+  });
 
   const totalParticipants = participants.length;
   const heatmap: AvailabilityHeatmapCell[] = grid.slots.map((slot) => {
-    const participantNames = Array.from(
-      participantNamesByStart.get(slot.datetimeStart) ?? [],
+    const participantIds = Array.from(
+      participantIdsByStart.get(slot.datetimeStart) ?? [],
     );
-    const availableCount = participantNames.length;
+    const participantNames = participantIds
+      .map((id) => participantNameById.get(id))
+      .filter((name): name is string => Boolean(name));
+    const availableCount = participantIds.length;
     const percentage = totalParticipants
       ? Math.round((availableCount / totalParticipants) * 100)
       : 0;
@@ -71,26 +81,31 @@ export function aggregateAvailability(
       availableCount,
       totalParticipants,
       percentage,
+      participantIds,
       participantNames,
     };
   });
 
   const cellsPerMatch =
     meeting.meetingDurationMinutes / meeting.slotIntervalMinutes;
-  const candidates = Number.isInteger(cellsPerMatch) && cellsPerMatch > 0
-    ? heatmap
-        .map((cell, index, cells) =>
-          rankedMatchForWindow(
-            cells.slice(index, index + cellsPerMatch),
-            cellsPerMatch,
-            participantNamesByStart,
-            totalParticipants,
-          ),
-        )
-        .filter((candidate): candidate is RankedCandidate => Boolean(candidate))
-        .sort(compareRankedCandidates)
-        .map((candidate) => candidate.match)
-    : [];
+  const candidates =
+    Number.isInteger(cellsPerMatch) && cellsPerMatch > 0
+      ? heatmap
+          .map((cell, index, cells) =>
+            rankedMatchForWindow(
+              cells.slice(index, index + cellsPerMatch),
+              cellsPerMatch,
+              participantIdsByStart,
+              participantNameById,
+              totalParticipants,
+            ),
+          )
+          .filter((candidate): candidate is RankedCandidate =>
+            Boolean(candidate),
+          )
+          .sort(compareRankedCandidates)
+          .map((candidate) => candidate.match)
+      : [];
 
   return {
     ...grid,
@@ -102,7 +117,8 @@ export function aggregateAvailability(
 function rankedMatchForWindow(
   window: AvailabilityHeatmapCell[],
   cellsPerMatch: number,
-  participantNamesByStart: Map<string, Set<string>>,
+  participantIdsByStart: Map<string, Set<string>>,
+  participantNameById: Map<string, string>,
   totalParticipants: number,
 ): RankedCandidate | undefined {
   const first = window[0];
@@ -120,15 +136,18 @@ function rankedMatchForWindow(
 
   const participantSets = window.map(
     (cell) =>
-      participantNamesByStart.get(cell.datetimeStart) ?? new Set<string>(),
+      participantIdsByStart.get(cell.datetimeStart) ?? new Set<string>(),
   );
   const smallest = participantSets.reduce((left, right) =>
     left.size <= right.size ? left : right,
   );
-  const participantNames = Array.from(smallest).filter((name) =>
-    participantSets.every((names) => names.has(name)),
+  const participantIds = Array.from(smallest).filter((id) =>
+    participantSets.every((ids) => ids.has(id)),
   );
-  const availableCount = participantNames.length;
+  const participantNames = participantIds
+    .map((id) => participantNameById.get(id))
+    .filter((name): name is string => Boolean(name));
+  const availableCount = participantIds.length;
   if (availableCount === 0) return undefined;
 
   const cellAvailability = window.map((cell) => cell.availableCount);
@@ -153,6 +172,7 @@ function rankedMatchForWindow(
       percentage: totalParticipants
         ? Math.round((availableCount / totalParticipants) * 100)
         : 0,
+      participantIds,
       participantNames,
     },
     totalCellAvailability,

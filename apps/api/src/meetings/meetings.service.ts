@@ -360,13 +360,39 @@ export class MeetingsService {
   }
 
   async publicMeeting(slug: string) {
-    const meeting = await this.findBySlug(slug);
+    const meeting = await this.prisma.meeting.findUnique({
+      where: { slug },
+      include: {
+        participants: {
+          orderBy: { joinedAt: 'asc' },
+          select: {
+            id: true,
+            displayName: true,
+            organizerId: true,
+            respondedAt: true,
+            availabilities: {
+              select: { datetimeStart: true, datetimeEnd: true },
+            },
+          },
+        },
+      },
+    });
+    if (!meeting) throw new NotFoundException('Invitation link not found.');
     const closedReason = this.closedReason(meeting);
+    const availability = aggregateAvailability(meeting, meeting.participants);
     return {
       ...this.serialize(meeting),
       acceptingResponses: !closedReason,
       ...(closedReason ? { closedReason } : {}),
-      ...meetingGrid(meeting),
+      participants: meeting.participants.map((participant) => ({
+        id: participant.id,
+        displayName: participant.organizerId
+          ? 'Organizer'
+          : participant.displayName,
+        ...(participant.organizerId ? { isOrganizer: true } : {}),
+        responded: Boolean(participant.respondedAt),
+      })),
+      ...availability,
     };
   }
 
