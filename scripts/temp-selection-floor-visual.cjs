@@ -38,13 +38,19 @@ const api = 'http://localhost:4000';
   }, { api });
 
   await page.goto(`${base}/dashboard/meetings/${meeting.id}`);
-  const first = page.locator('button[title^="08:00 ·"]').first();
-  const second = page.locator('button[title^="08:15 ·"]').first();
+  let first = page.locator('button[title^="08:00 ·"]').first();
+  let second = page.locator('button[title^="08:15 ·"]').first();
   await first.click();
   await second.click();
+  await page.waitForTimeout(1600);
+  await page.reload();
+
+  first = page.locator('button[title^="08:00 ·"]').first();
+  second = page.locator('button[title^="08:15 ·"]').first();
+  await first.waitFor({ state: 'visible' });
 
   const floors = page.locator('[data-selection-floor="true"]');
-  if ((await floors.count()) !== 2) throw new Error(`expected two selected floors, got ${await floors.count()}`);
+  if ((await floors.count()) !== 2) throw new Error(`expected two persisted selected floors, got ${await floors.count()}`);
   for (let i = 0; i < 2; i += 1) {
     const style = await floors.nth(i).evaluate((el) => {
       const s = getComputedStyle(el);
@@ -70,35 +76,52 @@ const api = 'http://localhost:4000';
     throw new Error('adjacent selected floors do not join continuously');
   }
 
-  await first.hover();
-  const highlightedPill = page.locator('[data-participant-roster="true"] [data-highlighted="true"]').first();
-  await highlightedPill.waitFor({ state: 'visible' });
+  const participantItem = page.locator('li[data-participant-id]').first();
+  await participantItem.waitFor({ state: 'visible' });
+  const baseRadius = await participantItem.evaluate((el) => parseFloat(getComputedStyle(el).borderTopLeftRadius));
+  if (baseRadius < 12) throw new Error(`participant row is not permanently rounded before hover: ${baseRadius}`);
+
+  const box = await first.boundingBox();
+  if (!box) throw new Error('hover cell geometry unavailable');
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+
+  const highlightedItem = page.locator('li[data-highlighted="true"]').first();
+  await highlightedItem.waitFor({ state: 'visible' });
   const radii = [];
   for (const delay of [0, 16, 40, 100, 180]) {
     if (delay) await page.waitForTimeout(delay);
-    radii.push(await highlightedPill.evaluate((el) => parseFloat(getComputedStyle(el).borderTopLeftRadius)));
+    radii.push(await highlightedItem.evaluate((el) => parseFloat(getComputedStyle(el).borderTopLeftRadius)));
   }
   if (radii.some((radius) => radius < 12)) throw new Error(`participant highlight briefly loses rounded shape: ${radii.join(', ')}`);
-  const pillShadow = await highlightedPill.evaluate((el) => getComputedStyle(el).boxShadow);
-  if (pillShadow !== 'none') throw new Error(`participant highlight still has glow/shadow: ${pillShadow}`);
+  const highlightedStyle = await highlightedItem.evaluate((el) => {
+    const s = getComputedStyle(el);
+    return { shadow: s.boxShadow, border: s.borderTopColor, radius: s.borderTopLeftRadius };
+  });
+  if (highlightedStyle.shadow !== 'none') throw new Error(`participant highlight still glows: ${highlightedStyle.shadow}`);
 
   await page.screenshot({ path: '/tmp/selection-floor/full-page.png', fullPage: true });
 
-  const roster = page.locator('[data-participant-roster="true"]');
-  const rosterBox = await roster.boundingBox();
   const selectedLeft = Math.min(firstBox.x, secondBox.x);
   const selectedRight = Math.max(firstBox.x + firstBox.width, secondBox.x + secondBox.width);
-  const top = Math.min(firstBox.y, rosterBox?.y ?? firstBox.y) - 24;
-  const bottom = Math.max(firstBox.y + firstBox.height, rosterBox ? rosterBox.y + rosterBox.height : firstBox.y + firstBox.height) + 24;
-  const clipX = Math.max(0, selectedLeft - 100);
-  const clipY = Math.max(0, top);
   await page.screenshot({
-    path: '/tmp/selection-floor/selection-and-participants.png',
+    path: '/tmp/selection-floor/selection-floor.png',
     clip: {
-      x: clipX,
-      y: clipY,
-      width: Math.min(1440 - clipX, (selectedRight - selectedLeft) + 500),
-      height: Math.min(1000 - clipY, bottom - top)
+      x: Math.max(0, selectedLeft - 28),
+      y: Math.max(0, firstBox.y - 28),
+      width: Math.min(1440 - Math.max(0, selectedLeft - 28), selectedRight - selectedLeft + 56),
+      height: Math.min(1000 - Math.max(0, firstBox.y - 28), firstBox.height + 56)
+    }
+  });
+
+  const participantBox = await highlightedItem.boundingBox();
+  if (!participantBox) throw new Error('participant highlight geometry unavailable');
+  await page.screenshot({
+    path: '/tmp/selection-floor/participant-highlight.png',
+    clip: {
+      x: Math.max(0, participantBox.x - 28),
+      y: Math.max(0, participantBox.y - 28),
+      width: Math.min(1440 - Math.max(0, participantBox.x - 28), participantBox.width + 56),
+      height: Math.min(1000 - Math.max(0, participantBox.y - 28), participantBox.height + 56)
     }
   });
 
