@@ -734,23 +734,56 @@ function FusedSelectionBoundary({
   hideLeft: boolean;
   hideRight: boolean;
 }) {
-  const edge = "pointer-events-none absolute z-20 bg-emerald-300";
+  const edge: CSSProperties = {
+    position: "absolute",
+    pointerEvents: "none",
+    zIndex: 20,
+    backgroundColor: "rgb(110 231 183)",
+  };
   return (
     <>
       <span
-        className={`${edge} inset-x-0 top-0 h-[2px] shadow-[0_-5px_6px_rgba(52,211,153,0.72)]`}
+        style={{
+          ...edge,
+          left: 0,
+          right: 0,
+          top: -2,
+          height: 2,
+          boxShadow: "0 -4px 7px rgba(52, 211, 153, 0.72)",
+        }}
       />
       <span
-        className={`${edge} inset-x-0 bottom-0 h-[2px] shadow-[0_5px_6px_rgba(52,211,153,0.72)]`}
+        style={{
+          ...edge,
+          left: 0,
+          right: 0,
+          bottom: -2,
+          height: 2,
+          boxShadow: "0 4px 7px rgba(52, 211, 153, 0.72)",
+        }}
       />
       {!hideLeft && (
         <span
-          className={`${edge} inset-y-0 left-0 w-[2px] shadow-[-5px_0_6px_rgba(52,211,153,0.72)]`}
+          style={{
+            ...edge,
+            top: 0,
+            bottom: 0,
+            left: -2,
+            width: 2,
+            boxShadow: "-4px 0 7px rgba(52, 211, 153, 0.72)",
+          }}
         />
       )}
       {!hideRight && (
         <span
-          className={`${edge} inset-y-0 right-0 w-[2px] shadow-[5px_0_6px_rgba(52,211,153,0.72)]`}
+          style={{
+            ...edge,
+            top: 0,
+            bottom: 0,
+            right: -2,
+            width: 2,
+            boxShadow: "4px 0 7px rgba(52, 211, 153, 0.72)",
+          }}
         />
       )}
     </>
