@@ -1,0 +1,10 @@
+from pathlib import Path
+
+path = Path(__file__).resolve().parents[1] / "apps/web/src/components/meetings/interactive-availability-heatmap.tsx"
+text = path.read_text(encoding="utf-8")
+old = '''        onPointerDown={(event) => {\n          gesture.current = { pointerId: event.pointerId, x: event.clientX };\n          event.currentTarget.setPointerCapture(event.pointerId);\n        }}\n        onPointerUp={(event) => {\n          const current = gesture.current;\n          gesture.current = undefined;\n          if (!current || current.pointerId !== event.pointerId) return;\n          const delta = event.clientX - current.x;\n          if (delta <= -DAY_SWIPE_THRESHOLD) next();\n          if (delta >= DAY_SWIPE_THRESHOLD) previous();\n        }}\n'''
+new = '''        onPointerDown={(event) => {\n          gesture.current = { pointerId: event.pointerId, x: event.clientX };\n          event.currentTarget.setPointerCapture(event.pointerId);\n        }}\n        onPointerMove={(event) => {\n          const current = gesture.current;\n          if (!current || current.pointerId !== event.pointerId) return;\n          const delta = event.clientX - current.x;\n          if (delta <= -DAY_SWIPE_THRESHOLD) {\n            gesture.current = undefined;\n            next();\n          } else if (delta >= DAY_SWIPE_THRESHOLD) {\n            gesture.current = undefined;\n            previous();\n          }\n        }}\n        onPointerUp={(event) => {\n          const current = gesture.current;\n          gesture.current = undefined;\n          if (!current || current.pointerId !== event.pointerId) return;\n          const delta = event.clientX - current.x;\n          if (delta <= -DAY_SWIPE_THRESHOLD) next();\n          if (delta >= DAY_SWIPE_THRESHOLD) previous();\n        }}\n'''
+if old not in text:
+    raise RuntimeError("day swipe handler anchor missing")
+path.write_text(text.replace(old, new, 1), encoding="utf-8")
+print("dedicated day swipe now changes day immediately after crossing the threshold")
