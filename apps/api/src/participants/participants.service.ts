@@ -25,6 +25,7 @@ export class ParticipantsService {
     }
     const displayNameNormalized = this.normalizeName(displayName);
     const sessionToken = randomBytes(32).toString('base64url');
+    const sessionTokenHash = this.hashToken(sessionToken);
 
     try {
       const result = await this.prisma.$transaction(async (transaction) => {
@@ -34,62 +35,70 @@ export class ParticipantsService {
         if (!meeting) throw new NotFoundException('Invitation link not found.');
         this.ensureOpen(meeting);
 
-        const taken = await transaction.participant.findUnique({
+        let participant = await transaction.participant.findUnique({
           where: {
             meetingId_displayNameNormalized: {
               meetingId: meeting.id,
               displayNameNormalized,
             },
           },
+          include: { availabilities: true },
         });
-        if (taken) {
-          throw new ConflictException({
-            message: 'That name is already taken for this meeting.',
-            code: 'NAME_TAKEN',
-            suggestions: await this.suggestions(
-              transaction,
-              meeting.id,
+        const isNew = !participant;
+        if (!participant) {
+          participant = await transaction.participant.create({
+            data: {
+              meetingId: meeting.id,
               displayName,
-            ),
+              displayNameNormalized,
+            },
+            include: { availabilities: true },
           });
         }
 
-        const participant = await transaction.participant.create({
+        await transaction.participantSession.create({
           data: {
-            meetingId: meeting.id,
-            displayName,
-            displayNameNormalized,
-            sessionTokenHash: this.hashToken(sessionToken),
+            participantId: participant.id,
+            tokenHash: sessionTokenHash,
           },
         });
-        return { meetingId: meeting.id, participant };
+        return { meetingId: meeting.id, participant, isNew };
       });
 
-      this.realtime.participantJoined({
-        meetingId: result.meetingId,
-        participant: this.serialize(result.participant),
-      });
+      if (result.isNew) {
+        this.realtime.participantJoined({
+          meetingId: result.meetingId,
+          participant: this.serialize(result.participant),
+        });
+      }
 
-      return {
-        participant: this.serialize(result.participant),
-        sessionToken,
-        availabilities: [],
-      };
+      return this.joinResponse(result.participant, sessionToken);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
         const meeting = await this.meetings.findBySlug(slug);
-        throw new ConflictException({
-          message: 'That name is already taken for this meeting.',
-          code: 'NAME_TAKEN',
-          suggestions: await this.suggestions(
-            this.prisma,
-            meeting.id,
-            displayName,
-          ),
+        this.ensureOpen(meeting);
+        const participant = await this.prisma.participant.findUnique({
+          where: {
+            meetingId_displayNameNormalized: {
+              meetingId: meeting.id,
+              displayNameNormalized,
+            },
+          },
+          include: { availabilities: true },
         });
+        if (!participant) throw error;
+
+        const retryToken = randomBytes(32).toString('base64url');
+        await this.prisma.participantSession.create({
+          data: {
+            participantId: participant.id,
+            tokenHash: this.hashToken(retryToken),
+          },
+        });
+        return this.joinResponse(participant, retryToken);
       }
       throw error;
     }
@@ -111,14 +120,47 @@ export class ParticipantsService {
     if (!sessionToken) {
       throw new UnauthorizedException('Participant session missing.');
     }
-    const participant = await this.prisma.participant.findUnique({
-      where: { sessionTokenHash: this.hashToken(sessionToken) },
-      include: { meeting: true, availabilities: true },
+    const tokenHash = this.hashToken(sessionToken);
+    const session = await this.prisma.participantSession.findUnique({
+      where: { tokenHash },
+      include: {
+        participant: {
+          include: { meeting: true, availabilities: true },
+        },
+      },
     });
+    const legacyParticipant = session
+      ? null
+      : await this.prisma.participant.findUnique({
+          where: { sessionTokenHash: tokenHash },
+          include: { meeting: true, availabilities: true },
+        });
+    const participant = session?.participant ?? legacyParticipant;
     if (!participant || participant.meeting.slug !== slug) {
       throw new UnauthorizedException('Participant session is invalid.');
     }
     return participant;
+  }
+
+  private joinResponse(
+    participant: {
+      id: string;
+      displayName: string;
+      joinedAt: Date;
+      comment: string | null;
+      availabilities: Array<{ datetimeStart: Date; datetimeEnd: Date }>;
+    },
+    sessionToken: string,
+  ) {
+    return {
+      participant: this.serialize(participant),
+      sessionToken,
+      availabilities: participant.availabilities.map((availability) => ({
+        datetimeStart: availability.datetimeStart.toISOString(),
+        datetimeEnd: availability.datetimeEnd.toISOString(),
+      })),
+      ...(participant.comment ? { comment: participant.comment } : {}),
+    };
   }
 
   ensureOpen(meeting: Meeting): void {

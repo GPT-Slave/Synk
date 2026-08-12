@@ -12,7 +12,7 @@ export function LanguageSwitcher() {
   const { locale, setLocale, t } = useI18n();
   return (
     <label
-      className="fixed bottom-4 end-4 z-[70] flex items-center gap-2 rounded-xl border border-white/12 bg-card/95 px-3 py-2 text-xs shadow-xl backdrop-blur-xl"
+      className="fixed bottom-4 right-4 z-[70] flex items-center gap-2 rounded-xl border border-white/12 bg-card/95 px-3 py-2 text-xs shadow-xl backdrop-blur-xl"
       dir="ltr"
     >
       <Languages aria-hidden="true" className="size-4 text-primary" />
