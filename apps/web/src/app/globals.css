@@ -337,3 +337,9 @@
 }
 
 
+
+@layer utilities {
+  button[data-heatmap-cell="true"] {
+    background-color: var(--synk-heatmap-bg) !important;
+  }
+}

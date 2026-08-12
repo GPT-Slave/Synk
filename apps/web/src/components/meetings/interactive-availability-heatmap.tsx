@@ -7,7 +7,6 @@ import type {
   ParticipantDto,
   PublicMeetingDto,
 } from "@meet-planner/shared-types";
-import { motion, useReducedMotion } from "framer-motion";
 import {
   ChevronLeft,
   ChevronRight,
@@ -85,7 +84,6 @@ export function InteractiveAvailabilityHeatmap({
   selectedMatch,
   showParticipantRoster = false,
 }: InteractiveAvailabilityHeatmapProps) {
-  const reduceMotion = useReducedMotion();
   const { formatDate, t } = useI18n();
   const isMobile = useMobileLayout();
   const [mobileMode, setMobileMode] = useState<MobileInteractionMode>("edit");
@@ -463,10 +461,8 @@ export function InteractiveAvailabilityHeatmap({
               onFocusCell={inspect}
               onHoverCell={inspect}
               onClickCell={activateFromClick}
-              onKeyboardActivate={keyboardActivate}
               onLeaveCell={clearInspection}
               onPointerDown={startPointer}
-              reduceMotion={Boolean(reduceMotion)}
               selected={selected}
               selectedMatch={selectedMatch}
               t={t}
@@ -553,10 +549,8 @@ function AvailabilityHeatmapRow({
   onFocusCell,
   onHoverCell,
   onClickCell,
-  onKeyboardActivate,
   onLeaveCell,
   onPointerDown,
-  reduceMotion,
   selected,
   selectedMatch,
   t,
@@ -576,13 +570,11 @@ function AvailabilityHeatmapRow({
   onFocusCell: (cell: HeatmapCellDto, x: number, y: number) => void;
   onHoverCell: (cell: HeatmapCellDto, x: number, y: number) => void;
   onClickCell: (cell: HeatmapCellDto, detail: number) => void;
-  onKeyboardActivate: (cell: HeatmapCellDto) => void;
   onLeaveCell: () => void;
   onPointerDown: (
     event: ReactPointerEvent<HTMLButtonElement>,
     cell: HeatmapCellDto,
   ) => void;
-  reduceMotion: boolean;
   selected: Set<string>;
   selectedMatch?: BestMatchDto;
   t: (message: string, variables?: Record<string, string | number>) => string;
@@ -637,13 +629,18 @@ function AvailabilityHeatmapRow({
               const highlighted = isCellInsideMatch(cell, highlightedMatch);
               const finalSelection = isCellInsideMatch(cell, selectedMatch);
               const quarterFill = ((quarterIndex + 1) / 4) * 100;
+              const heatStyle = heatmapColor(cell.percentage);
               const style = {
-                ...heatmapColor(cell.percentage),
+                ...heatStyle,
                 "--synk-quarter-fill": `${quarterFill}%`,
-              } as CSSProperties & { "--synk-quarter-fill": string };
+                "--synk-heatmap-bg": heatStyle.backgroundColor,
+              } as CSSProperties & {
+                "--synk-quarter-fill": string;
+                "--synk-heatmap-bg": CSSProperties["backgroundColor"];
+              };
 
               return (
-                <motion.button
+                <button
                   aria-label={t(
                     "{date} at {time}: {available} of {total} available{names}",
                     {
@@ -657,7 +654,7 @@ function AvailabilityHeatmapRow({
                     },
                   )}
                   aria-pressed={active}
-                  className={`relative grid min-h-12 place-items-center text-[0.58rem] font-semibold tabular-nums outline-none transition duration-150 focus-visible:z-30 focus-visible:ring-2 focus-visible:ring-primary ${
+                  className={`relative grid min-h-12 place-items-center text-[0.58rem] font-semibold tabular-nums outline-none transition-transform duration-150 focus-visible:z-30 focus-visible:ring-2 focus-visible:ring-primary ${
                     quarterIndex === 0 ? "rounded-l-[0.7rem]" : ""
                   } ${quarterIndex === 3 ? "rounded-r-[0.7rem]" : ""} ${
                     manualMeetingMode
@@ -672,6 +669,7 @@ function AvailabilityHeatmapRow({
                   }`}
                   data-boundary-left={active && !selectedLeft ? "true" : "false"}
                   data-boundary-right={active && !selectedRight ? "true" : "false"}
+                  data-heatmap-cell="true"
                   data-selected={active ? "true" : "false"}
                   data-slot-start={cell.datetimeStart}
                   key={quarter}
@@ -698,8 +696,6 @@ function AvailabilityHeatmapRow({
                   style={style}
                   title={`${time} · ${cell.availableCount}/${cell.totalParticipants}`}
                   type="button"
-                  whileHover={reduceMotion || isMobile ? undefined : { scale: 1.018 }}
-                  whileTap={reduceMotion ? undefined : { scale: 0.97 }}
                 >
                   <span className="relative z-10">
                     {cell.availableCount}/{cell.totalParticipants}
@@ -717,7 +713,7 @@ function AvailabilityHeatmapRow({
                       hideRight={selectedRight}
                     />
                   )}
-                </motion.button>
+                </button>
               );
             })}
           </div>
@@ -734,57 +730,34 @@ function FusedSelectionBoundary({
   hideLeft: boolean;
   hideRight: boolean;
 }) {
-  const edge: CSSProperties = {
+  const line: CSSProperties = {
     position: "absolute",
     pointerEvents: "none",
     zIndex: 20,
     backgroundColor: "rgb(110 231 183)",
   };
+  const halo: CSSProperties = {
+    position: "absolute",
+    pointerEvents: "none",
+    zIndex: 19,
+  };
   return (
     <>
-      <span
-        style={{
-          ...edge,
-          left: 0,
-          right: 0,
-          top: -2,
-          height: 2,
-          boxShadow: "0 -4px 7px rgba(52, 211, 153, 0.72)",
-        }}
-      />
-      <span
-        style={{
-          ...edge,
-          left: 0,
-          right: 0,
-          bottom: -2,
-          height: 2,
-          boxShadow: "0 4px 7px rgba(52, 211, 153, 0.72)",
-        }}
-      />
+      <span style={{ ...line, left: 0, right: 0, top: -2, height: 2 }} />
+      <span style={{ ...halo, left: 0, right: 0, top: -10, height: 8, background: "linear-gradient(to top, rgba(52,211,153,0.55), rgba(52,211,153,0))" }} />
+      <span style={{ ...line, left: 0, right: 0, bottom: -2, height: 2 }} />
+      <span style={{ ...halo, left: 0, right: 0, bottom: -10, height: 8, background: "linear-gradient(to bottom, rgba(52,211,153,0.55), rgba(52,211,153,0))" }} />
       {!hideLeft && (
-        <span
-          style={{
-            ...edge,
-            top: 0,
-            bottom: 0,
-            left: -2,
-            width: 2,
-            boxShadow: "-4px 0 7px rgba(52, 211, 153, 0.72)",
-          }}
-        />
+        <>
+          <span style={{ ...line, top: 0, bottom: 0, left: -2, width: 2 }} />
+          <span style={{ ...halo, top: 0, bottom: 0, left: -10, width: 8, background: "linear-gradient(to left, rgba(52,211,153,0), rgba(52,211,153,0.55))" }} />
+        </>
       )}
       {!hideRight && (
-        <span
-          style={{
-            ...edge,
-            top: 0,
-            bottom: 0,
-            right: -2,
-            width: 2,
-            boxShadow: "4px 0 7px rgba(52, 211, 153, 0.72)",
-          }}
-        />
+        <>
+          <span style={{ ...line, top: 0, bottom: 0, right: -2, width: 2 }} />
+          <span style={{ ...halo, top: 0, bottom: 0, right: -10, width: 8, background: "linear-gradient(to right, rgba(52,211,153,0.55), rgba(52,211,153,0))" }} />
+        </>
       )}
     </>
   );
@@ -997,17 +970,18 @@ function isCellInsideMatch(
 
 function heatmapColor(percentage: number): CSSProperties {
   const normalized = Math.max(0, Math.min(100, percentage)) / 100;
-  const lightness = 0.17 + normalized * 0.49;
-  const chroma = 0.025 + normalized * 0.155;
-  const alpha = 0.65 + normalized * 0.35;
+  const start = { r: 6, g: 16, b: 28 };
+  const end = { r: 0, g: 148, b: 255 };
+  const mix = (from: number, to: number) =>
+    Math.round(from + (to - from) * normalized);
+  const red = mix(start.r, end.r);
+  const green = mix(start.g, end.g);
+  const blue = mix(start.b, end.b);
   return {
-    backgroundColor: `oklch(${lightness.toFixed(3)} ${chroma.toFixed(3)} 245 / ${alpha.toFixed(3)})`,
-    borderColor: `oklch(0.82 0.18 245 / ${(0.12 + normalized * 0.58).toFixed(3)})`,
-    boxShadow: `inset 0 0 ${Math.round(8 + normalized * 18)}px oklch(0.82 0.18 245 / ${(normalized * 0.24).toFixed(3)})`,
-    color:
-      normalized >= 0.48
-        ? "oklch(0.985 0.01 245)"
-        : "oklch(0.78 0.035 245)",
+    backgroundColor: `rgb(${red} ${green} ${blue})`,
+    borderColor: `rgba(96, 165, 250, ${(0.12 + normalized * 0.58).toFixed(3)})`,
+    boxShadow: `inset 0 0 ${Math.round(8 + normalized * 18)}px rgba(56, 189, 248, ${(normalized * 0.22).toFixed(3)})`,
+    color: normalized >= 0.48 ? "rgb(248 250 252)" : "rgb(186 230 253)",
   };
 }
 
