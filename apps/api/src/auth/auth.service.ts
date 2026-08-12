@@ -42,7 +42,10 @@ export class AuthService {
     });
     if (existingUser) throw new ConflictException('An account already exists.');
 
-    const passwordHash = await bcrypt.hash(dto.password, this.bcryptRounds());
+    const passwordHash = await bcrypt.hash(
+      dto.password,
+      this.bcryptRounds(),
+    );
 
     try {
       return await this.prisma.$transaction(async (transaction) => {
@@ -206,7 +209,8 @@ export class AuthService {
   }
 
   private bcryptRounds(): number {
-    const configured = this.config.get<string | number>('BCRYPT_ROUNDS') ?? 12;
+    const configured =
+      this.config.get<string | number>('BCRYPT_ROUNDS') ?? 12;
     const rounds =
       typeof configured === 'number' ? configured : Number(configured);
     const minimum =
