@@ -60,10 +60,7 @@ export class AvailabilityService {
         if (participantChanged) {
           await transaction.participant.update({
             where: { id: participant.id },
-            data: {
-              comment,
-              respondedAt: participant.respondedAt ?? new Date(),
-            },
+            data: { comment, respondedAt: participant.respondedAt ?? new Date() },
           });
         }
       });
