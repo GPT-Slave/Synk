@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { StatePanel } from "@/components/ui/state-panel";
+import { recoverFromDeploymentAssetError } from "@/lib/deployment-recovery";
 import { useI18n } from "@/lib/i18n";
 
 export default function ErrorPage({
@@ -12,8 +13,10 @@ export default function ErrorPage({
   unstable_retry: () => void;
 }) {
   const { t } = useI18n();
+
   useEffect(() => {
     console.error(error);
+    void recoverFromDeploymentAssetError(error);
   }, [error]);
 
   return (
