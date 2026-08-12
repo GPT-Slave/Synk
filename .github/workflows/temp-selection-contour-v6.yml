@@ -1,4 +1,4 @@
-name: temp unified selection contour v6
+name: temp unified selection contour v3
 
 on:
   push:
@@ -60,36 +60,36 @@ jobs:
           s = p.read_text(encoding='utf-8')
 
           anchor = '''              const selectedRight = Boolean(
-                active && rightCell && selected.has(rightCell.datetimeStart),
-              );
-              const dateLabel = formatDate(date.date, {'''
+                          active && rightCell && selected.has(rightCell.datetimeStart),
+                        );
+                        const dateLabel = formatDate(date.date, {'''
           replacement = '''              const selectedRight = Boolean(
-                active && rightCell && selected.has(rightCell.datetimeStart),
-              );
-              let selectedRunLength = 0;
-              if (active && !selectedLeft) {
-                for (let runIndex = quarterIndex; runIndex < 4; runIndex += 1) {
-                  const runQuarter = runIndex * 15;
-                  const runTime = `${hour.slice(0, 3)}${String(runQuarter).padStart(2, "0")}`;
-                  const runCell = cellByGridPosition.get(`${date.date}:${runTime}`);
-                  if (!runCell || !selected.has(runCell.datetimeStart)) break;
-                  selectedRunLength += 1;
-                }
-              }
-              const dateLabel = formatDate(date.date, {'''
+                          active && rightCell && selected.has(rightCell.datetimeStart),
+                        );
+                        let selectedRunLength = 0;
+                        if (active && !selectedLeft) {
+                          for (let runIndex = quarterIndex; runIndex < 4; runIndex += 1) {
+                            const runQuarter = runIndex * 15;
+                            const runTime = `${hour.slice(0, 3)}${String(runQuarter).padStart(2, "0")}`;
+                            const runCell = cellByGridPosition.get(`${date.date}:${runTime}`);
+                            if (!runCell || !selected.has(runCell.datetimeStart)) break;
+                            selectedRunLength += 1;
+                          }
+                        }
+                        const dateLabel = formatDate(date.date, {'''
           if anchor not in s:
               raise SystemExit('selection-run anchor not found')
           s = s.replace(anchor, replacement, 1)
 
           old_render = '''                  {active && (
-                    <FusedSelectionBoundary
-                      hideLeft={selectedLeft}
-                      hideRight={selectedRight}
-                    />
-                  )}'''
+                              <FusedSelectionBoundary
+                                hideLeft={selectedLeft}
+                                hideRight={selectedRight}
+                              />
+                            )}'''
           new_render = '''                  {selectedRunLength > 0 && (
-                    <FusedSelectionBoundary spanCount={selectedRunLength} />
-                  )}'''
+                              <FusedSelectionBoundary spanCount={selectedRunLength} />
+                            )}'''
           if old_render not in s:
               raise SystemExit('boundary render anchor not found')
           s = s.replace(old_render, new_render, 1)
@@ -97,28 +97,28 @@ jobs:
           start = s.index('function FusedSelectionBoundary({')
           end = s.index('function DaySwipeNavigator({', start)
           boundary = '''function FusedSelectionBoundary({ spanCount }: { spanCount: number }) {
-  return (
-    <span
-      aria-hidden="true"
-      data-selection-boundary="true"
-      data-selection-span={spanCount}
-      style={{
-        position: "absolute",
-        pointerEvents: "none",
-        zIndex: 20,
-        top: 3,
-        bottom: 3,
-        left: 3,
-        width: `calc(${spanCount * 100}% - 6px)`,
-        border: "1px solid rgba(21, 128, 61, 0.7)",
-        borderRadius: "0.55rem",
-        boxShadow: "inset 0 0 5px rgba(22, 163, 74, 0.08)",
-      }}
-    />
-  );
-}
+            return (
+              <span
+                aria-hidden="true"
+                data-selection-boundary="true"
+                data-selection-span={spanCount}
+                style={{
+                  position: "absolute",
+                  pointerEvents: "none",
+                  zIndex: 20,
+                  top: 3,
+                  bottom: 3,
+                  left: 3,
+                  width: `calc(${spanCount * 100}% - 6px)`,
+                  border: "1px solid rgba(21, 128, 61, 0.7)",
+                  borderRadius: "0.55rem",
+                  boxShadow: "inset 0 0 5px rgba(22, 163, 74, 0.08)",
+                }}
+              />
+            );
+          }
 
-'''
+          '''
           s = s[:start] + boundary + s[end:]
           p.write_text(s, encoding='utf-8')
           PY
@@ -134,6 +134,8 @@ jobs:
           pnpm --filter api lint
           pnpm --filter web typecheck
           pnpm --filter api typecheck
+          ! grep -q 'Save now' apps/web/src/components/meetings/availability-grid.tsx
+          grep -q 'data-cursor-halo="true"' apps/web/src/components/cursor-halo.tsx
           grep -q 'data-selection-span' apps/web/src/components/meetings/interactive-availability-heatmap.tsx
 
       - name: Start app
@@ -150,13 +152,13 @@ jobs:
 
       - name: Install browser tools
         run: |
-          mkdir -p /tmp/pw /tmp/contour-v6
+          mkdir -p /tmp/pw /tmp/contour-v3
           npm install --prefix /tmp/pw playwright@1.54.2
           node /tmp/pw/node_modules/playwright/cli.js install chromium
 
       - name: Validate unified contour and cursor
         run: |
-          cat >/tmp/contour-v6.cjs <<'NODE'
+          cat >/tmp/contour-v3.cjs <<'NODE'
           const { chromium } = require('/tmp/pw/node_modules/playwright');
           const base = 'http://localhost:3000';
           const api = 'http://localhost:4000';
@@ -181,7 +183,7 @@ jobs:
               const r = await fetch(`${api}/meetings`, {
                 method: 'POST', credentials: 'include',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf.token },
-                body: JSON.stringify({ title:'Contour v6', startDate:'2026-08-13', endDate:'2026-08-13', workdayStart:'08:00', workdayEnd:'10:00', slotIntervalMinutes:15, meetingDurationMinutes:30, timezone:'Africa/Tunis' })
+                body: JSON.stringify({ title:'Contour v3', startDate:'2026-08-13', endDate:'2026-08-13', workdayStart:'08:00', workdayEnd:'10:00', slotIntervalMinutes:15, meetingDurationMinutes:30, timezone:'Africa/Tunis' })
               });
               if (!r.ok) throw new Error(await r.text());
               return r.json();
@@ -199,11 +201,11 @@ jobs:
             if ((await contour.getAttribute('data-selection-span')) !== '2') throw new Error('contour does not span both selected quarters');
             const style = await contour.evaluate((el) => {
               const s = getComputedStyle(el);
-              return { radius: s.borderRadius, shadow: s.boxShadow, color: s.borderTopColor };
+              return { radius: s.borderRadius, shadow: s.boxShadow, color: s.borderTopColor, width: s.width };
             });
             if (parseFloat(style.radius) < 6) throw new Error(`contour radius too small: ${style.radius}`);
             if (!style.shadow.includes('inset')) throw new Error('contour glow is not inset');
-            if ((style.shadow.match(/\binset\b/g) || []).length !== 1) throw new Error(`contour does not use one inset glow: ${style.shadow}`);
+            if (!style.shadow.endsWith('inset')) throw new Error(`contour includes an external glow: ${style.shadow}`);
             if (!style.color.includes('21') || !style.color.includes('128')) throw new Error(`green not dark enough: ${style.color}`);
             const aBox = await a.boundingBox();
             const bBox = await b.boundingBox();
@@ -212,17 +214,18 @@ jobs:
             const selectedWidth = bBox.x + bBox.width - aBox.x;
             if (Math.abs(contourBox.width - (selectedWidth - 6)) > 3) throw new Error(`contour does not cover fused run: ${contourBox.width} vs ${selectedWidth}`);
 
-            await page.screenshot({ path: '/tmp/contour-v6/desktop-contour-v6.png', fullPage: true });
-            await page.screenshot({ path: '/tmp/contour-v6/selection-contour-v6.png', clip: { x: aBox.x - 18, y: aBox.y - 18, width: selectedWidth + 36, height: aBox.height + 36 } });
+            await page.screenshot({ path: '/tmp/contour-v3/desktop-contour-v3.png', fullPage: true });
+            const union = { x: aBox.x - 16, y: aBox.y - 16, width: selectedWidth + 32, height: aBox.height + 32 };
+            await page.screenshot({ path: '/tmp/contour-v3/selection-contour-v3.png', clip: union });
             await browser.close();
           })().catch((error) => { console.error(error); process.exit(1); });
           NODE
-          node /tmp/contour-v6.cjs
+          node /tmp/contour-v3.cjs
 
       - uses: actions/upload-artifact@v4
         with:
-          name: selection-contour-v6-screenshots
-          path: /tmp/contour-v6/*.png
+          name: selection-contour-v3-screenshots
+          path: /tmp/contour-v3/*.png
           if-no-files-found: error
 
       - name: Commit contour and remove temporary workflow
