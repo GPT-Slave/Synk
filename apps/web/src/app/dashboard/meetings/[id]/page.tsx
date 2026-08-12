@@ -542,9 +542,9 @@ function MeetingDetail() {
               <ul className="divide-y divide-white/10">
                 {data.participants.map((participant) => (
                   <li
-                    className={`flex items-start justify-between gap-3 px-2 py-3 transition duration-150 ${
+                    className={`flex items-start justify-between gap-3 rounded-xl border border-transparent px-2 py-3 transition-colors duration-150 ${
                       highlightedParticipantIds.includes(participant.id)
-                        ? "rounded-xl bg-emerald-400/10 ring-1 ring-emerald-300/50 shadow-[0_0_18px_rgba(52,211,153,0.16)]"
+                        ? "border-emerald-600/70 bg-emerald-950/35"
                         : ""
                     }`}
                     data-highlighted={

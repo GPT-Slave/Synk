@@ -621,16 +621,6 @@ function AvailabilityHeatmapRow({
               const selectedRight = Boolean(
                 active && rightCell && selected.has(rightCell.datetimeStart),
               );
-              let selectedRunLength = 0;
-              if (active && !selectedLeft) {
-                for (let runIndex = quarterIndex; runIndex < 4; runIndex += 1) {
-                  const runQuarter = runIndex * 15;
-                  const runTime = `${hour.slice(0, 3)}${String(runQuarter).padStart(2, "0")}`;
-                  const runCell = cellByGridPosition.get(`${date.date}:${runTime}`);
-                  if (!runCell || !selected.has(runCell.datetimeStart)) break;
-                  selectedRunLength += 1;
-                }
-              }
               const dateLabel = formatDate(date.date, {
                 weekday: "short",
                 month: "short",
@@ -638,14 +628,11 @@ function AvailabilityHeatmapRow({
               });
               const highlighted = isCellInsideMatch(cell, highlightedMatch);
               const finalSelection = isCellInsideMatch(cell, selectedMatch);
-              const quarterFill = ((quarterIndex + 1) / 4) * 100;
               const heatStyle = heatmapColor(cell.percentage);
               const style = {
                 ...heatStyle,
-                "--synk-quarter-fill": `${quarterFill}%`,
                 "--synk-heatmap-bg": heatStyle.backgroundColor,
               } as CSSProperties & {
-                "--synk-quarter-fill": string;
                 "--synk-heatmap-bg": CSSProperties["backgroundColor"];
               };
 
@@ -677,8 +664,6 @@ function AvailabilityHeatmapRow({
                       ? "z-[4] ring-2 ring-inset ring-primary brightness-110"
                       : ""
                   }`}
-                  data-boundary-left={active && !selectedLeft ? "true" : "false"}
-                  data-boundary-right={active && !selectedRight ? "true" : "false"}
                   data-heatmap-cell="true"
                   data-selected={active ? "true" : "false"}
                   data-slot-start={cell.datetimeStart}
@@ -710,15 +695,11 @@ function AvailabilityHeatmapRow({
                   <span className="relative z-10">
                     {cell.availableCount}/{cell.totalParticipants}
                   </span>
-                  <span
-                    aria-hidden="true"
-                    className="pointer-events-none absolute right-1 top-1 size-2.5 rounded-full border border-current/55 opacity-70"
-                    style={{
-                      background: `conic-gradient(from -90deg, currentColor 0 ${quarterFill}%, transparent ${quarterFill}% 100%)`,
-                    }}
-                  />
-                  {selectedRunLength > 0 && (
-                    <FusedSelectionBoundary spanCount={selectedRunLength} />
+                  {active && (
+                    <SelectedTileFloor
+                      joinLeft={selectedLeft}
+                      joinRight={selectedRight}
+                    />
                   )}
                 </button>
               );
@@ -730,23 +711,31 @@ function AvailabilityHeatmapRow({
   );
 }
 
-function FusedSelectionBoundary({ spanCount }: { spanCount: number }) {
+function SelectedTileFloor({
+  joinLeft,
+  joinRight,
+}: {
+  joinLeft: boolean;
+  joinRight: boolean;
+}) {
   return (
     <span
       aria-hidden="true"
-      data-selection-boundary="true"
-      data-selection-span={spanCount}
+      data-selection-floor="true"
       style={{
         position: "absolute",
         pointerEvents: "none",
         zIndex: 20,
-        top: 3,
+        left: joinLeft ? 0 : 4,
+        right: joinRight ? 0 : 4,
         bottom: 3,
-        left: 3,
-        width: `calc(${spanCount * 100}% - 6px)`,
-        border: "1px solid rgba(21, 128, 61, 0.7)",
-        borderRadius: "0.55rem",
-        boxShadow: "inset 0 0 5px rgba(22, 163, 74, 0.08)",
+        height: 5,
+        backgroundColor: "rgb(21 128 61)",
+        borderTopLeftRadius: joinLeft ? 0 : "999px",
+        borderBottomLeftRadius: joinLeft ? 0 : "999px",
+        borderTopRightRadius: joinRight ? 0 : "999px",
+        borderBottomRightRadius: joinRight ? 0 : "999px",
+        boxShadow: "none",
       }}
     />
   );
