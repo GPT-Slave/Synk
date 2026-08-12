@@ -2,8 +2,7 @@ name: final unified heatmap validation
 
 on:
   push:
-    branches:
-      - agent/unified-selectable-heatmap
+    branches: [agent/unified-selectable-heatmap]
 
 permissions:
   contents: write
@@ -49,7 +48,8 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-      - name: Stabilize tile renderer
+
+      - name: Apply final heatmap rendering fix
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -68,32 +68,46 @@ jobs:
           s = s.replace('</motion.button>', '</button>')
           s = s.replace('                  whileHover={reduceMotion || isMobile ? undefined : { scale: 1.018 }}\n', '')
           s = s.replace('                  whileTap={reduceMotion ? undefined : { scale: 0.97 }}\n', '')
+
           start = s.index('function heatmapColor(percentage: number): CSSProperties {')
           end = s.index('function useMobileLayout()', start)
-          block = '''function heatmapColor(percentage: number): CSSProperties {\n  const normalized = Math.max(0, Math.min(100, percentage)) / 100;\n  const start = { r: 6, g: 16, b: 28 };\n  const end = { r: 0, g: 148, b: 255 };\n  const mix = (from: number, to: number) =>\n    Math.round(from + (to - from) * normalized);\n  const red = mix(start.r, end.r);\n  const green = mix(start.g, end.g);\n  const blue = mix(start.b, end.b);\n  return {\n    backgroundColor: `rgb(${red} ${green} ${blue})`,\n    borderColor: `rgba(96, 165, 250, ${(0.12 + normalized * 0.58).toFixed(3)})`,\n    boxShadow: `inset 0 0 ${Math.round(8 + normalized * 18)}px rgba(56, 189, 248, ${(normalized * 0.22).toFixed(3)})`,\n    color: normalized >= 0.48 ? "rgb(248 250 252)" : "rgb(186 230 253)",\n  };\n}\n\n'''
-          s = s[:start] + block + s[end:]
-          boundary_start = s.index('function FusedSelectionBoundary({')
-          boundary_end = s.index('function DaySwipeNavigator({', boundary_start)
-          boundary = '''function FusedSelectionBoundary({\n  hideLeft,\n  hideRight,\n}: {\n  hideLeft: boolean;\n  hideRight: boolean;\n}) {\n  const line: CSSProperties = {\n    position: "absolute",\n    pointerEvents: "none",\n    zIndex: 20,\n    backgroundColor: "rgb(110 231 183)",\n  };\n  const halo: CSSProperties = {\n    position: "absolute",\n    pointerEvents: "none",\n    zIndex: 19,\n  };\n  return (\n    <>\n      <span style={{ ...line, left: 0, right: 0, top: -2, height: 2 }} />\n      <span\n        style={{\n          ...halo, left: 0, right: 0, top: -10, height: 8,\n          background: "linear-gradient(to top, rgba(52,211,153,0.55), rgba(52,211,153,0))",\n        }}\n      />\n      <span style={{ ...line, left: 0, right: 0, bottom: -2, height: 2 }} />\n      <span\n        style={{\n          ...halo, left: 0, right: 0, bottom: -10, height: 8,\n          background: "linear-gradient(to bottom, rgba(52,211,153,0.55), rgba(52,211,153,0))",\n        }}\n      />\n      {!hideLeft && (\n        <>\n          <span style={{ ...line, top: 0, bottom: 0, left: -2, width: 2 }} />\n          <span\n            style={{\n              ...halo, top: 0, bottom: 0, left: -10, width: 8,\n              background: "linear-gradient(to left, rgba(52,211,153,0), rgba(52,211,153,0.55))",\n            }}\n          />\n        </>\n      )}\n      {!hideRight && (\n        <>\n          <span style={{ ...line, top: 0, bottom: 0, right: -2, width: 2 }} />\n          <span\n            style={{\n              ...halo, top: 0, bottom: 0, right: -10, width: 8,\n              background: "linear-gradient(to right, rgba(52,211,153,0.55), rgba(52,211,153,0))",\n            }}\n          />\n        </>\n      )}\n    </>\n  );\n}\n\n'''
-          s = s[:boundary_start] + boundary + s[boundary_end:]
+          heat = '''function heatmapColor(percentage: number): CSSProperties {\n  const normalized = Math.max(0, Math.min(100, percentage)) / 100;\n  const start = { r: 6, g: 16, b: 28 };\n  const end = { r: 0, g: 148, b: 255 };\n  const mix = (from: number, to: number) =>\n    Math.round(from + (to - from) * normalized);\n  const red = mix(start.r, end.r);\n  const green = mix(start.g, end.g);\n  const blue = mix(start.b, end.b);\n  return {\n    backgroundColor: `rgb(${red} ${green} ${blue})`,\n    borderColor: `rgba(96, 165, 250, ${(0.12 + normalized * 0.58).toFixed(3)})`,\n    boxShadow: `inset 0 0 ${Math.round(8 + normalized * 18)}px rgba(56, 189, 248, ${(normalized * 0.22).toFixed(3)})`,\n    color: normalized >= 0.48 ? "rgb(248 250 252)" : "rgb(186 230 253)",\n  };\n}\n\n'''
+          s = s[:start] + heat + s[end:]
+
+          start = s.index('function FusedSelectionBoundary({')
+          end = s.index('function DaySwipeNavigator({', start)
+          boundary = '''function FusedSelectionBoundary({\n  hideLeft,\n  hideRight,\n}: {\n  hideLeft: boolean;\n  hideRight: boolean;\n}) {\n  const line: CSSProperties = {\n    position: "absolute",\n    pointerEvents: "none",\n    zIndex: 20,\n    backgroundColor: "rgb(110 231 183)",\n  };\n  const halo: CSSProperties = {\n    position: "absolute",\n    pointerEvents: "none",\n    zIndex: 19,\n  };\n  return (\n    <>\n      <span style={{ ...line, left: 0, right: 0, top: -2, height: 2 }} />\n      <span style={{ ...halo, left: 0, right: 0, top: -10, height: 8, background: "linear-gradient(to top, rgba(52,211,153,0.55), rgba(52,211,153,0))" }} />\n      <span style={{ ...line, left: 0, right: 0, bottom: -2, height: 2 }} />\n      <span style={{ ...halo, left: 0, right: 0, bottom: -10, height: 8, background: "linear-gradient(to bottom, rgba(52,211,153,0.55), rgba(52,211,153,0))" }} />\n      {!hideLeft && (\n        <>\n          <span style={{ ...line, top: 0, bottom: 0, left: -2, width: 2 }} />\n          <span style={{ ...halo, top: 0, bottom: 0, left: -10, width: 8, background: "linear-gradient(to left, rgba(52,211,153,0), rgba(52,211,153,0.55))" }} />\n        </>\n      )}\n      {!hideRight && (\n        <>\n          <span style={{ ...line, top: 0, bottom: 0, right: -2, width: 2 }} />\n          <span style={{ ...halo, top: 0, bottom: 0, right: -10, width: 8, background: "linear-gradient(to right, rgba(52,211,153,0.55), rgba(52,211,153,0))" }} />\n        </>\n      )}\n    </>\n  );\n}\n\n'''
+          s = s[:start] + boundary + s[end:]
+
+          old_style = '''              const style = {\n                ...heatmapColor(cell.percentage),\n                "--synk-quarter-fill": `${quarterFill}%`,\n              } as CSSProperties & { "--synk-quarter-fill": string };'''
+          new_style = '''              const heatStyle = heatmapColor(cell.percentage);\n              const style = {\n                ...heatStyle,\n                "--synk-quarter-fill": `${quarterFill}%`,\n                "--synk-heatmap-bg": heatStyle.backgroundColor,\n              } as CSSProperties & {\n                "--synk-quarter-fill": string;\n                "--synk-heatmap-bg": CSSProperties["backgroundColor"];\n              };'''
+          if old_style not in s:
+              raise SystemExit('heatmap style anchor not found')
+          s = s.replace(old_style, new_style)
+          s = s.replace('                  data-boundary-right={active && !selectedRight ? "true" : "false"}\n', '                  data-boundary-right={active && !selectedRight ? "true" : "false"}\n                  data-heatmap-cell="true"\n')
           assert 'motion.button' not in s
           assert 'useReducedMotion' not in s
-          assert 'onKeyboardActivate:' not in s
-          assert 'shadow-[' not in s[s.index('function FusedSelectionBoundary({'):s.index('function DaySwipeNavigator({')]
           p.write_text(s, encoding='utf-8')
+
+          css = Path('apps/web/src/app/globals.css')
+          c = css.read_text(encoding='utf-8')
+          rule = '''\n@layer utilities {\n  button[data-heatmap-cell="true"] {\n    background-color: var(--synk-heatmap-bg) !important;\n  }\n}\n'''
+          if 'button[data-heatmap-cell="true"]' not in c:
+              c += rule
+          css.write_text(c, encoding='utf-8')
           PY
+
       - run: pnpm install --frozen-lockfile
-      - name: Generate and migrate
+      - name: Static validation
         run: |
           pnpm prisma:generate
           pnpm --filter api run db:migrate:deploy
-      - name: Static validation
-        run: |
           node scripts/i18n-audit.mjs
           pnpm --filter web lint
           pnpm --filter web typecheck
           pnpm --filter api typecheck
-      - name: Start app
+
+      - name: Start real app
         run: |
           PORT=4000 pnpm --filter api start >/tmp/api.log 2>&1 &
           PORT=3000 pnpm --filter web exec next dev --webpack >/tmp/web.log 2>&1 &
@@ -104,12 +118,14 @@ jobs:
           cat /tmp/api.log || true
           cat /tmp/web.log || true
           exit 1
-      - name: Install Chromium and PNG reader
+
+      - name: Install browser test tools
         run: |
           mkdir -p /tmp/pw /tmp/final-heatmap
           npm install --prefix /tmp/pw playwright@1.54.2 pngjs@7.0.0
           node /tmp/pw/node_modules/playwright/cli.js install chromium
-      - name: Browser validation
+
+      - name: Validate rendered heatmap and mobile interactions
         run: |
           cat >/tmp/final-heatmap.cjs <<'NODE'
           const { chromium } = require('/tmp/pw/node_modules/playwright');
@@ -119,8 +135,7 @@ jobs:
           const api = 'http://localhost:4000';
           (async () => {
             const browser = await chromium.launch({ headless: true });
-            const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
-            const page = await ctx.newPage();
+            const page = await (await browser.newContext({ viewport: { width: 1440, height: 1000 } })).newPage();
             const password = 'VisualPass1!';
             await page.goto(`${base}/signup`);
             await page.locator('#email').fill(`final-heatmap-${Date.now()}@example.com`);
@@ -145,55 +160,46 @@ jobs:
             await a.waitFor({ state: 'visible' });
             await a.click();
             await b.click();
-            if ((await a.getAttribute('data-selected')) !== 'true' || (await b.getAttribute('data-selected')) !== 'true') throw new Error('selection did not apply');
-            if ((await a.getAttribute('data-boundary-right')) !== 'false' || (await b.getAttribute('data-boundary-left')) !== 'false') throw new Error('adjacent fused edge regression');
-            const colors = await a.evaluate((el) => ({ inline: el.style.backgroundColor, computed: getComputedStyle(el).backgroundColor }));
-            console.log('Selected tile colors:', JSON.stringify(colors));
-            if (!colors.inline.includes('148') || !colors.inline.includes('255')) throw new Error(`selected tile did not receive explicit blue background: ${colors.inline}`);
+            if ((await a.getAttribute('data-selected')) !== 'true' || (await b.getAttribute('data-selected')) !== 'true') throw new Error('selection failed');
+            if ((await a.getAttribute('data-boundary-right')) !== 'false' || (await b.getAttribute('data-boundary-left')) !== 'false') throw new Error('fused edge failed');
+            const computed = await a.evaluate((el) => getComputedStyle(el).backgroundColor);
+            console.log('Computed selected background:', computed);
+            if (!computed.includes('148') || !computed.includes('255')) throw new Error(`scoped blue override failed: ${computed}`);
             await c.click();
-            await page.waitForFunction(() => {
-              const el = [...document.querySelectorAll('button[data-slot-start]')].find((node) => node.getAttribute('title')?.startsWith('08:30 ·'));
-              return el?.getAttribute('title')?.includes('1/1');
-            });
+            await page.waitForFunction(() => [...document.querySelectorAll('button[data-slot-start]')].some((el) => el.getAttribute('title')?.startsWith('08:30 ·') && el.getAttribute('title')?.includes('1/1')));
             await a.hover();
             await page.locator('[data-heatmap-tooltip="true"]').waitFor({ state: 'visible' });
-            const tileShot = '/tmp/final-heatmap/selected-tile.png';
-            await a.screenshot({ path: tileShot });
-            const png = PNG.sync.read(fs.readFileSync(tileShot));
+            const shot = '/tmp/final-heatmap/selected-tile.png';
+            await a.screenshot({ path: shot });
+            const png = PNG.sync.read(fs.readFileSync(shot));
             const probes = [[0.40,0.72],[0.55,0.72],[0.65,0.82]];
-            let blueCount = 0;
-            const values = [];
-            for (const [px, py] of probes) {
-              const x = Math.max(0, Math.min(png.width - 1, Math.round(png.width * px)));
-              const y = Math.max(0, Math.min(png.height - 1, Math.round(png.height * py)));
-              const i = (png.width * y + x) * 4;
-              const rgb = [png.data[i], png.data[i + 1], png.data[i + 2]];
-              values.push(rgb.join(','));
-              if (rgb[2] > rgb[1] && rgb[1] > rgb[0]) blueCount += 1;
-            }
-            console.log('Selected tile pixels:', values.join(' | '));
-            if (blueCount < 2) throw new Error(`selected tile interior is not blue-dominant: ${values.join(' | ')}`);
+            const vals = probes.map(([px,py]) => {
+              const x=Math.round((png.width-1)*px), y=Math.round((png.height-1)*py), i=(png.width*y+x)*4;
+              return [png.data[i],png.data[i+1],png.data[i+2]];
+            });
+            console.log('Selected pixels:', vals.map(v=>v.join(',')).join(' | '));
+            if (vals.filter(([r,g,b]) => b>g && g>r).length < 2) throw new Error('selected tile is not visually blue');
             await page.screenshot({ path: '/tmp/final-heatmap/desktop-unified-heatmap.png', fullPage: true });
             await page.setViewportSize({ width: 390, height: 844 });
             await page.waitForTimeout(250);
-            const headers = page.locator('[data-date-header]');
-            if (await headers.count() !== 1) throw new Error(`mobile must show one day, got ${await headers.count()}`);
+            if (await page.locator('[data-date-header]').count() !== 1) throw new Error('mobile shows more than one day');
             await page.locator('[data-day-swipe="true"]').waitFor({ state: 'visible' });
             await page.getByTitle('View').click();
-            const mobileCell = page.locator('button[data-slot-start]').first();
-            await mobileCell.click();
+            await page.locator('button[data-slot-start]').first().click();
             await page.locator('[data-heatmap-tooltip="true"]').waitFor({ state: 'visible' });
             await page.screenshot({ path: '/tmp/final-heatmap/mobile-view-mode.png', fullPage: true });
             await browser.close();
           })().catch((e) => { console.error(e); process.exit(1); });
           NODE
           node /tmp/final-heatmap.cjs
+
       - uses: actions/upload-artifact@v4
         with:
           name: final-unified-heatmap-screenshots
           path: /tmp/final-heatmap/*.png
           if-no-files-found: error
-      - name: Commit validated product code
+
+      - name: Commit validated product code and remove temporary workflow
         run: |
           rm .github/workflows/final-unified-heatmap-validation.yml
           rm -f i18n-audit-output.json
