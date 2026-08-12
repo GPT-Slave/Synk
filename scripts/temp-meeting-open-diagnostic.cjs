@@ -49,6 +49,8 @@ async function cachedNextAssets(page) {
   const page = await context.newPage();
   const unexpectedPageErrors = [];
   let allowDeploymentFailure = false;
+  let detailDocumentLoads = 0;
+
   page.on('pageerror', (error) => {
     if (!allowDeploymentFailure) unexpectedPageErrors.push(error.stack || error.message);
   });
@@ -103,6 +105,16 @@ async function cachedNextAssets(page) {
   }, { api });
 
   const detailUrl = `${base}/dashboard/meetings/${meeting.id}`;
+  page.on('response', (response) => {
+    const url = new URL(response.url());
+    if (
+      response.request().isNavigationRequest() &&
+      url.pathname === `/dashboard/meetings/${meeting.id}`
+    ) {
+      detailDocumentLoads += 1;
+    }
+  });
+
   await page.goto(`${base}/dashboard`);
   const dashboardScripts = new Set(await scriptResources(page));
 
@@ -122,9 +134,11 @@ async function cachedNextAssets(page) {
   const targetChunk = meetingOnlyScripts[meetingOnlyScripts.length - 1];
 
   // Make the meeting-only chunk disappear once, exactly like a client carrying
-  // references to the previous deployment. The error boundary must hard-reload
-  // once and then render the meeting from the current build.
+  // references to the previous deployment. Either the service worker's failed-
+  // asset recovery or the guarded error-boundary fallback may perform the hard
+  // refresh; the observable requirement is that the meeting renders normally.
   await page.goto(`${base}/dashboard`);
+  const loadsBeforeRecovery = detailDocumentLoads;
   let blocked = false;
   await page.route(targetChunk, async (route) => {
     if (!blocked) {
@@ -149,11 +163,18 @@ async function cachedNextAssets(page) {
   allowDeploymentFailure = false;
 
   if (!blocked) throw new Error(`simulated stale chunk was never requested: ${targetChunk}`);
+  if (detailDocumentLoads <= loadsBeforeRecovery) {
+    throw new Error(`meeting route did not perform a document recovery load; before=${loadsBeforeRecovery}, after=${detailDocumentLoads}`);
+  }
   if (await page.getByText('Something went wrong').count()) throw new Error('global error boundary remained after deployment recovery');
   if (await page.getByText('Meeting not found').count()) throw new Error('meeting not found remained after deployment recovery');
+  if (new URL(page.url()).searchParams.has('__synk_asset_refresh')) {
+    throw new Error(`asset recovery marker leaked into visible URL: ${page.url()}`);
+  }
 
-  const recoveryMarker = await page.evaluate(() => sessionStorage.getItem('synk:deployment-recovery-at'));
-  if (!recoveryMarker) throw new Error('deployment recovery did not reserve its guarded reload marker');
+  const errorBoundaryRecoveryMarker = await page.evaluate(() =>
+    sessionStorage.getItem('synk:deployment-recovery-at'),
+  );
 
   await page.reload();
   await page.getByRole('heading', { name: 'Meeting open regression' }).waitFor({ state: 'visible' });
@@ -168,8 +189,9 @@ async function cachedNextAssets(page) {
   console.log(JSON.stringify({
     deploymentAsset,
     targetChunk,
+    detailDocumentLoads,
     cachedNextAssets: finalCachedNextAssets,
-    recoveryMarker,
+    errorBoundaryRecoveryMarker,
   }, null, 2));
 
   await browser.close();
