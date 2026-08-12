@@ -621,6 +621,16 @@ function AvailabilityHeatmapRow({
               const selectedRight = Boolean(
                 active && rightCell && selected.has(rightCell.datetimeStart),
               );
+              let selectedRunLength = 0;
+              if (active && !selectedLeft) {
+                for (let runIndex = quarterIndex; runIndex < 4; runIndex += 1) {
+                  const runQuarter = runIndex * 15;
+                  const runTime = `${hour.slice(0, 3)}${String(runQuarter).padStart(2, "0")}`;
+                  const runCell = cellByGridPosition.get(`${date.date}:${runTime}`);
+                  if (!runCell || !selected.has(runCell.datetimeStart)) break;
+                  selectedRunLength += 1;
+                }
+              }
               const dateLabel = formatDate(date.date, {
                 weekday: "short",
                 month: "short",
@@ -707,11 +717,8 @@ function AvailabilityHeatmapRow({
                       background: `conic-gradient(from -90deg, currentColor 0 ${quarterFill}%, transparent ${quarterFill}% 100%)`,
                     }}
                   />
-                  {active && (
-                    <FusedSelectionBoundary
-                      hideLeft={selectedLeft}
-                      hideRight={selectedRight}
-                    />
+                  {selectedRunLength > 0 && (
+                    <FusedSelectionBoundary spanCount={selectedRunLength} />
                   )}
                 </button>
               );
@@ -723,36 +730,23 @@ function AvailabilityHeatmapRow({
   );
 }
 
-function FusedSelectionBoundary({
-  hideLeft,
-  hideRight,
-}: {
-  hideLeft: boolean;
-  hideRight: boolean;
-}) {
+function FusedSelectionBoundary({ spanCount }: { spanCount: number }) {
   return (
     <span
       aria-hidden="true"
       data-selection-boundary="true"
+      data-selection-span={spanCount}
       style={{
         position: "absolute",
         pointerEvents: "none",
         zIndex: 20,
         top: 3,
         bottom: 3,
-        left: hideLeft ? -1 : 3,
-        right: hideRight ? -1 : 3,
-        borderStyle: "solid",
-        borderWidth: 1,
-        borderLeftWidth: hideLeft ? 0 : 1,
-        borderRightWidth: hideRight ? 0 : 1,
-        borderColor: "rgba(22, 163, 74, 0.72)",
-        borderTopLeftRadius: hideLeft ? 0 : "0.55rem",
-        borderBottomLeftRadius: hideLeft ? 0 : "0.55rem",
-        borderTopRightRadius: hideRight ? 0 : "0.55rem",
-        borderBottomRightRadius: hideRight ? 0 : "0.55rem",
-        boxShadow:
-          "inset 0 0 8px rgba(16, 185, 129, 0.12), 0 0 3px rgba(5, 120, 87, 0.1)",
+        left: 3,
+        width: `calc(${spanCount * 100}% - 6px)`,
+        border: "1px solid rgba(21, 128, 61, 0.7)",
+        borderRadius: "0.55rem",
+        boxShadow: "inset 0 0 5px rgba(22, 163, 74, 0.08)",
       }}
     />
   );
