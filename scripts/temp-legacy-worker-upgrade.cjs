@@ -55,7 +55,7 @@ const base = 'http://localhost:3000';
         !keys.includes('synk-static-v2'),
     );
   }, undefined, { timeout: 20_000 });
-  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(750);
 
   const badCacheEntries = await page.evaluate(async () => {
     const entries = [];
