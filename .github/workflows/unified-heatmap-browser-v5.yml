@@ -55,6 +55,7 @@ jobs:
       - name: Apply feature implementation
         run: |
           python3 scripts/apply-unified-selectable-heatmap.py
+          python3 scripts/apply-guidance-once-fix.py
           python3 - <<'PY'
           from pathlib import Path
           p = Path('apps/web/src/components/meetings/interactive-availability-heatmap.tsx')
@@ -123,7 +124,7 @@ jobs:
           if-no-files-found: error
       - name: Commit validated implementation
         run: |
-          rm -f scripts/apply-unified-selectable-heatmap.py scripts/validate-unified-heatmap.cjs
+          rm -f scripts/apply-unified-selectable-heatmap.py scripts/apply-guidance-once-fix.py scripts/validate-unified-heatmap.cjs
           rm -f .github/workflows/unified-heatmap-validation.yml .github/workflows/unified-heatmap-static-v2.yml .github/workflows/unified-heatmap-static-v3.yml .github/workflows/unified-heatmap-browser-v4.yml .github/workflows/unified-heatmap-browser-v5.yml
           rm -f apps/web/src/components/meetings/heatmap-grid.tsx i18n-audit-output.json
           git config user.name "github-actions[bot]"
