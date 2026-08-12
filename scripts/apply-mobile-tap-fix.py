@@ -14,6 +14,11 @@ if old_finish not in text:
     raise RuntimeError("touch pointerup tap block missing")
 text = text.replace(old_finish, '', 1)
 
+old_distance = '''        const distance = Math.hypot(\n          event.clientX - touch.startX,\n          event.clientY - touch.startY,\n        );\n'''
+if old_distance not in text:
+    raise RuntimeError("obsolete pointerup distance block missing")
+text = text.replace(old_distance, '', 1)
+
 old_touch_start = '''    if (event.pointerType === "touch") {\n      clearHoldTimer();\n      const gesture: TouchGesture = {\n'''
 new_touch_start = '''    if (event.pointerType === "touch") {\n      clearHoldTimer();\n      suppressNextMobileClick.current = false;\n      const gesture: TouchGesture = {\n'''
 if old_touch_start not in text:
