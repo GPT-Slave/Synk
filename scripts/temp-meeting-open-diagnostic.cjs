@@ -11,8 +11,7 @@ function scriptResources(page) {
   );
 }
 
-async function waitForServiceWorker(page) {
-  await page.waitForLoadState('domcontentloaded');
+async function waitForCanonicalWorker(page) {
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
   });
@@ -22,65 +21,14 @@ async function waitForServiceWorker(page) {
       await navigator.serviceWorker.ready;
     });
   }
-  await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
+  await page.waitForFunction(() => {
+    const controller = navigator.serviceWorker.controller;
+    return Boolean(controller && new URL(controller.scriptURL).pathname === '/sw.js');
+  });
 }
 
-(async () => {
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
-  const page = await context.newPage();
-  const unexpectedPageErrors = [];
-  let allowDeploymentFailure = false;
-  page.on('pageerror', (error) => {
-    if (!allowDeploymentFailure) unexpectedPageErrors.push(error.stack || error.message);
-  });
-
-  // Production-only PWA behavior: keep the active worker controlling the page,
-  // seed the legacy code cache, then install an updated worker at the same scope.
-  // This mirrors the real upgrade sequence instead of unregistering first.
-  await page.goto(base);
-  await waitForServiceWorker(page);
-  await page.evaluate(async () => {
-    const oldCache = await caches.open('synk-static-v2');
-    await oldCache.put(
-      '/_next/static/stale-test.js',
-      new Response('stale build asset', { headers: { 'Content-Type': 'application/javascript' } }),
-    );
-    void navigator.serviceWorker.register('/sw.js?legacy-upgrade-test=1', {
-      scope: '/',
-      updateViaCache: 'none',
-    });
-  });
-  await page.waitForFunction(
-    async () => !(await caches.keys()).includes('synk-static-v2'),
-    undefined,
-    { timeout: 15_000 },
-  );
-  await page.waitForLoadState('domcontentloaded');
-  await waitForServiceWorker(page);
-
-  // The app registration restores the canonical /sw.js URL after the synthetic
-  // update. Its controller-change handling may perform one additional reload.
-  await page.waitForFunction(async () => {
-    const registration = await navigator.serviceWorker.getRegistration();
-    const scriptUrl = registration?.active?.scriptURL;
-    return Boolean(
-      navigator.serviceWorker.controller &&
-        scriptUrl &&
-        new URL(scriptUrl).pathname === '/sw.js' &&
-        !new URL(scriptUrl).search,
-    );
-  }, undefined, { timeout: 15_000 });
-
-  const staticResources = await scriptResources(page);
-  if (!staticResources.length) throw new Error('no Next.js static script resource was observed');
-  const deploymentAsset = staticResources.find((url) => new URL(url).searchParams.has('dpl'));
-  if (!deploymentAsset) throw new Error(`deploymentId missing from static assets: ${staticResources.slice(0, 5).join(', ')}`);
-
-  await page.evaluate(async (url) => {
-    await fetch(url, { cache: 'reload' });
-  }, staticResources[0]);
-  const cachedNextAssets = await page.evaluate(async () => {
+async function cachedNextAssets(page) {
+  return page.evaluate(async () => {
     const matches = [];
     for (const key of await caches.keys()) {
       if (!key.startsWith('synk-')) continue;
@@ -93,8 +41,34 @@ async function waitForServiceWorker(page) {
     }
     return matches;
   });
-  if (cachedNextAssets.length) {
-    throw new Error(`service worker still caches Next.js code: ${JSON.stringify(cachedNextAssets)}`);
+}
+
+(async () => {
+  const browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const page = await context.newPage();
+  const unexpectedPageErrors = [];
+  let allowDeploymentFailure = false;
+  page.on('pageerror', (error) => {
+    if (!allowDeploymentFailure) unexpectedPageErrors.push(error.stack || error.message);
+  });
+
+  await page.goto(base);
+  await waitForCanonicalWorker(page);
+
+  const staticResources = await scriptResources(page);
+  if (!staticResources.length) throw new Error('no Next.js static script resource was observed');
+  const deploymentAsset = staticResources.find((url) => new URL(url).searchParams.has('dpl'));
+  if (!deploymentAsset) {
+    throw new Error(`deploymentId missing from static assets: ${staticResources.slice(0, 5).join(', ')}`);
+  }
+
+  await page.evaluate(async (url) => {
+    await fetch(url, { cache: 'reload' });
+  }, staticResources[0]);
+  const initiallyCachedNextAssets = await cachedNextAssets(page);
+  if (initiallyCachedNextAssets.length) {
+    throw new Error(`service worker caches Next.js code: ${JSON.stringify(initiallyCachedNextAssets)}`);
   }
 
   const password = 'MeetingRegressionPass1!';
@@ -132,7 +106,7 @@ async function waitForServiceWorker(page) {
   await page.goto(`${base}/dashboard`);
   const dashboardScripts = new Set(await scriptResources(page));
 
-  // Baseline organizer flow must work normally before testing recovery.
+  // Verify the normal organizer path before inducing a deployment-skew failure.
   await page.goto(detailUrl);
   await page.getByRole('heading', { name: 'Meeting open regression' }).waitFor({ state: 'visible' });
   await page.locator('[data-unified-heatmap="true"]').waitFor({ state: 'visible' });
@@ -147,9 +121,9 @@ async function waitForServiceWorker(page) {
   }
   const targetChunk = meetingOnlyScripts[meetingOnlyScripts.length - 1];
 
-  // Reproduce the production failure mode: an old client asks for a route/code
-  // chunk that disappeared during a deployment. Fail that asset once; the app
-  // must hard-recover and render the meeting on the next request.
+  // Make the meeting-only chunk disappear once, exactly like a client carrying
+  // references to the previous deployment. The error boundary must hard-reload
+  // once and then render the meeting from the current build.
   await page.goto(`${base}/dashboard`);
   let blocked = false;
   await page.route(targetChunk, async (route) => {
@@ -166,28 +140,36 @@ async function waitForServiceWorker(page) {
   });
 
   allowDeploymentFailure = true;
-  await page.goto(detailUrl);
+  await page.goto(detailUrl).catch(() => undefined);
   await page.getByRole('heading', { name: 'Meeting open regression' }).waitFor({
     state: 'visible',
     timeout: 20_000,
   });
   await page.locator('[data-unified-heatmap="true"]').waitFor({ state: 'visible' });
   allowDeploymentFailure = false;
+
   if (!blocked) throw new Error(`simulated stale chunk was never requested: ${targetChunk}`);
   if (await page.getByText('Something went wrong').count()) throw new Error('global error boundary remained after deployment recovery');
   if (await page.getByText('Meeting not found').count()) throw new Error('meeting not found remained after deployment recovery');
+
+  const recoveryMarker = await page.evaluate(() => sessionStorage.getItem('synk:deployment-recovery-at'));
+  if (!recoveryMarker) throw new Error('deployment recovery did not reserve its guarded reload marker');
 
   await page.reload();
   await page.getByRole('heading', { name: 'Meeting open regression' }).waitFor({ state: 'visible' });
   await page.locator('[data-unified-heatmap="true"]').waitFor({ state: 'visible' });
 
+  const finalCachedNextAssets = await cachedNextAssets(page);
+  if (finalCachedNextAssets.length) {
+    throw new Error(`Next.js assets appeared in Synk cache after recovery: ${JSON.stringify(finalCachedNextAssets)}`);
+  }
+
   await page.screenshot({ path: '/tmp/meeting-diagnostic/meeting-open-fixed.png', fullPage: true });
   console.log(JSON.stringify({
     deploymentAsset,
     targetChunk,
-    oldCachePurged: true,
-    cachedNextAssets,
-    recoveryMarker: await page.evaluate(() => sessionStorage.getItem('synk:deployment-recovery-at')),
+    cachedNextAssets: finalCachedNextAssets,
+    recoveryMarker,
   }, null, 2));
 
   await browser.close();
