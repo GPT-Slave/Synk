@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 import path from "node:path";
 
 const production = process.env.NODE_ENV === "production";
+const deploymentId = deploymentIdentifier();
 const apiOrigin = safeOrigin(
   process.env.NEXT_PUBLIC_API_URL,
   "http://localhost:4000",
@@ -33,6 +34,7 @@ const noCacheHeaders = [
 
 const nextConfig: NextConfig = {
   compress: true,
+  ...(deploymentId ? { deploymentId } : {}),
   images: { unoptimized: true },
   poweredByHeader: false,
   reactStrictMode: true,
@@ -98,4 +100,10 @@ function safeOrigin(value: string | undefined, fallback: string) {
   } catch {
     return new URL(fallback).origin;
   }
+}
+
+function deploymentIdentifier() {
+  const raw = process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.GITHUB_SHA;
+  const sanitized = raw?.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+  return sanitized || undefined;
 }
