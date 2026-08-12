@@ -72,9 +72,14 @@ jobs:
           end = s.index('function useMobileLayout()', start)
           block = '''function heatmapColor(percentage: number): CSSProperties {\n  const normalized = Math.max(0, Math.min(100, percentage)) / 100;\n  const start = { r: 6, g: 16, b: 28 };\n  const end = { r: 0, g: 148, b: 255 };\n  const mix = (from: number, to: number) =>\n    Math.round(from + (to - from) * normalized);\n  const red = mix(start.r, end.r);\n  const green = mix(start.g, end.g);\n  const blue = mix(start.b, end.b);\n  return {\n    backgroundColor: `rgb(${red} ${green} ${blue})`,\n    borderColor: `rgba(96, 165, 250, ${(0.12 + normalized * 0.58).toFixed(3)})`,\n    boxShadow: `inset 0 0 ${Math.round(8 + normalized * 18)}px rgba(56, 189, 248, ${(normalized * 0.22).toFixed(3)})`,\n    color: normalized >= 0.48 ? "rgb(248 250 252)" : "rgb(186 230 253)",\n  };\n}\n\n'''
           s = s[:start] + block + s[end:]
+          boundary_start = s.index('function FusedSelectionBoundary({')
+          boundary_end = s.index('function DaySwipeNavigator({', boundary_start)
+          boundary = '''function FusedSelectionBoundary({\n  hideLeft,\n  hideRight,\n}: {\n  hideLeft: boolean;\n  hideRight: boolean;\n}) {\n  const line: CSSProperties = {\n    position: "absolute",\n    pointerEvents: "none",\n    zIndex: 20,\n    backgroundColor: "rgb(110 231 183)",\n  };\n  const halo: CSSProperties = {\n    position: "absolute",\n    pointerEvents: "none",\n    zIndex: 19,\n  };\n  return (\n    <>\n      <span style={{ ...line, left: 0, right: 0, top: -2, height: 2 }} />\n      <span\n        style={{\n          ...halo, left: 0, right: 0, top: -10, height: 8,\n          background: "linear-gradient(to top, rgba(52,211,153,0.55), rgba(52,211,153,0))",\n        }}\n      />\n      <span style={{ ...line, left: 0, right: 0, bottom: -2, height: 2 }} />\n      <span\n        style={{\n          ...halo, left: 0, right: 0, bottom: -10, height: 8,\n          background: "linear-gradient(to bottom, rgba(52,211,153,0.55), rgba(52,211,153,0))",\n        }}\n      />\n      {!hideLeft && (\n        <>\n          <span style={{ ...line, top: 0, bottom: 0, left: -2, width: 2 }} />\n          <span\n            style={{\n              ...halo, top: 0, bottom: 0, left: -10, width: 8,\n              background: "linear-gradient(to left, rgba(52,211,153,0), rgba(52,211,153,0.55))",\n            }}\n          />\n        </>\n      )}\n      {!hideRight && (\n        <>\n          <span style={{ ...line, top: 0, bottom: 0, right: -2, width: 2 }} />\n          <span\n            style={{\n              ...halo, top: 0, bottom: 0, right: -10, width: 8,\n              background: "linear-gradient(to right, rgba(52,211,153,0.55), rgba(52,211,153,0))",\n            }}\n          />\n        </>\n      )}\n    </>\n  );\n}\n\n'''
+          s = s[:boundary_start] + boundary + s[boundary_end:]
           assert 'motion.button' not in s
           assert 'useReducedMotion' not in s
           assert 'onKeyboardActivate:' not in s
+          assert 'shadow-[' not in s[s.index('function FusedSelectionBoundary({'):s.index('function DaySwipeNavigator({')]
           p.write_text(s, encoding='utf-8')
           PY
       - run: pnpm install --frozen-lockfile
@@ -142,9 +147,9 @@ jobs:
             await b.click();
             if ((await a.getAttribute('data-selected')) !== 'true' || (await b.getAttribute('data-selected')) !== 'true') throw new Error('selection did not apply');
             if ((await a.getAttribute('data-boundary-right')) !== 'false' || (await b.getAttribute('data-boundary-left')) !== 'false') throw new Error('adjacent fused edge regression');
-            const inlineBg = await a.evaluate((el) => el.style.backgroundColor);
-            console.log('Inline selected tile background:', inlineBg);
-            if (!inlineBg.includes('148') || !inlineBg.includes('255')) throw new Error(`selected tile did not receive explicit blue background: ${inlineBg}`);
+            const colors = await a.evaluate((el) => ({ inline: el.style.backgroundColor, computed: getComputedStyle(el).backgroundColor }));
+            console.log('Selected tile colors:', JSON.stringify(colors));
+            if (!colors.inline.includes('148') || !colors.inline.includes('255')) throw new Error(`selected tile did not receive explicit blue background: ${colors.inline}`);
             await c.click();
             await page.waitForFunction(() => {
               const el = [...document.querySelectorAll('button[data-slot-start]')].find((node) => node.getAttribute('title')?.startsWith('08:30 ·'));
@@ -155,7 +160,7 @@ jobs:
             const tileShot = '/tmp/final-heatmap/selected-tile.png';
             await a.screenshot({ path: tileShot });
             const png = PNG.sync.read(fs.readFileSync(tileShot));
-            const probes = [[0.18,0.72],[0.33,0.82],[0.72,0.72]];
+            const probes = [[0.40,0.72],[0.55,0.72],[0.65,0.82]];
             let blueCount = 0;
             const values = [];
             for (const [px, py] of probes) {
