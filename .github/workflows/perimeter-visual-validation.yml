@@ -1,0 +1,142 @@
+name: perimeter visual validation
+
+on:
+  push:
+    branches:
+      - agent/unified-selectable-heatmap
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-commit:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: meetplanner
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d meetplanner"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/meetplanner?schema=public
+      DIRECT_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/meetplanner?schema=public
+      JWT_SECRET: perimeter-access-secret-abcdefghijklmnopqrstuvwxyz
+      JWT_REFRESH_SECRET: perimeter-refresh-secret-abcdefghijklmnopqrstuvwxyz
+      CSRF_SECRET: perimeter-csrf-secret-abcdefghijklmnopqrstuvwxyz
+      JWT_ACCESS_TTL: 15m
+      JWT_REFRESH_TTL: 7d
+      CORS_ORIGIN: http://localhost:3000
+      COOKIE_SECURE: "false"
+      BCRYPT_ROUNDS: "4"
+      GLOBAL_RATE_LIMIT: "1000"
+      GLOBAL_READ_RATE_LIMIT: "1000"
+      GLOBAL_RATE_WINDOW_MS: "60000"
+      TRUST_PROXY: "false"
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      NEXT_PUBLIC_WS_URL: ws://localhost:4000
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/unified-selectable-heatmap
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Move fused green perimeter fully outside tiles
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('apps/web/src/components/meetings/interactive-availability-heatmap.tsx')
+          s = p.read_text(encoding='utf-8')
+          start = s.index('function FusedSelectionBoundary({')
+          end = s.index('function DaySwipeNavigator({', start)
+          block = '''function FusedSelectionBoundary({\n  hideLeft,\n  hideRight,\n}: {\n  hideLeft: boolean;\n  hideRight: boolean;\n}) {\n  const edge: CSSProperties = {\n    position: "absolute",\n    pointerEvents: "none",\n    zIndex: 20,\n    backgroundColor: "rgb(110 231 183)",\n  };\n  return (\n    <>\n      <span\n        style={{\n          ...edge,\n          left: 0,\n          right: 0,\n          top: -2,\n          height: 2,\n          boxShadow: "0 -4px 7px rgba(52, 211, 153, 0.72)",\n        }}\n      />\n      <span\n        style={{\n          ...edge,\n          left: 0,\n          right: 0,\n          bottom: -2,\n          height: 2,\n          boxShadow: "0 4px 7px rgba(52, 211, 153, 0.72)",\n        }}\n      />\n      {!hideLeft && (\n        <span\n          style={{\n            ...edge,\n            top: 0,\n            bottom: 0,\n            left: -2,\n            width: 2,\n            boxShadow: "-4px 0 7px rgba(52, 211, 153, 0.72)",\n          }}\n        />\n      )}\n      {!hideRight && (\n        <span\n          style={{\n            ...edge,\n            top: 0,\n            bottom: 0,\n            right: -2,\n            width: 2,\n            boxShadow: "4px 0 7px rgba(52, 211, 153, 0.72)",\n          }}\n        />\n      )}\n    </>\n  );\n}\n\n'''
+          p.write_text(s[:start] + block + s[end:], encoding='utf-8')
+          PY
+      - run: pnpm install --frozen-lockfile
+      - name: Generate and migrate
+        run: |
+          pnpm prisma:generate
+          pnpm --filter api run db:migrate:deploy
+      - name: Static validation
+        run: |
+          node scripts/i18n-audit.mjs
+          pnpm --filter web lint
+          pnpm --filter web typecheck
+          pnpm --filter api typecheck
+      - name: Start app
+        run: |
+          PORT=4000 pnpm --filter api start >/tmp/api.log 2>&1 &
+          PORT=3000 pnpm --filter web exec next dev --webpack >/tmp/web.log 2>&1 &
+          for i in {1..60}; do
+            if curl -fsS http://localhost:4000/ >/dev/null 2>&1 && curl -fsS http://localhost:3000/ >/dev/null 2>&1; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/api.log || true; cat /tmp/web.log || true; exit 1
+      - name: Install Chromium
+        run: |
+          mkdir -p /tmp/pw /tmp/perimeter-shot
+          npm install --prefix /tmp/pw playwright@1.54.2
+          node /tmp/pw/node_modules/playwright/cli.js install chromium
+      - name: Capture perimeter screenshot
+        run: |
+          cat >/tmp/perimeter.cjs <<'NODE'
+          const { chromium } = require('/tmp/pw/node_modules/playwright');
+          const base = 'http://localhost:3000';
+          const api = 'http://localhost:4000';
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+            const page = await ctx.newPage();
+            const password = 'VisualPass1!';
+            await page.goto(`${base}/signup`);
+            await page.locator('#email').fill(`perimeter-${Date.now()}@example.com`);
+            await page.locator('#password').fill(password);
+            await page.locator('#confirm-password').fill(password);
+            await page.getByRole('button', { name: 'Create organizer account' }).click();
+            await page.waitForURL('**/dashboard');
+            const meeting = await page.evaluate(async ({ api }) => {
+              const csrf = await (await fetch(`${api}/auth/csrf`, { credentials: 'include' })).json();
+              const r = await fetch(`${api}/meetings`, {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf.token },
+                body: JSON.stringify({ title: 'External perimeter visual', startDate: '2026-08-13', endDate: '2026-08-13', workdayStart: '08:00', workdayEnd: '10:00', slotIntervalMinutes: 15, meetingDurationMinutes: 30, timezone: 'Africa/Tunis' })
+              });
+              if (!r.ok) throw new Error(await r.text());
+              return r.json();
+            }, { api });
+            await page.goto(`${base}/dashboard/meetings/${meeting.id}`);
+            const a = page.locator('button[title^="08:00 ·"]').first();
+            const b = page.locator('button[title^="08:15 ·"]').first();
+            await a.waitFor({ state: 'visible' });
+            await a.click();
+            await b.click();
+            if ((await a.getAttribute('data-boundary-right')) !== 'false' || (await b.getAttribute('data-boundary-left')) !== 'false') throw new Error('fused edge regression');
+            const inner = await a.evaluate((el) => ({ bg: getComputedStyle(el).backgroundColor, rect: el.getBoundingClientRect().toJSON() }));
+            console.log('Selected tile background:', inner.bg);
+            await page.screenshot({ path: '/tmp/perimeter-shot/external-fused-green-perimeter.png', fullPage: true });
+            await browser.close();
+          })().catch((e) => { console.error(e); process.exit(1); });
+          NODE
+          node /tmp/perimeter.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: external-fused-green-perimeter
+          path: /tmp/perimeter-shot/external-fused-green-perimeter.png
+          if-no-files-found: error
+      - name: Commit final perimeter
+        run: |
+          rm .github/workflows/perimeter-visual-validation.yml
+          rm -f i18n-audit-output.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "draw fused selection perimeter outside heatmap tiles"
+          git push origin HEAD:agent/unified-selectable-heatmap
