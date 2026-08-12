@@ -1,0 +1,31 @@
+{
+  "usedKeyCount": 239,
+  "supportedLocales": [
+    "en",
+    "fr",
+    "ar",
+    "ja",
+    "zh",
+    "es",
+    "pt",
+    "ru",
+    "de",
+    "nl",
+    "hi",
+    "it"
+  ],
+  "rawIssues": [],
+  "missingByLocale": {
+    "fr": [],
+    "ar": [],
+    "ja": [],
+    "zh": [],
+    "es": [],
+    "pt": [],
+    "ru": [],
+    "de": [],
+    "nl": [],
+    "hi": [],
+    "it": []
+  }
+}

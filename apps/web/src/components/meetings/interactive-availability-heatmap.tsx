@@ -734,14 +734,25 @@ function FusedSelectionBoundary({
   hideLeft: boolean;
   hideRight: boolean;
 }) {
-  const glow =
-    "pointer-events-none absolute z-20 bg-emerald-300 shadow-[0_0_10px_2px_rgba(52,211,153,0.78)]";
+  const edge = "pointer-events-none absolute z-20 bg-emerald-300";
   return (
     <>
-      <span className={`${glow} inset-x-0 top-0 h-[2px]`} />
-      <span className={`${glow} inset-x-0 bottom-0 h-[2px]`} />
-      {!hideLeft && <span className={`${glow} inset-y-0 left-0 w-[2px]`} />}
-      {!hideRight && <span className={`${glow} inset-y-0 right-0 w-[2px]`} />}
+      <span
+        className={`${edge} inset-x-0 top-0 h-[2px] shadow-[0_-5px_6px_rgba(52,211,153,0.72)]`}
+      />
+      <span
+        className={`${edge} inset-x-0 bottom-0 h-[2px] shadow-[0_5px_6px_rgba(52,211,153,0.72)]`}
+      />
+      {!hideLeft && (
+        <span
+          className={`${edge} inset-y-0 left-0 w-[2px] shadow-[-5px_0_6px_rgba(52,211,153,0.72)]`}
+        />
+      )}
+      {!hideRight && (
+        <span
+          className={`${edge} inset-y-0 right-0 w-[2px] shadow-[5px_0_6px_rgba(52,211,153,0.72)]`}
+        />
+      )}
     </>
   );
 }
