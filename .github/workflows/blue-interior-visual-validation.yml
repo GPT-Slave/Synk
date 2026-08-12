@@ -1,0 +1,161 @@
+name: blue interior visual validation
+
+on:
+  push:
+    branches:
+      - agent/unified-selectable-heatmap
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-commit:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: meetplanner
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d meetplanner"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/meetplanner?schema=public
+      DIRECT_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/meetplanner?schema=public
+      JWT_SECRET: blue-interior-access-secret-abcdefghijklmnopqrstuvwxyz
+      JWT_REFRESH_SECRET: blue-interior-refresh-secret-abcdefghijklmnopqrstuvwxyz
+      CSRF_SECRET: blue-interior-csrf-secret-abcdefghijklmnopqrstuvwxyz
+      JWT_ACCESS_TTL: 15m
+      JWT_REFRESH_TTL: 7d
+      CORS_ORIGIN: http://localhost:3000
+      COOKIE_SECURE: "false"
+      BCRYPT_ROUNDS: "4"
+      GLOBAL_RATE_LIMIT: "1000"
+      GLOBAL_READ_RATE_LIMIT: "1000"
+      GLOBAL_RATE_WINDOW_MS: "60000"
+      TRUST_PROXY: "false"
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      NEXT_PUBLIC_WS_URL: ws://localhost:4000
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/unified-selectable-heatmap
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Use explicit blue heatmap palette
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('apps/web/src/components/meetings/interactive-availability-heatmap.tsx')
+          s = p.read_text(encoding='utf-8')
+          start = s.index('function heatmapColor(percentage: number): CSSProperties {')
+          end = s.index('function useMobileLayout()', start)
+          block = '''function heatmapColor(percentage: number): CSSProperties {\n  const normalized = Math.max(0, Math.min(100, percentage)) / 100;\n  const start = { r: 6, g: 16, b: 28 };\n  const end = { r: 0, g: 148, b: 255 };\n  const mix = (from: number, to: number) =>\n    Math.round(from + (to - from) * normalized);\n  const red = mix(start.r, end.r);\n  const green = mix(start.g, end.g);\n  const blue = mix(start.b, end.b);\n  return {\n    backgroundColor: `rgb(${red} ${green} ${blue})`,\n    borderColor: `rgba(96, 165, 250, ${(0.12 + normalized * 0.58).toFixed(3)})`,\n    boxShadow: `inset 0 0 ${Math.round(8 + normalized * 18)}px rgba(56, 189, 248, ${(normalized * 0.22).toFixed(3)})`,\n    color: normalized >= 0.48 ? "rgb(248 250 252)" : "rgb(186 230 253)",\n  };\n}\n\n'''
+          p.write_text(s[:start] + block + s[end:], encoding='utf-8')
+          PY
+      - run: pnpm install --frozen-lockfile
+      - name: Generate and migrate
+        run: |
+          pnpm prisma:generate
+          pnpm --filter api run db:migrate:deploy
+      - name: Static validation
+        run: |
+          node scripts/i18n-audit.mjs
+          pnpm --filter web lint
+          pnpm --filter web typecheck
+          pnpm --filter api typecheck
+      - name: Start app
+        run: |
+          PORT=4000 pnpm --filter api start >/tmp/api.log 2>&1 &
+          PORT=3000 pnpm --filter web exec next dev --webpack >/tmp/web.log 2>&1 &
+          for i in {1..60}; do
+            if curl -fsS http://localhost:4000/ >/dev/null 2>&1 && curl -fsS http://localhost:3000/ >/dev/null 2>&1; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/api.log || true; cat /tmp/web.log || true; exit 1
+      - name: Install Chromium and PNG reader
+        run: |
+          mkdir -p /tmp/pw /tmp/blue-shot
+          npm install --prefix /tmp/pw playwright@1.54.2 pngjs@7.0.0
+          node /tmp/pw/node_modules/playwright/cli.js install chromium
+      - name: Capture and validate blue selected cells
+        run: |
+          cat >/tmp/blue.cjs <<'NODE'
+          const { chromium } = require('/tmp/pw/node_modules/playwright');
+          const { PNG } = require('/tmp/pw/node_modules/pngjs');
+          const fs = require('node:fs');
+          const base = 'http://localhost:3000';
+          const api = 'http://localhost:4000';
+          function parseRgb(value) {
+            const match = value.match(/rgba?\((\d+)[, ]+(\d+)[, ]+(\d+)/);
+            if (!match) throw new Error(`Cannot parse rgb: ${value}`);
+            return match.slice(1, 4).map(Number);
+          }
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+            const page = await ctx.newPage();
+            const password = 'VisualPass1!';
+            await page.goto(`${base}/signup`);
+            await page.locator('#email').fill(`blue-${Date.now()}@example.com`);
+            await page.locator('#password').fill(password);
+            await page.locator('#confirm-password').fill(password);
+            await page.getByRole('button', { name: 'Create organizer account' }).click();
+            await page.waitForURL('**/dashboard');
+            const meeting = await page.evaluate(async ({ api }) => {
+              const csrf = await (await fetch(`${api}/auth/csrf`, { credentials: 'include' })).json();
+              const r = await fetch(`${api}/meetings`, {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf.token },
+                body: JSON.stringify({ title: 'Blue interior visual', startDate: '2026-08-13', endDate: '2026-08-13', workdayStart: '08:00', workdayEnd: '10:00', slotIntervalMinutes: 15, meetingDurationMinutes: 30, timezone: 'Africa/Tunis' })
+              });
+              if (!r.ok) throw new Error(await r.text());
+              return r.json();
+            }, { api });
+            await page.goto(`${base}/dashboard/meetings/${meeting.id}`);
+            const a = page.locator('button[title^="08:00 ·"]').first();
+            const b = page.locator('button[title^="08:15 ·"]').first();
+            await a.waitFor({ state: 'visible' });
+            await a.click();
+            await b.click();
+            if ((await a.getAttribute('data-boundary-right')) !== 'false' || (await b.getAttribute('data-boundary-left')) !== 'false') throw new Error('fused edge regression');
+            const computed = await a.evaluate((el) => getComputedStyle(el).backgroundColor);
+            const [r, g, bl] = parseRgb(computed);
+            console.log('Computed selected tile background:', computed);
+            if (!(bl > g && g > r)) throw new Error(`Selected tile computed background is not blue-dominant: ${computed}`);
+            const box = await a.boundingBox();
+            if (!box) throw new Error('selected tile bounds unavailable');
+            const path = '/tmp/blue-shot/blue-interior-green-perimeter.png';
+            await page.screenshot({ path, fullPage: true });
+            const png = PNG.sync.read(fs.readFileSync(path));
+            const x = Math.max(0, Math.min(png.width - 1, Math.round(box.x + box.width / 2)));
+            const y = Math.max(0, Math.min(png.height - 1, Math.round(box.y + box.height / 2)));
+            const idx = (png.width * y + x) * 4;
+            const pixel = [png.data[idx], png.data[idx + 1], png.data[idx + 2]];
+            console.log('Selected tile center screenshot pixel:', pixel.join(','));
+            if (!(pixel[2] > pixel[1] && pixel[1] > pixel[0])) throw new Error(`Selected tile screenshot center is not blue-dominant: ${pixel.join(',')}`);
+            await browser.close();
+          })().catch((e) => { console.error(e); process.exit(1); });
+          NODE
+          node /tmp/blue.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blue-interior-green-perimeter
+          path: /tmp/blue-shot/blue-interior-green-perimeter.png
+          if-no-files-found: error
+      - name: Commit explicit blue palette
+        run: |
+          rm .github/workflows/blue-interior-visual-validation.yml
+          rm -f i18n-audit-output.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "keep selected heatmap tiles explicitly blue"
+          git push origin HEAD:agent/unified-selectable-heatmap
