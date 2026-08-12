@@ -82,6 +82,7 @@ export default function PublicMeetingPage() {
     meetingToken: string;
     sessionToken: string;
   }>();
+  const [guidanceSessionToken, setGuidanceSessionToken] = useState<string>();
   const identityConfirmed =
     confirmedSession?.meetingToken === token &&
     confirmedSession.sessionToken === sessionToken;
@@ -146,13 +147,19 @@ export default function PublicMeetingPage() {
     setActiveParticipantToken(localStorage, token, nextToken);
     setEphemeralSession({ meetingToken: token, sessionToken: nextToken });
     setConfirmedSession({ meetingToken: token, sessionToken: nextToken });
+    setGuidanceSessionToken(undefined);
     notifyParticipantStorage();
+    void queryClient.invalidateQueries({
+      queryKey: ["public-meeting", token],
+      exact: true,
+    });
   }
 
   function chooseAnotherParticipant() {
     clearActiveParticipantToken(localStorage, token);
     setEphemeralSession(undefined);
     setConfirmedSession(undefined);
+    setGuidanceSessionToken(undefined);
     notifyParticipantStorage();
   }
 
@@ -167,7 +174,12 @@ export default function PublicMeetingPage() {
     );
     setEphemeralSession({ meetingToken: token, sessionToken: nextToken });
     setConfirmedSession({ meetingToken: token, sessionToken: nextToken });
+    setGuidanceSessionToken(nextToken);
     notifyParticipantStorage();
+    void queryClient.invalidateQueries({
+      queryKey: ["public-meeting", token],
+      exact: true,
+    });
   }
 
   return (
@@ -270,8 +282,15 @@ export default function PublicMeetingPage() {
             <AvailabilityGrid
               key={participantSession.participant.id}
               meeting={meeting.data}
+              onSaved={() =>
+                queryClient.invalidateQueries({
+                  queryKey: ["public-meeting", token],
+                  exact: true,
+                })
+              }
               participantSession={participantSession}
               sessionToken={sessionToken}
+              showGuidanceOnMount={guidanceSessionToken === sessionToken}
               token={token}
             />
           )}

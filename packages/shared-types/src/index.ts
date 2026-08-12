@@ -44,6 +44,15 @@ export interface PublicMeetingDto extends MeetingDto {
   closedReason?: string;
   dates: MeetingGridDateDto[];
   slots: MeetingGridSlotDto[];
+  participants: HeatmapParticipantDto[];
+  heatmap: HeatmapCellDto[];
+}
+
+export interface HeatmapParticipantDto {
+  id: string;
+  displayName: string;
+  isOrganizer?: boolean;
+  responded?: boolean;
 }
 
 export interface ParticipantDto {
@@ -72,6 +81,7 @@ export interface HeatmapCellDto {
   availableCount: number;
   totalParticipants: number;
   percentage: number;
+  participantIds: string[];
   participantNames: string[];
 }
 
@@ -83,5 +93,6 @@ export interface BestMatchDto {
   availableCount: number;
   totalParticipants: number;
   percentage: number;
+  participantIds: string[];
   participantNames: string[];
 }

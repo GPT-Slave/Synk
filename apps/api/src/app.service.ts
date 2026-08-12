@@ -17,6 +17,7 @@ export class AppService {
       availableCount: 1,
       totalParticipants: 1,
       percentage: 100,
+      participantIds: ['example-participant'],
       participantNames: ['Example'],
     };
   }

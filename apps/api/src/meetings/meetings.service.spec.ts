@@ -71,6 +71,7 @@ describe('MeetingsService', () => {
   };
   const realtime = {
     availabilityChanged: jest.fn(),
+    meetingUpdated: jest.fn(),
     meetingStateChanged: jest.fn(),
     participantRemoved: jest.fn(),
   };
@@ -488,5 +489,47 @@ describe('MeetingsService', () => {
       isOrganizer: true,
     });
     expect(realtime.availabilityChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it('exposes the same heatmap and participant roster on the public invitation', async () => {
+    prisma.meeting.findUnique.mockResolvedValue({
+      ...savedMeeting({
+        startDate: new Date('2026-08-12T00:00:00.000Z'),
+        endDate: new Date('2026-08-12T00:00:00.000Z'),
+        workdayStart: '08:00',
+        workdayEnd: '09:00',
+        slotIntervalMinutes: 60,
+      }),
+      participants: [
+        {
+          id: 'participant-1',
+          displayName: 'Alice',
+          organizerId: null,
+          respondedAt: new Date('2026-08-12T06:30:00.000Z'),
+          availabilities: [
+            {
+              datetimeStart: new Date('2026-08-12T07:00:00.000Z'),
+              datetimeEnd: new Date('2026-08-12T08:00:00.000Z'),
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await service.publicMeeting('a'.repeat(64));
+
+    expect(result.participants).toEqual([
+      expect.objectContaining({
+        id: 'participant-1',
+        displayName: 'Alice',
+        responded: true,
+      }),
+    ]);
+    expect(result.heatmap[0]).toMatchObject({
+      availableCount: 1,
+      totalParticipants: 1,
+      participantIds: ['participant-1'],
+      participantNames: ['Alice'],
+    });
   });
 });

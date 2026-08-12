@@ -62,13 +62,6 @@ const AvailabilityGrid = dynamic(
     ),
   { loading: () => <GridLoadingState label="availability calendar" /> },
 );
-const HeatmapGrid = dynamic(
-  () =>
-    import("@/components/meetings/heatmap-grid").then(
-      (module) => module.HeatmapGrid,
-    ),
-  { loading: () => <GridLoadingState label="availability heatmap" /> },
-);
 
 export default function MeetingDetailPage() {
   return (
@@ -91,6 +84,8 @@ function MeetingDetail() {
   }>();
   const [selectedMatch, setSelectedMatch] = useState<BestMatchDto>();
   const [manualSelection, setManualSelection] = useState(false);
+  const [highlightedMatch, setHighlightedMatch] = useState<BestMatchDto>();
+  const [highlightedParticipantIds, setHighlightedParticipantIds] = useState<string[]>([]);
   const toast = useToast();
   const realtimeStatus = useMeetingRealtime(id);
   const meeting = useQuery({
@@ -420,14 +415,22 @@ function MeetingDetail() {
 
       <div className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(20rem,0.75fr)]">
         <div className="space-y-6">
-          {!data.finalized && (
+          <div id="manual-time-grid">
             <DashboardSection
-              icon={<CalendarCheck2 />}
-              title={t("Your availability")}
+              icon={<Flame />}
+              title={
+                manualSelection
+                  ? t("Choose your meeting time")
+                  : t("Live availability heatmap")
+              }
             >
               <AvailabilityGrid
+                highlightedMatch={highlightedMatch}
+                manualMeetingMode={manualSelection && !data.finalized}
                 meeting={data}
                 mode="organizer"
+                onInspectParticipants={setHighlightedParticipantIds}
+                onManualSelect={setSelectedMatch}
                 onSave={(response: AvailabilityResponse) =>
                   saveOrganizerAvailability(id, response).then(
                     async (saved) => {
@@ -438,23 +441,6 @@ function MeetingDetail() {
                 }
                 participantSession={data.organizerAvailability}
                 saveScope={`organizer-availability:${id}`}
-              />
-            </DashboardSection>
-          )}
-
-          <div id="manual-time-grid">
-            <DashboardSection
-              icon={<Flame />}
-              title={
-                manualSelection
-                  ? t("Choose your meeting time")
-                  : t("Live availability heatmap")
-              }
-            >
-              <HeatmapGrid
-                manualMode={manualSelection && !data.finalized}
-                meeting={data}
-                onManualSelect={setSelectedMatch}
                 selectedMatch={manualSelection ? selectedMatch : undefined}
               />
               {manualSelection && selectedMatch && (
@@ -491,6 +477,11 @@ function MeetingDetail() {
           >
             <BestTimeSuggestions
               matches={data.bestTimes}
+              onHighlight={(match) => {
+                setHighlightedMatch(match);
+                setHighlightedParticipantIds(match?.participantIds ?? []);
+              }}
+              participants={data.participants}
               onSelect={
                 data.finalized
                   ? undefined
@@ -551,7 +542,17 @@ function MeetingDetail() {
               <ul className="divide-y divide-white/10">
                 {data.participants.map((participant) => (
                   <li
-                    className="flex items-start justify-between gap-3 py-3"
+                    className={`flex items-start justify-between gap-3 px-2 py-3 transition duration-150 ${
+                      highlightedParticipantIds.includes(participant.id)
+                        ? "rounded-xl bg-emerald-400/10 ring-1 ring-emerald-300/50 shadow-[0_0_18px_rgba(52,211,153,0.16)]"
+                        : ""
+                    }`}
+                    data-highlighted={
+                      highlightedParticipantIds.includes(participant.id)
+                        ? "true"
+                        : "false"
+                    }
+                    data-participant-id={participant.id}
                     key={participant.id}
                   >
                     <div className="min-w-0">

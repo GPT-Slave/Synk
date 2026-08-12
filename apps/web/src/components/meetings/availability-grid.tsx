@@ -2,11 +2,11 @@
 
 import type {
   AvailabilitySlotDto,
+  BestMatchDto,
   ParticipantSessionDto,
   PublicMeetingDto,
 } from "@meet-planner/shared-types";
 import { useMutation } from "@tanstack/react-query";
-import { motion, useReducedMotion } from "framer-motion";
 import {
   CheckCircle2,
   Cloud,
@@ -15,15 +15,8 @@ import {
   MessageSquareText,
   Save,
 } from "lucide-react";
-import {
-  PointerEvent as ReactPointerEvent,
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { InteractiveAvailabilityHeatmap } from "@/components/meetings/interactive-availability-heatmap";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -47,7 +40,14 @@ interface AvailabilityGridProps {
   token?: string;
   mode?: "organizer" | "participant";
   onSave?: (response: AvailabilityResponse) => Promise<unknown>;
+  onSaved?: () => void | Promise<void>;
   saveScope?: string;
+  manualMeetingMode?: boolean;
+  onManualSelect?: (match: BestMatchDto) => void;
+  selectedMatch?: BestMatchDto;
+  highlightedMatch?: BestMatchDto;
+  onInspectParticipants?: (participantIds: string[]) => void;
+  showGuidanceOnMount?: boolean;
 }
 
 export interface AvailabilityResponse {
@@ -68,11 +68,18 @@ export function AvailabilityGrid({
   token,
   mode = "participant",
   onSave,
+  onSaved,
   saveScope,
+  manualMeetingMode = false,
+  onManualSelect,
+  selectedMatch,
+  highlightedMatch,
+  onInspectParticipants,
+  showGuidanceOnMount = mode === "participant",
 }: AvailabilityGridProps) {
   const commentId = useId();
   const toast = useToast();
-  const { formatDate, t } = useI18n();
+  const { t } = useI18n();
   const [selected, setSelected] = useState(
     () =>
       new Set(
@@ -81,35 +88,7 @@ export function AvailabilityGrid({
   );
   const [comment, setComment] = useState(participantSession.comment ?? "");
   const [saveState, setSaveState] = useState<SaveState>("idle");
-  const [showGuidance, setShowGuidance] = useState(mode === "participant");
-  const dragging = useRef(false);
-  const touchedSlot = useRef<string | undefined>(undefined);
-  const touchGesture = useRef<
-    | {
-        pointerId: number;
-        startX: number;
-        startY: number;
-        slotStart: string;
-        dragging: boolean;
-      }
-    | undefined
-  >(undefined);
-  const hours = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          meeting.slots.map((slot) => `${slot.timeLabel.slice(0, 2)}:00`),
-        ),
-      ),
-    [meeting.slots],
-  );
-  const slotByCell = useMemo(
-    () =>
-      new Map(
-        meeting.slots.map((slot) => [`${slot.date}:${slot.timeLabel}`, slot]),
-      ),
-    [meeting.slots],
-  );
+  const [showGuidance, setShowGuidance] = useState(showGuidanceOnMount);
   const response = useMemo<AvailabilityResponse>(
     () => ({
       slots: meeting.slots
@@ -153,11 +132,12 @@ export function AvailabilityGrid({
       lastSaveStartedAt.current = Date.now();
       setSaveState("saving");
     },
-    onSuccess: (_saved, variables) => {
+    onSuccess: async (_saved, variables) => {
       const savedKey = availabilityKey(variables);
       autosaveBlockedUntil.current = 0;
       lastSavedKey.current = savedKey;
       setSaveState(latestKey.current === savedKey ? "saved" : "dirty");
+      await onSaved?.();
     },
     onError: (error) => {
       const retryAfter =
@@ -173,35 +153,6 @@ export function AvailabilityGrid({
   useEffect(() => {
     latestKey.current = responseKey;
   }, [responseKey]);
-
-  useEffect(() => {
-    function finishDrag(event: globalThis.PointerEvent) {
-      const touch = touchGesture.current;
-      if (
-        touch &&
-        touch.pointerId === event.pointerId &&
-        !touch.dragging &&
-        Math.hypot(event.clientX - touch.startX, event.clientY - touch.startY) <
-          8
-      ) {
-        toggleSlot(touch.slotStart);
-      }
-      touchGesture.current = undefined;
-      dragging.current = false;
-      touchedSlot.current = undefined;
-    }
-    function cancelDrag() {
-      touchGesture.current = undefined;
-      dragging.current = false;
-      touchedSlot.current = undefined;
-    }
-    window.addEventListener("pointerup", finishDrag);
-    window.addEventListener("pointercancel", cancelDrag);
-    return () => {
-      window.removeEventListener("pointerup", finishDrag);
-      window.removeEventListener("pointercancel", cancelDrag);
-    };
-  }, [toggleSlot]);
 
   useEffect(() => {
     if (!meeting.acceptingResponses || responseKey === lastSavedKey.current) {
@@ -225,60 +176,6 @@ export function AvailabilityGrid({
     responseKey,
     saveResponse,
   ]);
-
-  function applySlot(slotStart: string) {
-    if (!dragging.current || touchedSlot.current === slotStart) return;
-    touchedSlot.current = slotStart;
-    toggleSlot(slotStart);
-  }
-
-  function startDrag(
-    event: ReactPointerEvent<HTMLButtonElement>,
-    slotStart: string,
-  ) {
-    if (!meeting.acceptingResponses || event.button !== 0) return;
-    if (event.pointerType === "touch") {
-      touchGesture.current = {
-        pointerId: event.pointerId,
-        startX: event.clientX,
-        startY: event.clientY,
-        slotStart,
-        dragging: false,
-      };
-      return;
-    }
-    event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    dragging.current = true;
-    touchedSlot.current = undefined;
-    applySlot(slotStart);
-  }
-
-  function continueDrag(event: ReactPointerEvent<HTMLDivElement>) {
-    const touch = touchGesture.current;
-    if (touch && touch.pointerId === event.pointerId) {
-      const deltaX = event.clientX - touch.startX;
-      const deltaY = event.clientY - touch.startY;
-      if (!touch.dragging) {
-        if (Math.abs(deltaY) >= Math.abs(deltaX) || Math.abs(deltaX) < 8) {
-          return;
-        }
-        touch.dragging = true;
-        dragging.current = true;
-        touchedSlot.current = undefined;
-        applySlot(touch.slotStart);
-      }
-      event.preventDefault();
-    }
-    if (!dragging.current) return;
-    const element = document.elementFromPoint(event.clientX, event.clientY);
-    const slot = element?.closest<HTMLElement>("[data-slot-start]");
-    if (slot?.dataset.slotStart) applySlot(slot.dataset.slotStart);
-  }
-
-  function toggleFromKeyboard(slotStart: string) {
-    toggleSlot(slotStart);
-  }
 
   const error = mutation.error
     ? mutation.error instanceof ApiError
@@ -318,7 +215,7 @@ export function AvailabilityGrid({
           </h2>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
             {t(
-              "Tap one square or paint across several. The complete timetable is always shown below.",
+              "Tap or drag to mark the times that work for you. On phones, switch days with the navigator below.",
             )}
           </p>
           <p className="mt-2 flex items-center gap-2 text-xs text-primary/65">
@@ -367,44 +264,21 @@ export function AvailabilityGrid({
         </p>
       )}
 
-      <div className="mt-6 w-full">
-        <div
-          className="grid w-full min-w-0 select-none"
-          onPointerMove={continueDrag}
-          style={{
-            gridTemplateColumns: `4.25rem repeat(${meeting.dates.length}, minmax(0, 1fr))`,
-          }}
-        >
-          <div />
-          {meeting.dates.map((date) => (
-            <div
-              className="min-w-0 truncate px-1 py-3 text-center text-[0.68rem] font-medium leading-tight text-muted-foreground sm:text-xs"
-              key={date.date}
-              title={date.label}
-            >
-              {formatDate(date.date, {
-                weekday: "short",
-                month: "short",
-                day: "numeric",
-              })}
-            </div>
-          ))}
-
-          {hours.map((hour) => (
-            <GridRow
-              dates={meeting.dates}
-              formatDate={formatDate}
-              key={hour}
-              meetingOpen={meeting.acceptingResponses}
-              onKeyboardToggle={toggleFromKeyboard}
-              onPointerDown={startDrag}
-              selected={selected}
-              slotByCell={slotByCell}
-              hour={hour}
-              t={t}
-            />
-          ))}
-        </div>
+      <div className="mt-6">
+        <InteractiveAvailabilityHeatmap
+          currentParticipant={participantSession.participant}
+          editable={meeting.acceptingResponses}
+          highlightedMatch={highlightedMatch}
+          manualMeetingMode={manualMeetingMode}
+          meeting={meeting}
+          onInspectParticipants={onInspectParticipants}
+          onManualSelect={onManualSelect}
+          onToggleSlot={toggleSlot}
+          participants={meeting.participants}
+          selected={selected}
+          selectedMatch={selectedMatch}
+          showParticipantRoster={mode === "participant"}
+        />
       </div>
 
       <div className="mt-5 space-y-2">
@@ -433,94 +307,6 @@ export function AvailabilityGrid({
   );
 }
 
-function GridRow({
-  dates,
-  formatDate,
-  hour,
-  meetingOpen,
-  onKeyboardToggle,
-  onPointerDown,
-  selected,
-  slotByCell,
-  t,
-}: {
-  dates: PublicMeetingDto["dates"];
-  formatDate: (
-    value: Date | string,
-    options?: Intl.DateTimeFormatOptions,
-  ) => string;
-  hour: string;
-  meetingOpen: boolean;
-  onKeyboardToggle: (slotStart: string) => void;
-  onPointerDown: (
-    event: ReactPointerEvent<HTMLButtonElement>,
-    slotStart: string,
-  ) => void;
-  selected: Set<string>;
-  slotByCell: Map<string, PublicMeetingDto["slots"][number]>;
-  t: (message: string, variables?: Record<string, string | number>) => string;
-}) {
-  const reduceMotion = useReducedMotion();
-  return (
-    <>
-      <div className="px-2 py-5 text-xs text-muted-foreground">{hour}</div>
-      {dates.map((date) => (
-        <div className="min-h-14 p-1" key={date.date}>
-          <div className="grid size-full min-h-11 grid-cols-4 overflow-hidden rounded-xl border border-white/10">
-            {[0, 15, 30, 45].map((quarter) => {
-              const time = `${hour.slice(0, 3)}${String(quarter).padStart(2, "0")}`;
-              const slot = slotByCell.get(`${date.date}:${time}`);
-              if (!slot) {
-                return (
-                  <span
-                    aria-hidden="true"
-                    className="bg-white/[0.01]"
-                    key={quarter}
-                  />
-                );
-              }
-              const active = selected.has(slot.datetimeStart);
-              const dateLabel = formatDate(date.date, {
-                weekday: "short",
-                month: "short",
-                day: "numeric",
-              });
-              return (
-                <motion.button
-                  aria-label={t(
-                    active ? "Remove {date} at {time}" : "Select {date} at {time}",
-                    { date: dateLabel, time },
-                  )}
-                  aria-pressed={active}
-                  className={`relative min-h-11 touch-pan-y transition duration-200 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-primary ${
-                    active
-                      ? "bg-primary/75 shadow-[0_0_18px_-8px_oklch(0.82_0.18_245_/_0.85)] hover:bg-primary/85"
-                      : "bg-white/[0.015] hover:bg-white/[0.07]"
-                  }`}
-                  data-slot-start={slot.datetimeStart}
-                  disabled={!meetingOpen}
-                  key={quarter}
-                  onClick={(event) => {
-                    if (event.detail === 0)
-                      onKeyboardToggle(slot.datetimeStart);
-                  }}
-                  onPointerDown={(event) =>
-                    onPointerDown(event, slot.datetimeStart)
-                  }
-                  title={time}
-                  type="button"
-                  whileTap={reduceMotion ? undefined : { scale: 0.96 }}
-                />
-              );
-            })}
-          </div>
-        </div>
-      ))}
-    </>
-  );
-}
-
-
 function ParticipantGuidanceDialog({
   onOpenChange,
   open,
@@ -536,7 +322,7 @@ function ParticipantGuidanceDialog({
           <DialogTitle>{t("Your availability")}</DialogTitle>
           <DialogDescription>
             {t(
-              "Tap one square or paint across several. The complete timetable is always shown below.",
+              "Tap or drag to mark the times that work for you. On phones, switch days with the navigator below.",
             )}
           </DialogDescription>
         </DialogHeader>
