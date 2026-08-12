@@ -336,10 +336,12 @@
   }
 }
 
-
-
 @layer utilities {
   button[data-heatmap-cell="true"] {
     background-color: var(--synk-heatmap-bg) !important;
+  }
+
+  button[data-heatmap-cell="true"][data-selected="true"] {
+    box-shadow: none !important;
   }
 }
