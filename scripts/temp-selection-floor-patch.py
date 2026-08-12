@@ -1,32 +1,7 @@
 from pathlib import Path
 
-p = Path("apps/web/src/components/meetings/interactive-availability-heatmap.tsx")
-s = p.read_text(encoding="utf-8")
-
-old_participant = '''                <span
-                  className={`rounded-full border px-3 py-1.5 text-xs transition duration-150 ${
-                    highlighted
-                      ? "border-emerald-300/80 bg-emerald-400/15 text-emerald-100 shadow-[0_0_16px_rgba(52,211,153,0.28)]"
-                      : "border-white/10 bg-white/[0.025] text-muted-foreground"
-                  }`}
-                  data-highlighted={highlighted ? "true" : "false"}
-                  data-participant-id={participant.id}
-                  key={participant.id}
-                >'''
-new_participant = '''                <span
-                  className={`relative overflow-hidden rounded-full border px-3 py-1.5 text-xs transition-colors duration-150 ${
-                    highlighted
-                      ? "border-emerald-600 bg-emerald-950/35 text-emerald-100"
-                      : "border-white/10 bg-white/[0.025] text-muted-foreground"
-                  }`}
-                  data-highlighted={highlighted ? "true" : "false"}
-                  data-participant-id={participant.id}
-                  key={participant.id}
-                  style={{ borderRadius: "9999px" }}
-                >'''
-if old_participant not in s:
-    raise SystemExit("participant pill anchor not found")
-s = s.replace(old_participant, new_participant, 1)
+heatmap_path = Path("apps/web/src/components/meetings/interactive-availability-heatmap.tsx")
+s = heatmap_path.read_text(encoding="utf-8")
 
 run_block = '''              let selectedRunLength = 0;
               if (active && !selectedLeft) {
@@ -131,5 +106,21 @@ floor_component = '''function SelectedTileFloor({
 
 '''
 s = s[:start] + floor_component + s[end:]
+heatmap_path.write_text(s, encoding="utf-8")
 
-p.write_text(s, encoding="utf-8")
+page_path = Path("apps/web/src/app/dashboard/meetings/[id]/page.tsx")
+page = page_path.read_text(encoding="utf-8")
+old_list_class = '''                    className={`flex items-start justify-between gap-3 px-2 py-3 transition duration-150 ${
+                      highlightedParticipantIds.includes(participant.id)
+                        ? "rounded-xl bg-emerald-400/10 ring-1 ring-emerald-300/50 shadow-[0_0_18px_rgba(52,211,153,0.16)]"
+                        : ""
+                    }`}'''
+new_list_class = '''                    className={`flex items-start justify-between gap-3 rounded-xl border border-transparent px-2 py-3 transition-colors duration-150 ${
+                      highlightedParticipantIds.includes(participant.id)
+                        ? "border-emerald-600/70 bg-emerald-950/35"
+                        : ""
+                    }`}'''
+if old_list_class not in page:
+    raise SystemExit("organizer participant highlight anchor not found")
+page = page.replace(old_list_class, new_list_class, 1)
+page_path.write_text(page, encoding="utf-8")
