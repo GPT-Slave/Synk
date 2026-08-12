@@ -1,0 +1,88 @@
+name: unified heatmap static v2
+
+on:
+  push:
+    branches:
+      - agent/participant-guidance-quarter-ui
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: meetplanner
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d meetplanner"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/meetplanner?schema=public
+      DIRECT_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/meetplanner?schema=public
+      JWT_SECRET: unified-static-access-secret-abcdefghijklmnopqrstuvwxyz
+      JWT_REFRESH_SECRET: unified-static-refresh-secret-abcdefghijklmnopqrstuvwxyz
+      CSRF_SECRET: unified-static-csrf-secret-abcdefghijklmnopqrstuvwxyz
+      JWT_ACCESS_TTL: 15m
+      JWT_REFRESH_TTL: 7d
+      CORS_ORIGIN: http://localhost:3000
+      COOKIE_SECURE: "false"
+      BCRYPT_ROUNDS: "4"
+      GLOBAL_RATE_LIMIT: "1000"
+      GLOBAL_READ_RATE_LIMIT: "1000"
+      GLOBAL_RATE_WINDOW_MS: "60000"
+      TRUST_PROXY: "false"
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      NEXT_PUBLIC_WS_URL: ws://localhost:4000
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/participant-guidance-quarter-ui
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Apply feature patch and harness fixes
+        run: |
+          python3 scripts/apply-unified-selectable-heatmap.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('apps/web/src/components/meetings/interactive-availability-heatmap.tsx')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('const touchedSlot = useRef<string>();', 'const touchedSlot = useRef<string | undefined>(undefined);')
+          s = s.replace('const touchGesture = useRef<TouchGesture>();', 'const touchGesture = useRef<TouchGesture | undefined>(undefined);')
+          s = s.replace('const gesture = useRef<{ pointerId: number; x: number }>();', 'const gesture = useRef<{ pointerId: number; x: number } | undefined>(undefined);')
+          s = s.replace('.map((hour, hourIndex) => (', '.map((hour) => (')
+          s = s.replace('              hourIndex={hourIndex}\n              hours={hours}\n', '')
+          s = s.replace('  hourIndex,\n  hours,\n', '')
+          s = s.replace('  hourIndex: number;\n  hours: string[];\n', '')
+          p.write_text(s, encoding='utf-8')
+          p = Path('apps/web/src/components/meetings/best-time-suggestions.tsx')
+          s = p.read_text(encoding='utf-8').replace('const holdTimer = useRef<number>();', 'const holdTimer = useRef<number | undefined>(undefined);')
+          p.write_text(s, encoding='utf-8')
+          p = Path('apps/api/src/meetings/meetings.service.spec.ts')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace("  const realtime = {\n    availabilityChanged: jest.fn(),", "  const realtime = {\n    availabilityChanged: jest.fn(),\n    meetingUpdated: jest.fn(),")
+          p.write_text(s, encoding='utf-8')
+          PY
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm prisma:generate
+      - run: pnpm --filter api run db:migrate:deploy
+      - name: API regression suites
+        run: pnpm --filter api test -- meetings/availability-aggregation.spec.ts meetings/meetings.service.spec.ts participants/participants.service.spec.ts --runInBand
+      - name: i18n audit
+        run: node scripts/i18n-audit.mjs
+      - name: Web lint
+        run: pnpm --filter web lint
+      - name: API lint without mutation
+        run: pnpm --filter api exec eslint "{src,apps,libs,test}/**/*.ts"
+      - name: Web typecheck
+        run: pnpm --filter web typecheck
+      - name: API typecheck
+        run: pnpm --filter api typecheck
