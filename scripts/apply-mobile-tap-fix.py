@@ -15,13 +15,13 @@ if old_finish not in text:
 text = text.replace(old_finish, '', 1)
 
 old_touch_start = '''    if (event.pointerType === "touch") {\n      clearHoldTimer();\n      const gesture: TouchGesture = {\n'''
-new_touch_start = '''    if (event.pointerType === "touch") {\n      clearHoldTimer();\n      suppressNextMobileClick.current = false;\n      const gesture: TouchGesture = {\n'''
+new_touch_start = '''    if (event.pointerType === "touch") {\n      clearHoldTimer();\n      suppressNextMobileClick.current = false;\n      const target = event.currentTarget;\n      const gesture: TouchGesture = {\n'''
 if old_touch_start not in text:
     raise RuntimeError("touch start anchor missing")
 text = text.replace(old_touch_start, new_touch_start, 1)
 
 old_hold = '''        current.longPressTriggered = true;\n        const box = event.currentTarget.getBoundingClientRect();\n        inspect(cell, box.left + box.width / 2, box.top);\n'''
-new_hold = '''        current.longPressTriggered = true;\n        suppressNextMobileClick.current = true;\n        const box = event.currentTarget.getBoundingClientRect();\n        inspect(cell, box.left + box.width / 2, box.top);\n'''
+new_hold = '''        current.longPressTriggered = true;\n        suppressNextMobileClick.current = true;\n        const box = target.getBoundingClientRect();\n        inspect(cell, box.left + box.width / 2, box.top);\n'''
 if old_hold not in text:
     raise RuntimeError("long press anchor missing")
 text = text.replace(old_hold, new_hold, 1)
@@ -63,4 +63,4 @@ if old_click not in text:
 text = text.replace(old_click, new_click, 1)
 
 path.write_text(text, encoding="utf-8")
-print("mobile taps now route through a parent-owned click handler; drag and hold suppress native click")
+print("mobile taps route through the parent and long press captures its DOM target synchronously")
