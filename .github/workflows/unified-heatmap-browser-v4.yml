@@ -1,0 +1,382 @@
+name: unified heatmap browser v4
+
+on:
+  push:
+    branches:
+      - agent/participant-guidance-quarter-ui
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-commit:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: meetplanner
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d meetplanner"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/meetplanner?schema=public
+      DIRECT_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/meetplanner?schema=public
+      JWT_SECRET: unified-browser-access-secret-abcdefghijklmnopqrstuvwxyz
+      JWT_REFRESH_SECRET: unified-browser-refresh-secret-abcdefghijklmnopqrstuvwxyz
+      CSRF_SECRET: unified-browser-csrf-secret-abcdefghijklmnopqrstuvwxyz
+      JWT_ACCESS_TTL: 15m
+      JWT_REFRESH_TTL: 7d
+      CORS_ORIGIN: http://localhost:3000
+      COOKIE_SECURE: "false"
+      BCRYPT_ROUNDS: "4"
+      GLOBAL_RATE_LIMIT: "1000"
+      GLOBAL_READ_RATE_LIMIT: "1000"
+      GLOBAL_RATE_WINDOW_MS: "60000"
+      TRUST_PROXY: "false"
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      NEXT_PUBLIC_WS_URL: ws://localhost:4000
+
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/participant-guidance-quarter-ui
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Apply final feature patch
+        run: |
+          python3 scripts/apply-unified-selectable-heatmap.py
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('apps/web/src/components/meetings/interactive-availability-heatmap.tsx')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('const touchedSlot = useRef<string>();', 'const touchedSlot = useRef<string | undefined>(undefined);')
+          s = s.replace('const touchGesture = useRef<TouchGesture>();', 'const touchGesture = useRef<TouchGesture | undefined>(undefined);')
+          s = s.replace('const gesture = useRef<{ pointerId: number; x: number }>();', 'const gesture = useRef<{ pointerId: number; x: number } | undefined>(undefined);')
+          s = s.replace('.map((hour, hourIndex) => (', '.map((hour) => (')
+          s = s.replace('              hourIndex={hourIndex}\n              hours={hours}\n', '')
+          s = s.replace('  hourIndex,\n  hours,\n', '')
+          s = s.replace('  hourIndex: number;\n  hours: string[];\n', '')
+          s = s.replace('  useEffect(() => {\n    setActiveDateIndex((current) =>\n      Math.max(0, Math.min(current, meeting.dates.length - 1)),\n    );\n  }, [meeting.dates.length]);\n\n', '')
+          s = s.replace('        Math.abs(deltaX) > Math.abs(deltaY) &&\n        Math.abs(deltaX) >= TOUCH_DRAG_THRESHOLD', '        distance >= TOUCH_DRAG_THRESHOLD')
+          p.write_text(s, encoding='utf-8')
+
+          p = Path('apps/web/src/components/meetings/best-time-suggestions.tsx')
+          s = p.read_text(encoding='utf-8').replace('const holdTimer = useRef<number>();', 'const holdTimer = useRef<number | undefined>(undefined);')
+          p.write_text(s, encoding='utf-8')
+
+          p = Path('apps/api/src/meetings/meetings.service.spec.ts')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace("  const realtime = {\n    availabilityChanged: jest.fn(),", "  const realtime = {\n    availabilityChanged: jest.fn(),\n    meetingUpdated: jest.fn(),")
+          s = s.replace("\n\n\n  it('exposes the same heatmap", "\n\n  it('exposes the same heatmap")
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate and migrate
+        run: |
+          pnpm prisma:generate
+          pnpm --filter api run db:migrate:deploy
+
+      - name: API regression suites
+        run: pnpm --filter api test -- meetings/availability-aggregation.spec.ts meetings/meetings.service.spec.ts participants/participants.service.spec.ts --runInBand
+
+      - name: Translation audit
+        run: node scripts/i18n-audit.mjs
+
+      - name: Web lint
+        run: pnpm --filter web lint
+
+      - name: Format and lint changed API files only
+        run: |
+          pnpm --filter api exec eslint --fix src/meetings/availability-aggregation.ts src/meetings/meetings.service.ts src/meetings/meetings.service.spec.ts
+          pnpm --filter api exec eslint src/meetings/availability-aggregation.ts src/meetings/meetings.service.ts src/meetings/meetings.service.spec.ts
+
+      - name: Typecheck web
+        run: pnpm --filter web typecheck
+
+      - name: Typecheck API
+        run: pnpm --filter api typecheck
+
+      - name: Start application on isolated ports
+        run: |
+          PORT=4000 pnpm --filter api start > /tmp/synk-api.log 2>&1 &
+          PORT=3000 pnpm --filter web exec next dev --webpack > /tmp/synk-web.log 2>&1 &
+          for i in {1..60}; do
+            if curl -fsS http://localhost:4000/ >/dev/null 2>&1 && curl -fsS http://localhost:3000/ >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "API log:"; cat /tmp/synk-api.log || true
+          echo "Web log:"; cat /tmp/synk-web.log || true
+          exit 1
+
+      - name: Install Chromium
+        run: |
+          mkdir -p /tmp/pw /tmp/unified-heatmap-screenshots
+          npm install --prefix /tmp/pw playwright@1.54.2
+          node /tmp/pw/node_modules/playwright/cli.js install chromium
+
+      - name: Validate desktop and mobile interactions
+        run: |
+          cat > /tmp/validate-unified-heatmap.cjs <<'NODE'
+          const { chromium } = require('/tmp/pw/node_modules/playwright');
+          const fs = require('node:fs');
+          const base = 'http://localhost:3000';
+          const api = 'http://localhost:4000';
+          const screens = '/tmp/unified-heatmap-screenshots';
+          fs.mkdirSync(screens, { recursive: true });
+
+          async function join(page, invite, name) {
+            await page.goto(invite);
+            await page.locator('#display-name').fill(name);
+            await page.getByRole('button', { name: 'Continue to availability' }).click();
+            const dialog = page.getByRole('dialog');
+            await dialog.waitFor({ state: 'visible', timeout: 15000 });
+            await dialog.getByRole('button', { name: 'Continue to availability' }).click();
+            await page.locator('[data-unified-heatmap="true"]').waitFor({ state: 'visible', timeout: 15000 });
+          }
+
+          async function slot(page, time, occurrence = 0) {
+            const cell = page.locator(`button[title^="${time} ·"]`).nth(occurrence);
+            await cell.waitFor({ state: 'visible', timeout: 10000 });
+            return cell;
+          }
+
+          async function saveNow(page) {
+            const button = page.getByRole('button', { name: 'Save now' });
+            await button.waitFor({ state: 'visible' });
+            if (await button.isDisabled()) {
+              await page.waitForTimeout(350);
+            }
+            const responsePromise = page.waitForResponse(
+              (response) => response.url().includes('/availability') && response.request().method() === 'PUT' && response.ok(),
+              { timeout: 15000 },
+            ).catch(() => null);
+            if (!(await button.isDisabled())) await button.click();
+            const response = await responsePromise;
+            if (!response) {
+              await page.getByText('Saved', { exact: true }).waitFor({ state: 'visible', timeout: 15000 });
+            }
+            await page.waitForTimeout(250);
+          }
+
+          async function pointerHold(page, target, pointerId) {
+            const box = await target.boundingBox();
+            if (!box) throw new Error('Hold target has no bounds');
+            const point = { clientX: box.x + box.width / 2, clientY: box.y + box.height / 2 };
+            await target.dispatchEvent('pointerdown', { pointerType: 'touch', pointerId, button: 0, ...point });
+            await page.waitForTimeout(520);
+            return async () => target.dispatchEvent('pointerup', { pointerType: 'touch', pointerId, button: 0, ...point });
+          }
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const organizerContext = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
+            const organizer = await organizerContext.newPage();
+            const email = `heatmap-${Date.now()}@example.com`;
+            const password = 'VisualPass1!';
+
+            await organizer.goto(`${base}/signup`);
+            await organizer.locator('#email').fill(email);
+            await organizer.locator('#password').fill(password);
+            await organizer.locator('#confirm-password').fill(password);
+            await organizer.getByRole('button', { name: 'Create organizer account' }).click();
+            await organizer.waitForURL('**/dashboard', { timeout: 20000 });
+
+            const meeting = await organizer.evaluate(async ({ api }) => {
+              const csrfResponse = await fetch(`${api}/auth/csrf`, { credentials: 'include' });
+              const { token } = await csrfResponse.json();
+              const response = await fetch(`${api}/meetings`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+                body: JSON.stringify({
+                  title: 'Unified heatmap validation',
+                  description: 'Browser validation',
+                  startDate: '2026-08-13',
+                  endDate: '2026-08-14',
+                  workdayStart: '08:00',
+                  workdayEnd: '10:00',
+                  slotIntervalMinutes: 15,
+                  meetingDurationMinutes: 30,
+                  timezone: 'Africa/Tunis',
+                }),
+              });
+              if (!response.ok) throw new Error(`create meeting ${response.status}: ${await response.text()}`);
+              return response.json();
+            }, { api });
+            const invite = `${base}/meets/${meeting.slug}`;
+
+            const aliceContext = await browser.newContext({ viewport: { width: 1100, height: 900 } });
+            const alice = await aliceContext.newPage();
+            await join(alice, invite, 'Alice');
+            await (await slot(alice, '08:00')).click();
+            await (await slot(alice, '08:15')).click();
+            await saveNow(alice);
+
+            const bobContext = await browser.newContext({ viewport: { width: 1100, height: 900 } });
+            const bob = await bobContext.newPage();
+            await join(bob, invite, 'Bob');
+            await (await slot(bob, '08:00')).click();
+            await saveNow(bob);
+
+            await organizer.goto(`${base}/dashboard/meetings/${meeting.id}`);
+            const unified = organizer.locator('[data-unified-heatmap="true"]');
+            await unified.waitFor({ state: 'visible', timeout: 20000 });
+            if (await organizer.locator('[data-unified-heatmap="true"]').count() !== 1) {
+              throw new Error('Organizer does not render exactly one unified selector/heatmap');
+            }
+
+            const org0800 = await slot(organizer, '08:00');
+            const org0815 = await slot(organizer, '08:15');
+            const before = (await org0800.textContent()).trim();
+            if (before !== '2/3') throw new Error(`Expected 2/3 before organizer edit, got ${before}`);
+            await org0800.click();
+            const immediate = (await org0800.textContent()).trim();
+            if (immediate !== '3/3') throw new Error(`Optimistic organizer heatmap did not update immediately: ${immediate}`);
+            if ((await org0800.getAttribute('data-selected')) !== 'true') throw new Error('Selected organizer tile is not marked selected');
+            if ((await org0800.getAttribute('data-boundary-right')) !== 'true') throw new Error('Single selected tile should expose its right green boundary');
+
+            await org0815.click();
+            if ((await org0800.getAttribute('data-boundary-right')) !== 'false') throw new Error('Adjacent selected tiles retained shared right outline');
+            if ((await org0815.getAttribute('data-boundary-left')) !== 'false') throw new Error('Adjacent selected tiles retained shared left outline');
+
+            await org0800.hover();
+            await organizer.waitForTimeout(180);
+            if (await organizer.locator('aside [data-participant-id][data-highlighted="true"]').count() < 2) {
+              throw new Error('Heatmap hover did not highlight available participant names');
+            }
+            await organizer.screenshot({ path: `${screens}/organizer-unified-heatmap.png`, fullPage: true });
+
+            const firstMatch = organizer.locator('[data-match-start]').first();
+            await firstMatch.waitFor({ state: 'visible' });
+            await firstMatch.hover();
+            const matchNames = organizer.locator('[data-match-participant-names="true"]');
+            await matchNames.waitFor({ state: 'visible' });
+            if ((await matchNames.textContent()).trim().length < 3) throw new Error('Best-match hover did not reveal names');
+            if (await organizer.locator('aside [data-participant-id][data-highlighted="true"]').count() < 1) {
+              throw new Error('Best-match hover did not light participant list');
+            }
+            await organizer.screenshot({ path: `${screens}/best-match-hover-names.png`, fullPage: true });
+
+            await alice.reload();
+            await alice.locator('[data-unified-heatmap="true"]').waitFor({ state: 'visible' });
+            if (await alice.locator('[data-participant-roster="true"]').count() !== 1) {
+              throw new Error('Participant does not see the shared selectable heatmap roster');
+            }
+            const alice0830 = await slot(alice, '08:30');
+            const aliceBefore = (await alice0830.textContent()).trim();
+            await alice0830.click();
+            const aliceAfter = (await alice0830.textContent()).trim();
+            if (aliceBefore === aliceAfter) throw new Error('Participant heatmap did not optimistically change before save');
+            await (await slot(alice, '08:00')).hover();
+            await alice.waitForTimeout(180);
+            if (await alice.locator('[data-participant-roster] [data-highlighted="true"]').count() < 1) {
+              throw new Error('Participant desktop hover did not highlight roster names');
+            }
+            await alice.screenshot({ path: `${screens}/participant-unified-heatmap.png`, fullPage: true });
+
+            const mobileContext = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+            const mobile = await mobileContext.newPage();
+            await join(mobile, invite, 'Alice');
+            if (await mobile.locator('[data-date-header]').count() !== 1) throw new Error('Mobile renders more than one day');
+            const editButton = mobile.locator('button[title="Edit"]');
+            const viewButton = mobile.locator('button[title="View"]');
+            if ((await editButton.getAttribute('aria-pressed')) !== 'true') throw new Error('Mobile does not default to Edit mode');
+            if (await mobile.locator('[data-day-swipe="true"]').count() !== 1) throw new Error('Dedicated day-swipe area missing');
+            const gridBox = await mobile.locator('[data-unified-heatmap="true"] > div').nth(1).boundingBox();
+            if (!gridBox || gridBox.width < 360) throw new Error(`Mobile timetable is not maximizing width: ${gridBox?.width}`);
+            await mobile.screenshot({ path: `${screens}/mobile-edit-one-day.png`, fullPage: true });
+
+            const swipeArea = mobile.locator('[data-day-swipe="true"] > div').first();
+            const swipeBox = await swipeArea.boundingBox();
+            if (!swipeBox) throw new Error('Swipe area has no bounds');
+            const selectedBeforeSwipe = await mobile.locator('button[data-selected="true"]').count();
+            await swipeArea.dispatchEvent('pointerdown', { pointerType: 'touch', pointerId: 55, button: 0, clientX: swipeBox.x + swipeBox.width * 0.8, clientY: swipeBox.y + swipeBox.height / 2 });
+            await swipeArea.dispatchEvent('pointerup', { pointerType: 'touch', pointerId: 55, button: 0, clientX: swipeBox.x + swipeBox.width * 0.15, clientY: swipeBox.y + swipeBox.height / 2 });
+            await mobile.waitForTimeout(180);
+            if ((await mobile.locator('[data-mobile-day-index]').getAttribute('data-mobile-day-index')) !== '1') throw new Error('Dedicated swipe did not move to next day');
+            if (await mobile.locator('[data-date-header]').count() !== 1) throw new Error('Next mobile day renders multiple dates');
+            if (await mobile.locator('button[data-selected="true"]').count() !== selectedBeforeSwipe) throw new Error('Day swipe accidentally changed availability');
+
+            await viewButton.click();
+            if ((await viewButton.getAttribute('aria-pressed')) !== 'true') throw new Error('View mode did not activate');
+            const viewCell = mobile.locator('button[data-slot-start]').first();
+            const pressedBeforeView = await viewCell.getAttribute('aria-pressed');
+            await viewCell.tap();
+            await mobile.locator('[data-heatmap-tooltip="true"]').waitFor({ state: 'visible' });
+            if ((await viewCell.getAttribute('aria-pressed')) !== pressedBeforeView) throw new Error('View-mode tap edited availability');
+            await mobile.screenshot({ path: `${screens}/mobile-view-inspect.png`, fullPage: true });
+
+            await editButton.click();
+            const holdCell = mobile.locator('button[data-slot-start]').nth(1);
+            const pressedBeforeHold = await holdCell.getAttribute('aria-pressed');
+            const releaseHold = await pointerHold(mobile, holdCell, 91);
+            await mobile.locator('[data-heatmap-tooltip="true"]').waitFor({ state: 'visible' });
+            await releaseHold();
+            if ((await holdCell.getAttribute('aria-pressed')) !== pressedBeforeHold) throw new Error('Edit-mode hold edited availability');
+
+            const mobileOrganizerContext = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+            const organizerCookies = await organizerContext.cookies();
+            await mobileOrganizerContext.addCookies(organizerCookies);
+            const mobileOrganizer = await mobileOrganizerContext.newPage();
+            await mobileOrganizer.goto(`${base}/dashboard/meetings/${meeting.id}`);
+            const mobileMatch = mobileOrganizer.locator('[data-match-start]').first();
+            await mobileMatch.waitFor({ state: 'visible', timeout: 15000 });
+            const releaseMatch = await pointerHold(mobileOrganizer, mobileMatch, 77);
+            await mobileOrganizer.locator('[data-match-participant-names="true"]').waitFor({ state: 'visible' });
+            await mobileOrganizer.screenshot({ path: `${screens}/mobile-match-hold.png`, fullPage: true });
+            await releaseMatch();
+
+            console.log('Unified heatmap validation passed: optimistic edits, fused green outlines, hover/hold names, single-day mobile paging, and edit/view modes.');
+            await browser.close();
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+          node /tmp/validate-unified-heatmap.cjs
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: unified-heatmap-screenshots
+          path: /tmp/unified-heatmap-screenshots/*.png
+          if-no-files-found: error
+
+      - name: Commit validated implementation
+        run: |
+          rm -f scripts/apply-unified-selectable-heatmap.py
+          rm -f .github/workflows/unified-heatmap-validation.yml
+          rm -f .github/workflows/unified-heatmap-static-v2.yml
+          rm -f .github/workflows/unified-heatmap-static-v3.yml
+          rm -f .github/workflows/unified-heatmap-browser-v4.yml
+          rm -f i18n-audit-output.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          echo "Final staged feature diff:"
+          git status --short
+          git add -A
+          git commit -m "unify availability selection with live heatmap"
+          git push origin HEAD:agent/participant-guidance-quarter-ui
