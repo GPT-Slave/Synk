@@ -13,7 +13,6 @@ import {
   CloudOff,
   LoaderCircle,
   MessageSquareText,
-  Save,
 } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { InteractiveAvailabilityHeatmap } from "@/components/meetings/interactive-availability-heatmap";
@@ -28,7 +27,6 @@ import {
 } from "@/components/ui/dialog";
 import { StatePanel } from "@/components/ui/state-panel";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/auth-api";
 import { useI18n } from "@/lib/i18n";
 import { saveAvailability } from "@/lib/meeting-api";
@@ -78,7 +76,6 @@ export function AvailabilityGrid({
   showGuidanceOnMount = mode === "participant",
 }: AvailabilityGridProps) {
   const commentId = useId();
-  const toast = useToast();
   const { t } = useI18n();
   const [selected, setSelected] = useState(
     () =>
@@ -229,29 +226,8 @@ export function AvailabilityGrid({
             )}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center">
           <SaveIndicator state={saveState} />
-          <Button
-            disabled={!meeting.acceptingResponses || mutation.isPending}
-            onClick={() =>
-              saveResponse(response, {
-                onSuccess: () =>
-                  toast({
-                    title: t("Availability saved"),
-                    description: t("Your latest times and note are safely stored."),
-                    variant: "success",
-                  }),
-              })
-            }
-            type="button"
-          >
-            {saveState === "saving" ? (
-              <LoaderCircle className="animate-spin" />
-            ) : (
-              <Save />
-            )}
-            {t("Save now")}
-          </Button>
         </div>
       </div>
 

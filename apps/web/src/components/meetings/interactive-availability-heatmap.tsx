@@ -730,36 +730,31 @@ function FusedSelectionBoundary({
   hideLeft: boolean;
   hideRight: boolean;
 }) {
-  const line: CSSProperties = {
-    position: "absolute",
-    pointerEvents: "none",
-    zIndex: 20,
-    backgroundColor: "rgb(110 231 183)",
-  };
-  const halo: CSSProperties = {
-    position: "absolute",
-    pointerEvents: "none",
-    zIndex: 19,
-  };
   return (
-    <>
-      <span style={{ ...line, left: 0, right: 0, top: -2, height: 2 }} />
-      <span style={{ ...halo, left: 0, right: 0, top: -10, height: 8, background: "linear-gradient(to top, rgba(52,211,153,0.55), rgba(52,211,153,0))" }} />
-      <span style={{ ...line, left: 0, right: 0, bottom: -2, height: 2 }} />
-      <span style={{ ...halo, left: 0, right: 0, bottom: -10, height: 8, background: "linear-gradient(to bottom, rgba(52,211,153,0.55), rgba(52,211,153,0))" }} />
-      {!hideLeft && (
-        <>
-          <span style={{ ...line, top: 0, bottom: 0, left: -2, width: 2 }} />
-          <span style={{ ...halo, top: 0, bottom: 0, left: -10, width: 8, background: "linear-gradient(to left, rgba(52,211,153,0), rgba(52,211,153,0.55))" }} />
-        </>
-      )}
-      {!hideRight && (
-        <>
-          <span style={{ ...line, top: 0, bottom: 0, right: -2, width: 2 }} />
-          <span style={{ ...halo, top: 0, bottom: 0, right: -10, width: 8, background: "linear-gradient(to right, rgba(52,211,153,0.55), rgba(52,211,153,0))" }} />
-        </>
-      )}
-    </>
+    <span
+      aria-hidden="true"
+      data-selection-boundary="true"
+      style={{
+        position: "absolute",
+        pointerEvents: "none",
+        zIndex: 20,
+        top: 3,
+        bottom: 3,
+        left: hideLeft ? -1 : 3,
+        right: hideRight ? -1 : 3,
+        borderStyle: "solid",
+        borderWidth: 1,
+        borderLeftWidth: hideLeft ? 0 : 1,
+        borderRightWidth: hideRight ? 0 : 1,
+        borderColor: "rgba(22, 163, 74, 0.72)",
+        borderTopLeftRadius: hideLeft ? 0 : "0.55rem",
+        borderBottomLeftRadius: hideLeft ? 0 : "0.55rem",
+        borderTopRightRadius: hideRight ? 0 : "0.55rem",
+        borderBottomRightRadius: hideRight ? 0 : "0.55rem",
+        boxShadow:
+          "inset 0 0 8px rgba(16, 185, 129, 0.12), 0 0 3px rgba(5, 120, 87, 0.1)",
+      }}
+    />
   );
 }
 
