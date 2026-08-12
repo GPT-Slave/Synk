@@ -1,5 +1,6 @@
 const CACHE_NAME = "synk-branding-v3";
 const SYNK_CACHE_PREFIX = "synk-";
+const LEGACY_CODE_CACHE_PREFIX = "synk-static-";
 const BRANDING_PATHS = new Set([
   "/logo.png",
   "/logo_nobg.png",
@@ -10,18 +11,30 @@ self.addEventListener("install", () => self.skipWaiting());
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys
-            .filter(
-              (key) => key.startsWith(SYNK_CACHE_PREFIX) && key !== CACHE_NAME,
-            )
-            .map((key) => caches.delete(key)),
-        ),
-      )
-      .then(() => self.clients.claim()),
+    (async () => {
+      const keys = await caches.keys();
+      const hadLegacyCodeCache = keys.some((key) =>
+        key.startsWith(LEGACY_CODE_CACHE_PREFIX),
+      );
+
+      await Promise.all(
+        keys
+          .filter(
+            (key) => key.startsWith(SYNK_CACHE_PREFIX) && key !== CACHE_NAME,
+          )
+          .map((key) => caches.delete(key)),
+      );
+      await self.clients.claim();
+
+      if (!hadLegacyCodeCache) return;
+      const windows = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+      await Promise.allSettled(
+        windows.map((client) => client.navigate(client.url)),
+      );
+    })(),
   );
 });
 
