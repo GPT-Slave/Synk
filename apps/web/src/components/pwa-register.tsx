@@ -2,29 +2,18 @@
 
 import { useEffect } from "react";
 
+const LEGACY_REFRESH_PARAM = "__synk_sw_refresh";
+
 export function PwaRegister() {
   useEffect(() => {
+    removeLegacyRefreshMarker();
+
     if (
       process.env.NODE_ENV !== "production" ||
       !("serviceWorker" in navigator)
     ) {
       return;
     }
-
-    let disposed = false;
-    let reloadStarted = false;
-    const hadController = Boolean(navigator.serviceWorker.controller);
-
-    const handleControllerChange = () => {
-      if (!hadController || disposed || reloadStarted) return;
-      reloadStarted = true;
-      window.location.reload();
-    };
-
-    navigator.serviceWorker.addEventListener(
-      "controllerchange",
-      handleControllerChange,
-    );
 
     const register = async () => {
       try {
@@ -41,15 +30,16 @@ export function PwaRegister() {
     if (document.readyState === "complete") void register();
     else window.addEventListener("load", register, { once: true });
 
-    return () => {
-      disposed = true;
-      window.removeEventListener("load", register);
-      navigator.serviceWorker.removeEventListener(
-        "controllerchange",
-        handleControllerChange,
-      );
-    };
+    return () => window.removeEventListener("load", register);
   }, []);
 
   return null;
+}
+
+function removeLegacyRefreshMarker() {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has(LEGACY_REFRESH_PARAM)) return;
+
+  url.searchParams.delete(LEGACY_REFRESH_PARAM);
+  window.history.replaceState(window.history.state, "", url.href);
 }
