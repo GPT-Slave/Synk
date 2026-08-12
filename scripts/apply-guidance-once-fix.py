@@ -48,7 +48,7 @@ replace_once(
 )
 replace_after(
     page,
-    "  function activateStoredSession()",
+    "  function activateStoredSession(nextToken: string)",
     '    setConfirmedSession({ meetingToken: token, sessionToken: nextToken });\n',
     '    setConfirmedSession({ meetingToken: token, sessionToken: nextToken });\n    setGuidanceSessionToken(undefined);\n',
 )
@@ -60,7 +60,7 @@ replace_after(
 )
 replace_after(
     page,
-    "  async function joined(data: ParticipantJoinResponseDto)",
+    "  function joined(nextSession: ParticipantSessionDto, nextToken: string)",
     '    setEphemeralSession({ meetingToken: token, sessionToken: nextToken });\n    setConfirmedSession({ meetingToken: token, sessionToken: nextToken });\n    notifyParticipantStorage();',
     '    setEphemeralSession({ meetingToken: token, sessionToken: nextToken });\n    setConfirmedSession({ meetingToken: token, sessionToken: nextToken });\n    setGuidanceSessionToken(nextToken);\n    notifyParticipantStorage();\n    void queryClient.invalidateQueries({\n      queryKey: ["public-meeting", token],\n      exact: true,\n    });',
 )
