@@ -1,0 +1,349 @@
+name: temp selection floor visual
+
+on:
+  push:
+    branches:
+      - agent/selection-floor-participant-highlight
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: meetplanner
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d meetplanner"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/meetplanner?schema=public
+      DIRECT_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/meetplanner?schema=public
+      JWT_SECRET: selection-floor-access-secret-abcdefghijklmnopqrstuvwxyz
+      JWT_REFRESH_SECRET: selection-floor-refresh-secret-abcdefghijklmnopqrstuvwxyz
+      CSRF_SECRET: selection-floor-csrf-secret-abcdefghijklmnopqrstuvwxyz
+      JWT_ACCESS_TTL: 15m
+      JWT_REFRESH_TTL: 7d
+      CORS_ORIGIN: http://localhost:3000
+      COOKIE_SECURE: "false"
+      BCRYPT_ROUNDS: "4"
+      GLOBAL_RATE_LIMIT: "1000"
+      GLOBAL_READ_RATE_LIMIT: "1000"
+      GLOBAL_RATE_WINDOW_MS: "60000"
+      TRUST_PROXY: "false"
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      NEXT_PUBLIC_WS_URL: ws://localhost:4000
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/selection-floor-participant-highlight
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Apply UI fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('apps/web/src/components/meetings/interactive-availability-heatmap.tsx')
+          s = p.read_text(encoding='utf-8')
+
+          old_participant = '''                <span
+                  className={`rounded-full border px-3 py-1.5 text-xs transition duration-150 ${
+                    highlighted
+                      ? "border-emerald-300/80 bg-emerald-400/15 text-emerald-100 shadow-[0_0_16px_rgba(52,211,153,0.28)]"
+                      : "border-white/10 bg-white/[0.025] text-muted-foreground"
+                  }`}
+                  data-highlighted={highlighted ? "true" : "false"}
+                  data-participant-id={participant.id}
+                  key={participant.id}
+                >'''
+          new_participant = '''                <span
+                  className={`relative overflow-hidden rounded-full border px-3 py-1.5 text-xs transition-colors duration-150 ${
+                    highlighted
+                      ? "border-emerald-600 bg-emerald-950/35 text-emerald-100"
+                      : "border-white/10 bg-white/[0.025] text-muted-foreground"
+                  }`}
+                  data-highlighted={highlighted ? "true" : "false"}
+                  data-participant-id={participant.id}
+                  key={participant.id}
+                  style={{ borderRadius: "9999px" }}
+                >'''
+          if old_participant not in s:
+              raise SystemExit('participant pill anchor not found')
+          s = s.replace(old_participant, new_participant, 1)
+
+          run_block = '''              let selectedRunLength = 0;
+              if (active && !selectedLeft) {
+                for (let runIndex = quarterIndex; runIndex < 4; runIndex += 1) {
+                  const runQuarter = runIndex * 15;
+                  const runTime = `${hour.slice(0, 3)}${String(runQuarter).padStart(2, "0")}`;
+                  const runCell = cellByGridPosition.get(`${date.date}:${runTime}`);
+                  if (!runCell || !selected.has(runCell.datetimeStart)) break;
+                  selectedRunLength += 1;
+                }
+              }
+'''
+          if run_block not in s:
+              raise SystemExit('selected run block not found')
+          s = s.replace(run_block, '', 1)
+
+          old_style = '''              const quarterFill = ((quarterIndex + 1) / 4) * 100;
+              const heatStyle = heatmapColor(cell.percentage);
+              const style = {
+                ...heatStyle,
+                "--synk-quarter-fill": `${quarterFill}%`,
+                "--synk-heatmap-bg": heatStyle.backgroundColor,
+              } as CSSProperties & {
+                "--synk-quarter-fill": string;
+                "--synk-heatmap-bg": CSSProperties["backgroundColor"];
+              };'''
+          new_style = '''              const heatStyle = heatmapColor(cell.percentage);
+              const style = {
+                ...heatStyle,
+                "--synk-heatmap-bg": heatStyle.backgroundColor,
+              } as CSSProperties & {
+                "--synk-heatmap-bg": CSSProperties["backgroundColor"];
+              };'''
+          if old_style not in s:
+              raise SystemExit('quarter style anchor not found')
+          s = s.replace(old_style, new_style, 1)
+
+          s = s.replace('''                  data-boundary-left={active && !selectedLeft ? "true" : "false"}
+                  data-boundary-right={active && !selectedRight ? "true" : "false"}
+''', '', 1)
+
+          old_circle = '''                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute right-1 top-1 size-2.5 rounded-full border border-current/55 opacity-70"
+                    style={{
+                      background: `conic-gradient(from -90deg, currentColor 0 ${quarterFill}%, transparent ${quarterFill}% 100%)`,
+                    }}
+                  />
+'''
+          if old_circle not in s:
+              raise SystemExit('quarter circle anchor not found')
+          s = s.replace(old_circle, '', 1)
+
+          old_boundary_render = '''                  {selectedRunLength > 0 && (
+                    <FusedSelectionBoundary spanCount={selectedRunLength} />
+                  )}'''
+          new_boundary_render = '''                  {active && (
+                    <SelectedTileFloor
+                      joinLeft={selectedLeft}
+                      joinRight={selectedRight}
+                    />
+                  )}'''
+          if old_boundary_render not in s:
+              raise SystemExit('selection boundary render anchor not found')
+          s = s.replace(old_boundary_render, new_boundary_render, 1)
+
+          start = s.index('function FusedSelectionBoundary(')
+          end = s.index('function DaySwipeNavigator(', start)
+          floor_component = '''function SelectedTileFloor({
+  joinLeft,
+  joinRight,
+}: {
+  joinLeft: boolean;
+  joinRight: boolean;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      data-selection-floor="true"
+      style={{
+        position: "absolute",
+        pointerEvents: "none",
+        zIndex: 20,
+        left: joinLeft ? 0 : 4,
+        right: joinRight ? 0 : 4,
+        bottom: 3,
+        height: 5,
+        backgroundColor: "rgb(21 128 61)",
+        borderTopLeftRadius: joinLeft ? 0 : "999px",
+        borderBottomLeftRadius: joinLeft ? 0 : "999px",
+        borderTopRightRadius: joinRight ? 0 : "999px",
+        borderBottomRightRadius: joinRight ? 0 : "999px",
+        boxShadow: "none",
+      }}
+    />
+  );
+}
+
+'''
+          s = s[:start] + floor_component + s[end:]
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Static validation
+        run: |
+          pnpm prisma:generate
+          pnpm --filter api run db:migrate:deploy
+          node scripts/i18n-audit.mjs
+          pnpm --filter web lint
+          pnpm --filter api lint
+          pnpm --filter web typecheck
+          pnpm --filter api typecheck
+          grep -q 'data-selection-floor="true"' apps/web/src/components/meetings/interactive-availability-heatmap.tsx
+          ! grep -q 'FusedSelectionBoundary' apps/web/src/components/meetings/interactive-availability-heatmap.tsx
+          ! grep -q 'conic-gradient' apps/web/src/components/meetings/interactive-availability-heatmap.tsx
+
+      - name: Start app
+        run: |
+          PORT=4000 pnpm --filter api start >/tmp/api.log 2>&1 &
+          PORT=3000 pnpm --filter web exec next dev --webpack >/tmp/web.log 2>&1 &
+          for i in {1..60}; do
+            if curl -fsS http://localhost:4000/ >/dev/null 2>&1 && curl -fsS http://localhost:3000/ >/dev/null 2>&1; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/api.log || true
+          cat /tmp/web.log || true
+          exit 1
+
+      - name: Install browser tools
+        run: |
+          mkdir -p /tmp/pw /tmp/selection-floor
+          npm install --prefix /tmp/pw playwright@1.54.2
+          node /tmp/pw/node_modules/playwright/cli.js install chromium
+
+      - name: Browser validation and screenshots
+        run: |
+          cat >/tmp/selection-floor.cjs <<'NODE'
+          const { chromium } = require('/tmp/pw/node_modules/playwright');
+          const base = 'http://localhost:3000';
+          const api = 'http://localhost:4000';
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+            const page = await context.newPage();
+            const password = 'SelectionFloorPass1!';
+
+            await page.goto(`${base}/signup`);
+            await page.locator('#email').fill(`selection-floor-${Date.now()}@example.com`);
+            await page.locator('#password').fill(password);
+            await page.locator('#confirm-password').fill(password);
+            await page.getByRole('button', { name: 'Create organizer account' }).click();
+            await page.waitForURL('**/dashboard');
+
+            const meeting = await page.evaluate(async ({ api }) => {
+              const csrf = await (await fetch(`${api}/auth/csrf`, { credentials: 'include' })).json();
+              const response = await fetch(`${api}/meetings`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf.token },
+                body: JSON.stringify({
+                  title: 'Selection floor visual check',
+                  startDate: '2026-08-13',
+                  endDate: '2026-08-13',
+                  workdayStart: '08:00',
+                  workdayEnd: '10:00',
+                  slotIntervalMinutes: 15,
+                  meetingDurationMinutes: 30,
+                  timezone: 'Africa/Tunis'
+                })
+              });
+              if (!response.ok) throw new Error(await response.text());
+              return response.json();
+            }, { api });
+
+            await page.goto(`${base}/dashboard/meetings/${meeting.id}`);
+            const first = page.locator('button[title^="08:00 ·"]').first();
+            const second = page.locator('button[title^="08:15 ·"]').first();
+            await first.click();
+            await second.click();
+
+            const floors = page.locator('[data-selection-floor="true"]');
+            if ((await floors.count()) !== 2) throw new Error(`expected two selected floors, got ${await floors.count()}`);
+            for (let i = 0; i < 2; i += 1) {
+              const style = await floors.nth(i).evaluate((el) => {
+                const s = getComputedStyle(el);
+                return { height: s.height, shadow: s.boxShadow, bottom: s.bottom, background: s.backgroundColor };
+              });
+              if (Math.abs(parseFloat(style.height) - 5) > 0.5) throw new Error(`floor height is not 5px: ${style.height}`);
+              if (style.shadow !== 'none') throw new Error(`selected floor still glows: ${style.shadow}`);
+              if (parseFloat(style.bottom) <= 0) throw new Error(`selected floor is not inset: ${style.bottom}`);
+              if (!style.background.includes('21') || !style.background.includes('128')) throw new Error(`unexpected floor green: ${style.background}`);
+            }
+
+            if (await page.locator('button[data-heatmap-cell="true"] span[style*="conic-gradient"]').count()) {
+              throw new Error('quarter progress circle is still rendered');
+            }
+
+            const firstBox = await first.boundingBox();
+            const secondBox = await second.boundingBox();
+            if (!firstBox || !secondBox) throw new Error('selected cell geometry unavailable');
+            const floorA = await floors.nth(0).boundingBox();
+            const floorB = await floors.nth(1).boundingBox();
+            if (!floorA || !floorB) throw new Error('floor geometry unavailable');
+            if (Math.abs((floorA.x + floorA.width) - floorB.x) > 1.5) {
+              throw new Error('adjacent selected floors do not join continuously');
+            }
+
+            await first.hover();
+            const highlightedPill = page.locator('[data-participant-roster="true"] [data-highlighted="true"]').first();
+            await highlightedPill.waitFor({ state: 'visible' });
+            const radii = [];
+            for (const delay of [0, 16, 40, 100, 180]) {
+              if (delay) await page.waitForTimeout(delay);
+              radii.push(await highlightedPill.evaluate((el) => parseFloat(getComputedStyle(el).borderTopLeftRadius)));
+            }
+            if (radii.some((radius) => radius < 12)) throw new Error(`participant highlight briefly loses rounded shape: ${radii.join(', ')}`);
+            const pillShadow = await highlightedPill.evaluate((el) => getComputedStyle(el).boxShadow);
+            if (pillShadow !== 'none') throw new Error(`participant highlight still has glow/shadow: ${pillShadow}`);
+
+            await page.screenshot({ path: '/tmp/selection-floor/full-page.png', fullPage: true });
+
+            const roster = page.locator('[data-participant-roster="true"]');
+            const rosterBox = await roster.boundingBox();
+            const selectedLeft = Math.min(firstBox.x, secondBox.x);
+            const selectedRight = Math.max(firstBox.x + firstBox.width, secondBox.x + secondBox.width);
+            const top = Math.min(firstBox.y, rosterBox?.y ?? firstBox.y) - 24;
+            const bottom = Math.max(firstBox.y + firstBox.height, rosterBox ? rosterBox.y + rosterBox.height : firstBox.y + firstBox.height) + 24;
+            await page.screenshot({
+              path: '/tmp/selection-floor/selection-and-participants.png',
+              clip: {
+                x: Math.max(0, selectedLeft - 100),
+                y: Math.max(0, top),
+                width: Math.min(1440 - Math.max(0, selectedLeft - 100), (selectedRight - selectedLeft) + 500),
+                height: Math.min(1000 - Math.max(0, top), bottom - top)
+              }
+            });
+
+            await browser.close();
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+          node /tmp/selection-floor.cjs
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: selection-floor-screenshots
+          path: /tmp/selection-floor/*.png
+          if-no-files-found: error
+
+      - name: Commit validated UI and remove temporary workflow
+        run: |
+          rm .github/workflows/temp-selection-floor-visual.yml
+          rm -f i18n-audit-output.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/web/src/components/meetings/interactive-availability-heatmap.tsx .github/workflows/temp-selection-floor-visual.yml
+          git commit -m "simplify selected heatmap styling"
+          git push origin HEAD:agent/selection-floor-participant-highlight
