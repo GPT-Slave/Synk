@@ -70,6 +70,7 @@ model Participant {
   respondedAt           DateTime?      @map("responded_at")
   joinedAt              DateTime       @default(now()) @map("joined_at")
   availabilities        Availability[]
+  sessions              ParticipantSession[]
 
   @@unique([meetingId, displayNameNormalized], map: "uniq_meeting_display_name_normalized")
   @@unique([meetingId, organizerId], map: "uniq_meeting_organizer_response")
@@ -77,6 +78,17 @@ model Participant {
   @@index([meetingId, joinedAt])
   @@index([meetingId, respondedAt])
   @@map("participants")
+}
+
+model ParticipantSession {
+  id            String      @id @default(cuid())
+  participantId String      @map("participant_id")
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  tokenHash     String      @unique @map("token_hash")
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  @@index([participantId])
+  @@map("participant_sessions")
 }
 
 model Availability {

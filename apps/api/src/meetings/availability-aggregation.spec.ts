@@ -33,10 +33,7 @@ describe('aggregateAvailability', () => {
       {
         displayName: 'Alice',
         availabilities: [
-          quarter(
-            '2026-08-12T07:00:00.000Z',
-            '2026-08-12T07:15:00.000Z',
-          ),
+          quarter('2026-08-12T07:00:00.000Z', '2026-08-12T07:15:00.000Z'),
         ],
       },
       { displayName: 'Bob', availabilities: [] },
@@ -58,22 +55,10 @@ describe('aggregateAvailability', () => {
       {
         displayName: 'Alice',
         availabilities: [
-          quarter(
-            '2026-08-12T07:15:00.000Z',
-            '2026-08-12T07:30:00.000Z',
-          ),
-          quarter(
-            '2026-08-12T07:30:00.000Z',
-            '2026-08-12T07:45:00.000Z',
-          ),
-          quarter(
-            '2026-08-12T07:45:00.000Z',
-            '2026-08-12T08:00:00.000Z',
-          ),
-          quarter(
-            '2026-08-12T08:00:00.000Z',
-            '2026-08-12T08:15:00.000Z',
-          ),
+          quarter('2026-08-12T07:15:00.000Z', '2026-08-12T07:30:00.000Z'),
+          quarter('2026-08-12T07:30:00.000Z', '2026-08-12T07:45:00.000Z'),
+          quarter('2026-08-12T07:45:00.000Z', '2026-08-12T08:00:00.000Z'),
+          quarter('2026-08-12T08:00:00.000Z', '2026-08-12T08:15:00.000Z'),
         ],
       },
     ]);
@@ -93,11 +78,9 @@ describe('aggregateAvailability', () => {
       [
         {
           displayName: 'Alice',
-          availabilities: meetingGrid(meeting).slots
-            .slice(0, 6)
-            .map((slot) =>
-              quarter(slot.datetimeStart, slot.datetimeEnd),
-            ),
+          availabilities: meetingGrid(meeting)
+            .slots.slice(0, 6)
+            .map((slot) => quarter(slot.datetimeStart, slot.datetimeEnd)),
         },
       ],
     );
@@ -138,9 +121,9 @@ describe('aggregateAvailability', () => {
       },
       {
         displayName: 'Bob',
-        availabilities: slots.slice(4).map((slot) =>
-          quarter(slot.datetimeStart, slot.datetimeEnd),
-        ),
+        availabilities: slots
+          .slice(4)
+          .map((slot) => quarter(slot.datetimeStart, slot.datetimeEnd)),
       },
     ]);
 

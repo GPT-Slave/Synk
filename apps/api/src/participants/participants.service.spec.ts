@@ -26,18 +26,39 @@ const meeting = {
   createdAt: new Date('2026-08-04T00:00:00.000Z'),
 } satisfies Meeting;
 
+const existingParticipant = {
+  id: 'participant-1',
+  meetingId: meeting.id,
+  displayName: 'Alice',
+  displayNameNormalized: 'alice',
+  sessionTokenHash: null,
+  organizerId: null,
+  comment: 'Remote is fine',
+  respondedAt: new Date('2026-08-04T01:00:00.000Z'),
+  joinedAt: new Date('2026-08-04T00:00:00.000Z'),
+  availabilities: [
+    {
+      id: 'availability-1',
+      participantId: 'participant-1',
+      datetimeStart: new Date('2026-08-12T07:00:00.000Z'),
+      datetimeEnd: new Date('2026-08-12T08:00:00.000Z'),
+    },
+  ],
+};
+
 describe('ParticipantsService', () => {
   const transaction = {
     meeting: { findUnique: jest.fn() },
     participant: {
       findUnique: jest.fn(),
-      findMany: jest.fn(),
       create: jest.fn(),
     },
+    participantSession: { create: jest.fn() },
   };
   const prisma = {
     $transaction: jest.fn((callback) => callback(transaction)),
-    participant: { findUnique: jest.fn(), findMany: jest.fn() },
+    participant: { findUnique: jest.fn() },
+    participantSession: { findUnique: jest.fn(), create: jest.fn() },
   };
   const meetings = {
     closedReason: jest.fn(),
@@ -54,17 +75,22 @@ describe('ParticipantsService', () => {
     jest.clearAllMocks();
     transaction.meeting.findUnique.mockResolvedValue(meeting);
     transaction.participant.findUnique.mockResolvedValue(null);
-    transaction.participant.findMany.mockResolvedValue([]);
+    transaction.participantSession.create.mockResolvedValue({});
+    prisma.participantSession.findUnique.mockResolvedValue(null);
+    prisma.participant.findUnique.mockResolvedValue(null);
+    prisma.participantSession.create.mockResolvedValue({});
     meetings.closedReason.mockReturnValue(undefined);
+    meetings.findBySlug.mockResolvedValue(meeting);
   });
 
-  it('normalizes names and returns a non-persisted participant session token', async () => {
+  it('normalizes names and stores only a hash for a new device session', async () => {
     transaction.participant.create.mockImplementation(({ data }) =>
       Promise.resolve({
-        id: 'participant-1',
-        meetingId: meeting.id,
+        ...existingParticipant,
         displayName: data.displayName,
-        joinedAt: new Date('2026-08-04T00:00:00.000Z'),
+        displayNameNormalized: data.displayNameNormalized,
+        comment: null,
+        availabilities: [],
       }),
     );
 
@@ -75,42 +101,66 @@ describe('ParticipantsService', () => {
     expect(transaction.participant.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         displayNameNormalized: 'alice dev',
-        sessionTokenHash: expect.stringMatching(/^[a-f0-9]{64}$/),
       }),
+      include: { availabilities: true },
+    });
+    expect(transaction.participantSession.create).toHaveBeenCalledWith({
+      data: {
+        participantId: 'participant-1',
+        tokenHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      },
     });
     expect(
-      transaction.participant.create.mock.calls[0][0].data.sessionTokenHash,
+      transaction.participantSession.create.mock.calls[0][0].data.tokenHash,
     ).not.toBe(result.sessionToken);
     expect(realtime.participantJoined).toHaveBeenCalledWith(
       expect.objectContaining({ meetingId: 'meeting-1' }),
     );
   });
 
-  it('enforces case-insensitive uniqueness and returns suggestions', async () => {
-    transaction.participant.findUnique.mockResolvedValue({ id: 'existing' });
+  it('reopens an existing participant case-insensitively with saved availability', async () => {
+    transaction.participant.findUnique.mockResolvedValue(existingParticipant);
 
-    await expect(service.join(meeting.slug, 'ALICE')).rejects.toMatchObject({
-      response: expect.objectContaining({
-        code: 'NAME_TAKEN',
-        suggestions: ['ALICE 2', 'ALICE Team', 'ALICE-Dev'],
-      }),
+    const result = await service.join(meeting.slug, 'ALICE');
+
+    expect(result.participant).toMatchObject({
+      id: 'participant-1',
+      displayName: 'Alice',
     });
-    expect(transaction.participant.findUnique).toHaveBeenCalledWith({
-      where: {
-        meetingId_displayNameNormalized: {
-          meetingId: meeting.id,
-          displayNameNormalized: 'alice',
-        },
+    expect(result.availabilities).toEqual([
+      {
+        datetimeStart: '2026-08-12T07:00:00.000Z',
+        datetimeEnd: '2026-08-12T08:00:00.000Z',
+      },
+    ]);
+    expect(result.comment).toBe('Remote is fine');
+    expect(transaction.participant.create).not.toHaveBeenCalled();
+    expect(transaction.participantSession.create).toHaveBeenCalledWith({
+      data: {
+        participantId: 'participant-1',
+        tokenHash: expect.stringMatching(/^[a-f0-9]{64}$/),
       },
     });
+    expect(realtime.participantJoined).not.toHaveBeenCalled();
   });
 
-  it('uses Unicode compatibility normalization for name uniqueness', async () => {
-    transaction.participant.findUnique.mockResolvedValue({ id: 'existing' });
+  it('issues independent session tokens so multiple devices stay signed in', async () => {
+    transaction.participant.findUnique.mockResolvedValue(existingParticipant);
 
-    await expect(service.join(meeting.slug, 'Ａlice')).rejects.toBeInstanceOf(
-      ConflictException,
-    );
+    const first = await service.join(meeting.slug, 'Alice');
+    const second = await service.join(meeting.slug, 'alice');
+
+    expect(first.sessionToken).not.toBe(second.sessionToken);
+    expect(transaction.participantSession.create).toHaveBeenCalledTimes(2);
+    expect(transaction.participant.create).not.toHaveBeenCalled();
+  });
+
+  it('uses Unicode compatibility normalization when reopening a name', async () => {
+    transaction.participant.findUnique.mockResolvedValue(existingParticipant);
+
+    const result = await service.join(meeting.slug, 'Ａlice');
+
+    expect(result.participant.id).toBe('participant-1');
     expect(transaction.participant.findUnique).toHaveBeenCalledWith({
       where: {
         meetingId_displayNameNormalized: {
@@ -118,6 +168,7 @@ describe('ParticipantsService', () => {
           displayNameNormalized: 'alice',
         },
       },
+      include: { availabilities: true },
     });
   });
 
@@ -129,12 +180,33 @@ describe('ParticipantsService', () => {
     await expect(service.join(meeting.slug, 'Alice')).rejects.toBeInstanceOf(
       ConflictException,
     );
-    expect(transaction.participant.create).not.toHaveBeenCalled();
+    expect(transaction.participantSession.create).not.toHaveBeenCalled();
+  });
+
+  it('loads a participant through a device session token', async () => {
+    prisma.participantSession.findUnique.mockResolvedValue({
+      participant: { ...existingParticipant, meeting },
+    });
+
+    const result = await service.session(meeting.slug, 'device-token');
+
+    expect(result.participant.id).toBe('participant-1');
+    expect(result.availabilities).toHaveLength(1);
+    expect(prisma.participant.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('keeps legacy participant tokens valid during migration', async () => {
+    prisma.participant.findUnique.mockResolvedValue({
+      ...existingParticipant,
+      meeting,
+    });
+
+    const result = await service.session(meeting.slug, 'legacy-token');
+
+    expect(result.participant.id).toBe('participant-1');
   });
 
   it('rejects an invalid returning participant token', async () => {
-    prisma.participant.findUnique.mockResolvedValue(null);
-
     await expect(
       service.session(meeting.slug, 'wrong-token'),
     ).rejects.toBeInstanceOf(UnauthorizedException);

@@ -335,3 +335,36 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Quarter-of-hour cue inside availability cells. */
+button[data-slot-start][title$=":00"] { --synk-quarter-fill: 25%; }
+button[data-slot-start][title$=":15"] { --synk-quarter-fill: 50%; }
+button[data-slot-start][title$=":30"] { --synk-quarter-fill: 75%; }
+button[data-slot-start][title$=":45"] { --synk-quarter-fill: 100%; }
+
+button[data-slot-start]::after {
+  --synk-quarter-icon: var(--primary);
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0.72rem;
+  height: 0.72rem;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--synk-quarter-icon) 72%, transparent);
+  background: conic-gradient(
+    from -90deg,
+    var(--synk-quarter-icon) 0 var(--synk-quarter-fill),
+    color-mix(in oklab, var(--synk-quarter-icon) 15%, transparent) var(--synk-quarter-fill) 100%
+  );
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--background) 34%, transparent);
+  opacity: 0.78;
+}
+
+button[data-slot-start][aria-pressed="true"]::after {
+  --synk-quarter-icon: var(--primary-foreground);
+  opacity: 0.94;
+}
+

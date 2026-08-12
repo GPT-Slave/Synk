@@ -33,7 +33,7 @@ export function ThemeToggle() {
     <button
       aria-label={label}
       aria-pressed={theme === "light"}
-      className="fixed bottom-4 start-4 z-[70] grid size-10 place-items-center rounded-xl border border-white/12 bg-card/95 text-foreground shadow-xl backdrop-blur-xl transition hover:border-primary/40 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+      className="fixed bottom-4 left-4 z-[70] grid size-10 place-items-center rounded-xl border border-white/12 bg-card/95 text-foreground shadow-xl backdrop-blur-xl transition hover:border-primary/40 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
       onClick={toggleTheme}
       title={label}
       type="button"

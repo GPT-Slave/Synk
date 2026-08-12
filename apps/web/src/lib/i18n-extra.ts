@@ -29,6 +29,9 @@ export const extraTranslations: Partial<Record<SynkLocale, TranslationTable>> = 
     "Loading invitation…": "Chargement de l’invitation…",
     "This meeting has been finalized.": "Cette réunion a été finalisée.",
     "The organizer has paused responses.": "L’organisateur a suspendu les réponses.",
+    "Each hour is split into four 15-minute quarters.": "Chaque heure est divisée en quatre quarts de 15 minutes.",
+    "Selected times are highlighted and saved automatically.": "Les horaires sélectionnés sont mis en évidence et enregistrés automatiquement.",
+    "Use the same name on another device to reopen this availability.": "Utilisez le même nom sur un autre appareil pour rouvrir cette disponibilité.",
   },
   ar: {
     "Add your availability or share the invite link to collect the first response.": "أضف توافرك أو شارك رابط الدعوة لجمع أول رد.",
@@ -56,6 +59,9 @@ export const extraTranslations: Partial<Record<SynkLocale, TranslationTable>> = 
     "Loading invitation…": "جارٍ تحميل الدعوة…",
     "This meeting has been finalized.": "تم إنهاء هذا الاجتماع.",
     "The organizer has paused responses.": "أوقف المنظّم الردود مؤقتًا.",
+    "Each hour is split into four 15-minute quarters.": "تُقسَّم كل ساعة إلى أربع فترات مدة كل منها 15 دقيقة.",
+    "Selected times are highlighted and saved automatically.": "تظهر الأوقات المحددة بوضوح ويتم حفظها تلقائيًا.",
+    "Use the same name on another device to reopen this availability.": "استخدم الاسم نفسه على جهاز آخر لفتح هذا التوافر من جديد.",
   },
   ja: {
     "Add your availability or share the invite link to collect the first response.": "自分の空き時間を追加するか招待リンクを共有して、最初の回答を集めましょう。",
@@ -83,6 +89,9 @@ export const extraTranslations: Partial<Record<SynkLocale, TranslationTable>> = 
     "Loading invitation…": "招待を読み込み中…",
     "This meeting has been finalized.": "この会議は確定済みです。",
     "The organizer has paused responses.": "主催者が回答を一時停止しています。",
+    "Each hour is split into four 15-minute quarters.": "1時間は15分ずつの4つの区切りに分かれています。",
+    "Selected times are highlighted and saved automatically.": "選択した時間は強調表示され、自動的に保存されます。",
+    "Use the same name on another device to reopen this availability.": "別の端末でも同じ名前を使うと、この空き時間を再度開けます。",
   },
   zh: {
     "Add your availability or share the invite link to collect the first response.": "添加你的可用时间或分享邀请链接以收集第一份回复。",
@@ -110,6 +119,9 @@ export const extraTranslations: Partial<Record<SynkLocale, TranslationTable>> = 
     "Loading invitation…": "正在加载邀请…",
     "This meeting has been finalized.": "此会议已确认。",
     "The organizer has paused responses.": "组织者已暂停回复。",
+    "Each hour is split into four 15-minute quarters.": "每小时分为四个 15 分钟时段。",
+    "Selected times are highlighted and saved automatically.": "已选择的时间会高亮显示并自动保存。",
+    "Use the same name on another device to reopen this availability.": "在另一台设备上使用相同姓名即可重新打开这份可用时间。",
   },
   es: {
     "Add your availability or share the invite link to collect the first response.": "Añade tu disponibilidad o comparte el enlace de invitación para recibir la primera respuesta.",
@@ -137,6 +149,9 @@ export const extraTranslations: Partial<Record<SynkLocale, TranslationTable>> = 
     "Loading invitation…": "Cargando invitación…",
     "This meeting has been finalized.": "Esta reunión ha sido finalizada.",
     "The organizer has paused responses.": "El organizador ha pausado las respuestas.",
+    "Each hour is split into four 15-minute quarters.": "Cada hora se divide en cuatro tramos de 15 minutos.",
+    "Selected times are highlighted and saved automatically.": "Los horarios seleccionados se resaltan y se guardan automáticamente.",
+    "Use the same name on another device to reopen this availability.": "Usa el mismo nombre en otro dispositivo para volver a abrir esta disponibilidad.",
   },
   pt: {
     "Add your availability or share the invite link to collect the first response.": "Adicione sua disponibilidade ou compartilhe o link de convite para receber a primeira resposta.",
@@ -164,6 +179,9 @@ export const extraTranslations: Partial<Record<SynkLocale, TranslationTable>> = 
     "Loading invitation…": "Carregando convite…",
     "This meeting has been finalized.": "Esta reunião foi finalizada.",
     "The organizer has paused responses.": "O organizador pausou as respostas.",
+    "Each hour is split into four 15-minute quarters.": "Cada hora é dividida em quatro períodos de 15 minutos.",
+    "Selected times are highlighted and saved automatically.": "Os horários selecionados ficam destacados e são salvos automaticamente.",
+    "Use the same name on another device to reopen this availability.": "Use o mesmo nome em outro dispositivo para reabrir esta disponibilidade.",
   },
   ru: {
     "Add your availability or share the invite link to collect the first response.": "Добавьте свою доступность или поделитесь ссылкой-приглашением, чтобы получить первый ответ.",
@@ -191,6 +209,9 @@ export const extraTranslations: Partial<Record<SynkLocale, TranslationTable>> = 
     "Loading invitation…": "Загрузка приглашения…",
     "This meeting has been finalized.": "Эта встреча уже подтверждена.",
     "The organizer has paused responses.": "Организатор приостановил ответы.",
+    "Each hour is split into four 15-minute quarters.": "Каждый час разделён на четыре 15-минутных интервала.",
+    "Selected times are highlighted and saved automatically.": "Выбранное время подсвечивается и сохраняется автоматически.",
+    "Use the same name on another device to reopen this availability.": "Используйте то же имя на другом устройстве, чтобы снова открыть эту доступность.",
   },
   de: {
     "Add your availability or share the invite link to collect the first response.": "Füge deine Verfügbarkeit hinzu oder teile den Einladungslink, um die erste Antwort zu erhalten.",
@@ -218,6 +239,9 @@ export const extraTranslations: Partial<Record<SynkLocale, TranslationTable>> = 
     "Loading invitation…": "Einladung wird geladen…",
     "This meeting has been finalized.": "Dieses Meeting wurde finalisiert.",
     "The organizer has paused responses.": "Der Organisator hat Antworten pausiert.",
+    "Each hour is split into four 15-minute quarters.": "Jede Stunde ist in vier 15-Minuten-Abschnitte unterteilt.",
+    "Selected times are highlighted and saved automatically.": "Ausgewählte Zeiten werden hervorgehoben und automatisch gespeichert.",
+    "Use the same name on another device to reopen this availability.": "Verwende auf einem anderen Gerät denselben Namen, um diese Verfügbarkeit wieder zu öffnen.",
   },
   nl: {
     "Add your availability or share the invite link to collect the first response.": "Voeg je beschikbaarheid toe of deel de uitnodigingslink om de eerste reactie te verzamelen.",
@@ -245,6 +269,9 @@ export const extraTranslations: Partial<Record<SynkLocale, TranslationTable>> = 
     "Loading invitation…": "Uitnodiging laden…",
     "This meeting has been finalized.": "Deze vergadering is definitief gemaakt.",
     "The organizer has paused responses.": "De organisator heeft reacties gepauzeerd.",
+    "Each hour is split into four 15-minute quarters.": "Elk uur is verdeeld in vier kwartieren van 15 minuten.",
+    "Selected times are highlighted and saved automatically.": "Geselecteerde tijden worden gemarkeerd en automatisch opgeslagen.",
+    "Use the same name on another device to reopen this availability.": "Gebruik op een ander apparaat dezelfde naam om deze beschikbaarheid opnieuw te openen.",
   },
   hi: {
     "Add your availability or share the invite link to collect the first response.": "अपनी उपलब्धता जोड़ें या पहली प्रतिक्रिया पाने के लिए आमंत्रण लिंक साझा करें।",
@@ -272,6 +299,9 @@ export const extraTranslations: Partial<Record<SynkLocale, TranslationTable>> = 
     "Loading invitation…": "आमंत्रण लोड हो रहा है…",
     "This meeting has been finalized.": "यह मीटिंग अंतिम की जा चुकी है।",
     "The organizer has paused responses.": "आयोजक ने प्रतिक्रियाएँ रोक दी हैं।",
+    "Each hour is split into four 15-minute quarters.": "हर घंटे को 15-15 मिनट के चार हिस्सों में बाँटा गया है।",
+    "Selected times are highlighted and saved automatically.": "चुने गए समय हाइलाइट होते हैं और अपने-आप सहेजे जाते हैं।",
+    "Use the same name on another device to reopen this availability.": "दूसरे डिवाइस पर यही नाम इस्तेमाल करके इस उपलब्धता को फिर से खोलें।",
   },
   it: {
     "Add your availability or share the invite link to collect the first response.": "Aggiungi la tua disponibilità o condividi il link di invito per raccogliere la prima risposta.",
@@ -299,5 +329,8 @@ export const extraTranslations: Partial<Record<SynkLocale, TranslationTable>> = 
     "Loading invitation…": "Caricamento invito…",
     "This meeting has been finalized.": "Questa riunione è stata finalizzata.",
     "The organizer has paused responses.": "L’organizzatore ha sospeso le risposte.",
+    "Each hour is split into four 15-minute quarters.": "Ogni ora è divisa in quattro intervalli da 15 minuti.",
+    "Selected times are highlighted and saved automatically.": "Gli orari selezionati vengono evidenziati e salvati automaticamente.",
+    "Use the same name on another device to reopen this availability.": "Usa lo stesso nome su un altro dispositivo per riaprire questa disponibilità.",
   },
 };

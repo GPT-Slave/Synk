@@ -77,20 +77,23 @@ export function aggregateAvailability(
 
   const cellsPerMatch =
     meeting.meetingDurationMinutes / meeting.slotIntervalMinutes;
-  const candidates = Number.isInteger(cellsPerMatch) && cellsPerMatch > 0
-    ? heatmap
-        .map((cell, index, cells) =>
-          rankedMatchForWindow(
-            cells.slice(index, index + cellsPerMatch),
-            cellsPerMatch,
-            participantNamesByStart,
-            totalParticipants,
-          ),
-        )
-        .filter((candidate): candidate is RankedCandidate => Boolean(candidate))
-        .sort(compareRankedCandidates)
-        .map((candidate) => candidate.match)
-    : [];
+  const candidates =
+    Number.isInteger(cellsPerMatch) && cellsPerMatch > 0
+      ? heatmap
+          .map((cell, index, cells) =>
+            rankedMatchForWindow(
+              cells.slice(index, index + cellsPerMatch),
+              cellsPerMatch,
+              participantNamesByStart,
+              totalParticipants,
+            ),
+          )
+          .filter((candidate): candidate is RankedCandidate =>
+            Boolean(candidate),
+          )
+          .sort(compareRankedCandidates)
+          .map((candidate) => candidate.match)
+      : [];
 
   return {
     ...grid,

@@ -25,6 +25,14 @@ import {
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { StatePanel } from "@/components/ui/state-panel";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
@@ -73,6 +81,7 @@ export function AvailabilityGrid({
   );
   const [comment, setComment] = useState(participantSession.comment ?? "");
   const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [showGuidance, setShowGuidance] = useState(mode === "participant");
   const dragging = useRef(false);
   const touchedSlot = useRef<string | undefined>(undefined);
   const touchGesture = useRef<
@@ -291,6 +300,12 @@ export function AvailabilityGrid({
 
   return (
     <section className={mode === "participant" ? "mt-8" : ""}>
+      {mode === "participant" && (
+        <ParticipantGuidanceDialog
+          onOpenChange={setShowGuidance}
+          open={showGuidance}
+        />
+      )}
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="text-sm text-muted-foreground">
@@ -502,6 +517,49 @@ function GridRow({
         </div>
       ))}
     </>
+  );
+}
+
+
+function ParticipantGuidanceDialog({
+  onOpenChange,
+  open,
+}: {
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+}) {
+  const { t } = useI18n();
+  return (
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle>{t("Your availability")}</DialogTitle>
+          <DialogDescription>
+            {t(
+              "Tap one square or paint across several. The complete timetable is always shown below.",
+            )}
+          </DialogDescription>
+        </DialogHeader>
+        <ul className="mt-5 space-y-3 text-sm leading-relaxed text-muted-foreground">
+          <li className="rounded-xl border border-white/10 bg-white/[0.025] px-4 py-3">
+            {t("Each hour is split into four 15-minute quarters.")}
+          </li>
+          <li className="rounded-xl border border-white/10 bg-white/[0.025] px-4 py-3">
+            {t("Selected times are highlighted and saved automatically.")}
+          </li>
+          <li className="rounded-xl border border-white/10 bg-white/[0.025] px-4 py-3">
+            {t(
+              "Use the same name on another device to reopen this availability.",
+            )}
+          </li>
+        </ul>
+        <DialogFooter>
+          <Button onClick={() => onOpenChange(false)} type="button">
+            {t("Continue to availability")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
