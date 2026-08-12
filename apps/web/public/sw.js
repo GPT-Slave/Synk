@@ -18,12 +18,8 @@ self.addEventListener("activate", (event) => {
         key.startsWith(LEGACY_CODE_CACHE_PREFIX),
       );
 
-      await Promise.all(
-        keys
-          .filter(
-            (key) => key.startsWith(SYNK_CACHE_PREFIX) && key !== CACHE_NAME,
-          )
-          .map((key) => caches.delete(key)),
+      await deleteCaches((key) =>
+        key.startsWith(SYNK_CACHE_PREFIX) && key !== CACHE_NAME,
       );
       await self.clients.claim();
 
@@ -39,6 +35,13 @@ self.addEventListener("activate", (event) => {
           return client.navigate(url.href);
         }),
       );
+
+      // Requests that were already being handled by the retired cache-first
+      // worker can finish after the first delete and recreate its cache. Once
+      // clients have moved to this worker, give those handlers a moment to
+      // drain and remove legacy code caches one final time.
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await deleteCaches((key) => key.startsWith(LEGACY_CODE_CACHE_PREFIX));
     })(),
   );
 });
@@ -64,3 +67,8 @@ self.addEventListener("fetch", (event) => {
     }),
   );
 });
+
+async function deleteCaches(matches) {
+  const keys = await caches.keys();
+  await Promise.all(keys.filter(matches).map((key) => caches.delete(key)));
+}
