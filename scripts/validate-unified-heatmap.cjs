@@ -45,6 +45,25 @@ async function pointerHold(page, target, pointerId) {
   await page.waitForTimeout(520);
   return async () => target.dispatchEvent('pointerup', { pointerType: 'touch', pointerId, button: 0, ...point });
 }
+async function touchSwipe(context, page, box) {
+  const cdp = await context.newCDPSession(page);
+  const y = Math.round(box.y + box.height / 2);
+  const startX = Math.round(box.x + box.width * 0.8);
+  const endX = Math.round(box.x + box.width * 0.15);
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ x: startX, y, id: 1, radiusX: 4, radiusY: 4, force: 1 }],
+  });
+  for (let step = 1; step <= 8; step += 1) {
+    const x = Math.round(startX + ((endX - startX) * step) / 8);
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [{ x, y, id: 1, radiusX: 4, radiusY: 4, force: 1 }],
+    });
+    await page.waitForTimeout(16);
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+}
 
 (async () => {
   const browser = await chromium.launch({ headless: true });
@@ -132,11 +151,8 @@ async function pointerHold(page, target, pointerId) {
   const swipeBox = await swipeArea.boundingBox();
   if (!swipeBox) throw new Error('Swipe area bounds missing');
   const selectedBeforeSwipe = await mobile.locator('button[data-selected="true"]').count();
-  await mobile.mouse.move(swipeBox.x + swipeBox.width * 0.8, swipeBox.y + swipeBox.height / 2);
-  await mobile.mouse.down();
-  await mobile.mouse.move(swipeBox.x + swipeBox.width * 0.15, swipeBox.y + swipeBox.height / 2, { steps: 8 });
-  await mobile.mouse.up();
-  await mobile.waitForTimeout(180);
+  await touchSwipe(mobileContext, mobile, swipeBox);
+  await mobile.waitForTimeout(250);
   if ((await mobile.locator('[data-mobile-day-index]').getAttribute('data-mobile-day-index')) !== '1') throw new Error('Dedicated swipe did not move to next day');
   if (await mobile.locator('button[data-selected="true"]').count() !== selectedBeforeSwipe) throw new Error('Day swipe changed availability');
   await viewButton.click();
