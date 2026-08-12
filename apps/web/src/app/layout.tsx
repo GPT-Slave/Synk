@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { QueryProvider } from "@/components/query-provider";
+import { CursorHalo } from "@/components/cursor-halo";
 import { PwaRegister } from "@/components/pwa-register";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -86,6 +87,7 @@ export default function RootLayout({
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <I18nProvider>
           <QueryProvider>{children}</QueryProvider>
+          <CursorHalo />
           <ThemeToggle />
           <LanguageSwitcher />
         </I18nProvider>

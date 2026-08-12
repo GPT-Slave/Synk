@@ -621,6 +621,16 @@ function AvailabilityHeatmapRow({
               const selectedRight = Boolean(
                 active && rightCell && selected.has(rightCell.datetimeStart),
               );
+              let selectedRunLength = 0;
+              if (active && !selectedLeft) {
+                for (let runIndex = quarterIndex; runIndex < 4; runIndex += 1) {
+                  const runQuarter = runIndex * 15;
+                  const runTime = `${hour.slice(0, 3)}${String(runQuarter).padStart(2, "0")}`;
+                  const runCell = cellByGridPosition.get(`${date.date}:${runTime}`);
+                  if (!runCell || !selected.has(runCell.datetimeStart)) break;
+                  selectedRunLength += 1;
+                }
+              }
               const dateLabel = formatDate(date.date, {
                 weekday: "short",
                 month: "short",
@@ -707,11 +717,8 @@ function AvailabilityHeatmapRow({
                       background: `conic-gradient(from -90deg, currentColor 0 ${quarterFill}%, transparent ${quarterFill}% 100%)`,
                     }}
                   />
-                  {active && (
-                    <FusedSelectionBoundary
-                      hideLeft={selectedLeft}
-                      hideRight={selectedRight}
-                    />
+                  {selectedRunLength > 0 && (
+                    <FusedSelectionBoundary spanCount={selectedRunLength} />
                   )}
                 </button>
               );
@@ -723,43 +730,25 @@ function AvailabilityHeatmapRow({
   );
 }
 
-function FusedSelectionBoundary({
-  hideLeft,
-  hideRight,
-}: {
-  hideLeft: boolean;
-  hideRight: boolean;
-}) {
-  const line: CSSProperties = {
-    position: "absolute",
-    pointerEvents: "none",
-    zIndex: 20,
-    backgroundColor: "rgb(110 231 183)",
-  };
-  const halo: CSSProperties = {
-    position: "absolute",
-    pointerEvents: "none",
-    zIndex: 19,
-  };
+function FusedSelectionBoundary({ spanCount }: { spanCount: number }) {
   return (
-    <>
-      <span style={{ ...line, left: 0, right: 0, top: -2, height: 2 }} />
-      <span style={{ ...halo, left: 0, right: 0, top: -10, height: 8, background: "linear-gradient(to top, rgba(52,211,153,0.55), rgba(52,211,153,0))" }} />
-      <span style={{ ...line, left: 0, right: 0, bottom: -2, height: 2 }} />
-      <span style={{ ...halo, left: 0, right: 0, bottom: -10, height: 8, background: "linear-gradient(to bottom, rgba(52,211,153,0.55), rgba(52,211,153,0))" }} />
-      {!hideLeft && (
-        <>
-          <span style={{ ...line, top: 0, bottom: 0, left: -2, width: 2 }} />
-          <span style={{ ...halo, top: 0, bottom: 0, left: -10, width: 8, background: "linear-gradient(to left, rgba(52,211,153,0), rgba(52,211,153,0.55))" }} />
-        </>
-      )}
-      {!hideRight && (
-        <>
-          <span style={{ ...line, top: 0, bottom: 0, right: -2, width: 2 }} />
-          <span style={{ ...halo, top: 0, bottom: 0, right: -10, width: 8, background: "linear-gradient(to right, rgba(52,211,153,0.55), rgba(52,211,153,0))" }} />
-        </>
-      )}
-    </>
+    <span
+      aria-hidden="true"
+      data-selection-boundary="true"
+      data-selection-span={spanCount}
+      style={{
+        position: "absolute",
+        pointerEvents: "none",
+        zIndex: 20,
+        top: 3,
+        bottom: 3,
+        left: 3,
+        width: `calc(${spanCount * 100}% - 6px)`,
+        border: "1px solid rgba(21, 128, 61, 0.7)",
+        borderRadius: "0.55rem",
+        boxShadow: "inset 0 0 5px rgba(22, 163, 74, 0.08)",
+      }}
+    />
   );
 }
 
