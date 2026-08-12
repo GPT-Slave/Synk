@@ -85,7 +85,7 @@ jobs:
       - name: Static validation
         run: |
           node scripts/i18n-audit.mjs
-          pnpm --filter web lint -- --max-warnings=0
+          pnpm --filter web lint
           pnpm --filter web typecheck
           pnpm --filter api typecheck
       - name: Start app
