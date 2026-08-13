@@ -127,13 +127,21 @@ body,
 
   main:has([data-unified-heatmap="true"]) > nav,
   main:has([data-unified-heatmap="true"]) > section,
-  [data-unified-heatmap="true"] {
+  [data-heatmap-presentation="true"],
+  [data-unified-heatmap="true"],
+  [data-day-swipe="true"],
+  [data-day-swipe-track="true"] {
     min-width: 0;
     max-width: 100%;
   }
 
-  [data-unified-heatmap="true"] {
+  [data-heatmap-presentation="true"],
+  [data-unified-heatmap="true"],
+  [data-day-swipe="true"] {
     width: 100%;
+  }
+
+  [data-unified-heatmap="true"] {
     overflow-x: clip;
   }
 
@@ -141,6 +149,34 @@ body,
     width: 100% !important;
     max-width: 100% !important;
     margin-inline: 0 !important;
+  }
+
+  [data-day-swipe="true"] {
+    overflow: hidden;
+  }
+
+  [data-day-swipe-track="true"] {
+    width: 0;
+    flex: 1 1 0%;
+  }
+
+  [data-day-swipe-track="true"] > div {
+    min-width: 100%;
+    max-width: 100%;
+  }
+
+  [data-day-swipe-page] {
+    min-width: 0;
+    max-width: 100%;
+    flex: 0 0 100%;
+    overflow: hidden;
+  }
+
+  [data-day-swipe-page] > div,
+  [data-day-swipe-page] > div > div {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
   }
 
   main:has([data-unified-heatmap="true"]) h1,
