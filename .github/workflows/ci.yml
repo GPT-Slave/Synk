@@ -35,3 +35,14 @@ jobs:
 
       - name: Typecheck api
         run: pnpm --filter api typecheck
+
+      - name: Validate production polish
+        run: bash scripts/temp-production-polish-ci.sh
+
+      - name: Upload production polish screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-polish-screenshots
+          path: /tmp/synk-polish/*.png
+          if-no-files-found: warn
