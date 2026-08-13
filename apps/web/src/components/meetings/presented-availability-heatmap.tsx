@@ -15,8 +15,9 @@ export function InteractiveAvailabilityHeatmap(props: Props) {
   const { t } = useI18n();
 
   useEffect(() => {
-    const presentationRoot = rootRef.current;
-    if (!presentationRoot) return;
+    const currentRoot = rootRef.current;
+    if (!currentRoot) return;
+    const heatmapRoot: HTMLDivElement = currentRoot;
 
     let dismissedTooltipSignature: string | undefined;
 
@@ -35,19 +36,19 @@ export function InteractiveAvailabilityHeatmap(props: Props) {
     function revealChangedTooltip(element: Element) {
       if (!(element instanceof HTMLElement)) return;
       if (element.dataset.heatmapTooltip !== "true") return;
-      if (presentationRoot.dataset.mobileTooltipDismissed !== "true") return;
+      if (heatmapRoot.dataset.mobileTooltipDismissed !== "true") return;
 
       const signature = tooltipSignature(element);
       if (signature === dismissedTooltipSignature) return;
 
       dismissedTooltipSignature = undefined;
-      delete presentationRoot.dataset.mobileTooltipDismissed;
+      delete heatmapRoot.dataset.mobileTooltipDismissed;
     }
 
     function resetDismissedTooltipWhenGone() {
-      if (presentationRoot.querySelector(TOOLTIP_SELECTOR)) return;
+      if (heatmapRoot.querySelector(TOOLTIP_SELECTOR)) return;
       dismissedTooltipSignature = undefined;
-      delete presentationRoot.dataset.mobileTooltipDismissed;
+      delete heatmapRoot.dataset.mobileTooltipDismissed;
     }
 
     function syncNode(node: Node) {
@@ -62,15 +63,14 @@ export function InteractiveAvailabilityHeatmap(props: Props) {
 
     function dismissTooltipOnMobileScroll() {
       if (!window.matchMedia(MOBILE_QUERY).matches) return;
-      const tooltip =
-        presentationRoot.querySelector<HTMLElement>(TOOLTIP_SELECTOR);
+      const tooltip = heatmapRoot.querySelector<HTMLElement>(TOOLTIP_SELECTOR);
       if (!tooltip) return;
 
       dismissedTooltipSignature = tooltipSignature(tooltip);
-      presentationRoot.dataset.mobileTooltipDismissed = "true";
+      heatmapRoot.dataset.mobileTooltipDismissed = "true";
     }
 
-    syncNode(presentationRoot);
+    syncNode(heatmapRoot);
 
     const observer = new MutationObserver((records) => {
       for (const record of records) {
@@ -99,7 +99,7 @@ export function InteractiveAvailabilityHeatmap(props: Props) {
       }
     });
 
-    observer.observe(presentationRoot, {
+    observer.observe(heatmapRoot, {
       subtree: true,
       childList: true,
       characterData: true,
