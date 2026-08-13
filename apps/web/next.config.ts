@@ -42,6 +42,13 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(process.cwd(), "../.."),
   },
+  webpack(config) {
+    config.resolve.alias["@/lib/i18n"] = path.resolve(
+      process.cwd(),
+      "src/lib/i18n-complete.tsx",
+    );
+    return config;
+  },
   async headers() {
     return [
       {
