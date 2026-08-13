@@ -35,3 +35,6 @@ jobs:
 
       - name: Typecheck api
         run: pnpm --filter api typecheck
+
+      - name: Validate production i18n resolution
+        run: bash scripts/temp-prod-i18n-ci.sh
