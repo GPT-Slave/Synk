@@ -27,11 +27,9 @@ button[data-heatmap-cell="true"][data-selected="true"]::before {
   content: "";
   pointer-events: none;
   position: absolute;
-  z-index: 20;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 15px;
+  z-index: 1;
+  inset: 0;
+  border-radius: inherit;
   background:
     repeating-linear-gradient(
       135deg,
