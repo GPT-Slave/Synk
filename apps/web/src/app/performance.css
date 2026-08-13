@@ -38,6 +38,54 @@ button[data-slot-start][aria-pressed="true"] {
 }
 
 /*
+ * The bottom availability marker must remain visibly striped even when the
+ * selected quarter itself is green. Keep the texture in this last-loaded
+ * stylesheet so later performance overrides cannot flatten it.
+ */
+@keyframes synk-selection-floor-stripes-drift {
+  from {
+    transform: translate3d(-24px, 0, 0);
+  }
+  to {
+    transform: translate3d(24px, 0, 0);
+  }
+}
+
+[data-selection-floor="true"] {
+  height: 6px !important;
+  overflow: hidden;
+  isolation: isolate;
+  background-color: rgb(16 111 53) !important;
+  background-image: none !important;
+}
+
+[data-selection-floor="true"]::before {
+  position: absolute;
+  inset: -5px -32px;
+  content: "";
+  background: repeating-linear-gradient(
+    135deg,
+    rgb(255 255 255 / 42%) 0 2px,
+    rgb(255 255 255 / 10%) 2px 4px,
+    rgb(0 0 0 / 18%) 4px 6px,
+    transparent 6px 11px
+  );
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-selection-floor="true"]::before {
+    animation: synk-selection-floor-stripes-drift 32s linear infinite;
+    will-change: transform;
+  }
+}
+
+/* A mobile inspection label is dismissed as soon as any page/track scrolls. */
+[data-heatmap-presentation="true"][data-mobile-tooltip-dismissed="true"]
+  [data-heatmap-tooltip="true"] {
+  display: none !important;
+}
+
+/*
  * Missing quarter-hour cells sit outside the configured working window. Make
  * them visibly unavailable—for example, the final two quarters when work ends
  * at 17:30—without adding interactive elements or changing timetable logic.
