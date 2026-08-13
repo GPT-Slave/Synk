@@ -57,9 +57,14 @@ jobs:
             fi
             sleep 1
           done
-          if grep -Eqi 'rel=["'"']preload["'"'][^>]*as=["'"']font["'"']|as=["'"']font["'"'][^>]*rel=["'"']preload["'"']' /tmp/synk-font-page.html; then
-            echo 'Unexpected font preload found:'
-            grep -Eio '<link[^>]+(rel=["'"']preload["'"'][^>]*as=["'"']font["'"']|as=["'"']font["'"'][^>]*rel=["'"']preload["'"'])[^>]*>' /tmp/synk-font-page.html || true
-            exit 1
-          fi
-          echo 'Production HTML contains no eager font preload links.'
+          node <<'NODE'
+          const fs = require('node:fs');
+          const html = fs.readFileSync('/tmp/synk-font-page.html', 'utf8');
+          const tags = html.match(/<link\b[^>]*>/gi) ?? [];
+          const fontPreloads = tags.filter((tag) => /rel=["']preload["']/i.test(tag) && /as=["']font["']/i.test(tag));
+          if (fontPreloads.length) {
+            console.error('Unexpected font preload found:', fontPreloads);
+            process.exit(1);
+          }
+          console.log('Production HTML contains no eager font preload links.');
+          NODE
