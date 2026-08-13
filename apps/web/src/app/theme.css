@@ -90,33 +90,6 @@ body,
     border-color 180ms ease;
 }
 
-@keyframes synk-selection-stripes-drift {
-  from {
-    background-position: 0 0;
-  }
-  to {
-    background-position: 48px 0;
-  }
-}
-
-[data-selection-floor="true"] {
-  background-color: rgb(18 116 56) !important;
-  background-image: repeating-linear-gradient(
-    135deg,
-    rgb(255 255 255 / 22%) 0 3px,
-    rgb(255 255 255 / 6%) 3px 6px,
-    transparent 6px 12px
-  ) !important;
-  animation: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  [data-selection-floor="true"] {
-    animation: synk-selection-stripes-drift 36s linear infinite;
-    will-change: background-position;
-  }
-}
-
 @media (max-width: 639px) {
   main:has([data-unified-heatmap="true"]) {
     width: 100%;
