@@ -35,8 +35,15 @@ button[data-heatmap-cell="true"][data-available-count]::after {
   z-index: 10;
   display: grid;
   place-items: center;
-  color: inherit;
-  font-size: 0.58rem;
-  font-weight: 600;
+  color: rgb(248 250 252);
+  font-size: 0.65rem;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+@media (min-width: 640px) {
+  [data-heatmap-presentation="true"] > div:has([data-selection-legend="true"]) {
+    margin-bottom: -1.875rem;
+    padding-right: 10rem;
+  }
 }
