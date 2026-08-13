@@ -15,7 +15,7 @@ import {
   MessageSquareText,
 } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { InteractiveAvailabilityHeatmap } from "@/components/meetings/interactive-availability-heatmap";
+import { InteractiveAvailabilityHeatmap } from "@/components/meetings/presented-availability-heatmap";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
