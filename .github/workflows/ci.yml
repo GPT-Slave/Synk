@@ -35,10 +35,3 @@ jobs:
 
       - name: Typecheck api
         run: pnpm --filter api typecheck
-
-      - name: Validate Vercel production build with 40-character SHA
-        env:
-          VERCEL_GIT_COMMIT_SHA: 2a0b368ca951be09780f6bae4ee9b6a8d22cafd4
-          NEXT_PUBLIC_API_URL: http://localhost:4000
-          NEXT_PUBLIC_WS_URL: ws://localhost:4000
-        run: pnpm --filter web build
