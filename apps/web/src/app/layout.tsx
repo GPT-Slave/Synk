@@ -19,6 +19,7 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  preload: false,
 });
 
 const siteIcon = "/logo_nobg.png?v=31f7d33";

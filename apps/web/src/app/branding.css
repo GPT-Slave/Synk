@@ -1,3 +1,39 @@
 .brand-neon-blue {
   filter: none !important;
 }
+
+button[data-heatmap-cell="true"] [data-selection-floor="true"] {
+  display: none !important;
+}
+
+button[data-heatmap-cell="true"][data-selected="true"]::before,
+button[data-heatmap-cell="true"][data-selected="true"]::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  z-index: 20;
+}
+
+button[data-heatmap-cell="true"][data-selected="true"]::before {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 15px;
+  background: linear-gradient(to top, rgb(57 255 20) 0%, rgb(57 255 20 / 0.96) 38%, rgb(57 255 20 / 0.55) 68%, transparent 100%);
+  box-shadow: 0 5px 14px rgb(57 255 20 / 0.52), 0 0 18px rgb(57 255 20 / 0.28);
+}
+
+button[data-heatmap-cell="true"][data-selected="true"]::after {
+  inset: 0;
+  border-left: 5px solid rgb(57 255 20);
+  border-right: 5px solid rgb(57 255 20);
+  filter: drop-shadow(0 0 5px rgb(57 255 20 / 0.58));
+}
+
+button[data-heatmap-cell="true"][data-selected="true"]:has(+ button[data-heatmap-cell="true"][data-selected="true"])::after {
+  border-right-width: 0;
+}
+
+button[data-heatmap-cell="true"][data-selected="true"] + button[data-heatmap-cell="true"][data-selected="true"]::after {
+  border-left-width: 0;
+}
