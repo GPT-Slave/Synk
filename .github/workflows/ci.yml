@@ -35,3 +35,31 @@ jobs:
 
       - name: Typecheck api
         run: pnpm --filter api typecheck
+
+      - name: Validate font preload removal in production
+        env:
+          VERCEL_GIT_COMMIT_SHA: 1234567890abcdef1234567890abcdef12345678
+          NEXT_PUBLIC_API_URL: https://synk-fueq.onrender.com
+          NEXT_PUBLIC_WS_URL: https://synk-fueq.onrender.com
+        run: |
+          set -euo pipefail
+          pnpm --filter web build
+          PORT=3000 pnpm --filter web start >/tmp/synk-font-preload.log 2>&1 &
+          WEB_PID=$!
+          trap 'kill "$WEB_PID" 2>/dev/null || true' EXIT
+          for i in {1..60}; do
+            if curl -fsS http://localhost:3000/dashboard/meetings/new >/tmp/synk-font-page.html; then
+              break
+            fi
+            if [ "$i" -eq 60 ]; then
+              cat /tmp/synk-font-preload.log || true
+              exit 1
+            fi
+            sleep 1
+          done
+          if grep -Eqi 'rel=["'"']preload["'"'][^>]*as=["'"']font["'"']|as=["'"']font["'"'][^>]*rel=["'"']preload["'"']' /tmp/synk-font-page.html; then
+            echo 'Unexpected font preload found:'
+            grep -Eio '<link[^>]+(rel=["'"']preload["'"'][^>]*as=["'"']font["'"']|as=["'"']font["'"'][^>]*rel=["'"']preload["'"'])[^>]*>' /tmp/synk-font-page.html || true
+            exit 1
+          fi
+          echo 'Production HTML contains no eager font preload links.'
