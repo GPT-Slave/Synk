@@ -8,7 +8,7 @@ import type {
   PublicMeetingDto,
 } from "@meet-planner/shared-types";
 import { useSearchParams } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BestTimeSuggestions } from "@/components/meetings/best-time-suggestions";
 import { InteractiveAvailabilityHeatmap } from "@/components/meetings/presented-availability-heatmap";
 
@@ -86,10 +86,51 @@ const match: BestMatchDto = {
   participantNames: ["Alice", "Nora"],
 };
 
+interface Diagnostics {
+  selectedBackground?: string;
+  selectedAnimation?: string;
+  selectedBarBackground?: string;
+  selectedBarAnimation?: string;
+  highlightedBackground?: string;
+  highlightedFilter?: string;
+  highlightedShadow?: string;
+}
+
 export default function AvailabilityVisualReviewPage() {
   const searchParams = useSearchParams();
   const highlightedMatch = searchParams.get("highlight") === "1" ? match : undefined;
   const selectedSnapshot = useMemo(() => new Set(selected), []);
+  const [diagnostics, setDiagnostics] = useState<Diagnostics>({});
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const selectedButton = document.querySelector<HTMLElement>(
+        'button[data-heatmap-cell="true"][aria-pressed="true"]',
+      );
+      const highlightedButton = document.querySelector<HTMLElement>(
+        'button[data-heatmap-cell="true"].brightness-125:not([aria-pressed="true"])',
+      );
+      const selectedStyle = selectedButton
+        ? window.getComputedStyle(selectedButton)
+        : undefined;
+      const selectedBarStyle = selectedButton
+        ? window.getComputedStyle(selectedButton, "::before")
+        : undefined;
+      const highlightedStyle = highlightedButton
+        ? window.getComputedStyle(highlightedButton)
+        : undefined;
+      setDiagnostics({
+        selectedBackground: selectedStyle?.background,
+        selectedAnimation: selectedStyle?.animationName,
+        selectedBarBackground: selectedBarStyle?.background,
+        selectedBarAnimation: selectedBarStyle?.animationName,
+        highlightedBackground: highlightedStyle?.backgroundColor,
+        highlightedFilter: highlightedStyle?.filter,
+        highlightedShadow: highlightedStyle?.boxShadow,
+      });
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [highlightedMatch]);
 
   return (
     <main className="min-h-svh px-5 py-7">
@@ -99,6 +140,9 @@ export default function AvailabilityVisualReviewPage() {
           <p className="mt-1 text-xs text-muted-foreground">
             Real Synk heatmap component rendered with deterministic fixture data.
           </p>
+          <pre className="mt-2 whitespace-pre-wrap break-all text-[9px] text-muted-foreground" data-visual-diagnostics="true">
+            {JSON.stringify(diagnostics)}
+          </pre>
         </div>
 
         <InteractiveAvailabilityHeatmap
