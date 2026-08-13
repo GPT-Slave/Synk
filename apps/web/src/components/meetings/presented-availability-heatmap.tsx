@@ -15,8 +15,8 @@ export function InteractiveAvailabilityHeatmap(props: Props) {
   const { t } = useI18n();
 
   useEffect(() => {
-    const root = rootRef.current;
-    if (!root) return;
+    const presentationRoot = rootRef.current;
+    if (!presentationRoot) return;
 
     let dismissedTooltipSignature: string | undefined;
 
@@ -35,19 +35,19 @@ export function InteractiveAvailabilityHeatmap(props: Props) {
     function revealChangedTooltip(element: Element) {
       if (!(element instanceof HTMLElement)) return;
       if (element.dataset.heatmapTooltip !== "true") return;
-      if (root.dataset.mobileTooltipDismissed !== "true") return;
+      if (presentationRoot.dataset.mobileTooltipDismissed !== "true") return;
 
       const signature = tooltipSignature(element);
       if (signature === dismissedTooltipSignature) return;
 
       dismissedTooltipSignature = undefined;
-      delete root.dataset.mobileTooltipDismissed;
+      delete presentationRoot.dataset.mobileTooltipDismissed;
     }
 
     function resetDismissedTooltipWhenGone() {
-      if (root.querySelector(TOOLTIP_SELECTOR)) return;
+      if (presentationRoot.querySelector(TOOLTIP_SELECTOR)) return;
       dismissedTooltipSignature = undefined;
-      delete root.dataset.mobileTooltipDismissed;
+      delete presentationRoot.dataset.mobileTooltipDismissed;
     }
 
     function syncNode(node: Node) {
@@ -62,14 +62,15 @@ export function InteractiveAvailabilityHeatmap(props: Props) {
 
     function dismissTooltipOnMobileScroll() {
       if (!window.matchMedia(MOBILE_QUERY).matches) return;
-      const tooltip = root.querySelector<HTMLElement>(TOOLTIP_SELECTOR);
+      const tooltip =
+        presentationRoot.querySelector<HTMLElement>(TOOLTIP_SELECTOR);
       if (!tooltip) return;
 
       dismissedTooltipSignature = tooltipSignature(tooltip);
-      root.dataset.mobileTooltipDismissed = "true";
+      presentationRoot.dataset.mobileTooltipDismissed = "true";
     }
 
-    syncNode(root);
+    syncNode(presentationRoot);
 
     const observer = new MutationObserver((records) => {
       for (const record of records) {
@@ -98,7 +99,7 @@ export function InteractiveAvailabilityHeatmap(props: Props) {
       }
     });
 
-    observer.observe(root, {
+    observer.observe(presentationRoot, {
       subtree: true,
       childList: true,
       characterData: true,
