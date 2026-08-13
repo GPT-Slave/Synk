@@ -52,14 +52,6 @@ const nextConfig: NextConfig = {
     );
     return config;
   },
-  async rewrites() {
-    return [
-      {
-        source: "/__visual/availability",
-        destination: "/visual-review/availability",
-      },
-    ];
-  },
   async headers() {
     return [
       {
