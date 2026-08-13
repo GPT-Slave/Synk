@@ -95,7 +95,7 @@ body,
     background-position: 0 0;
   }
   to {
-    background-position: 56px 0;
+    background-position: 48px 0;
   }
 }
 
@@ -103,11 +103,18 @@ body,
   background-color: rgb(18 116 56) !important;
   background-image: repeating-linear-gradient(
     135deg,
-    rgb(255 255 255 / 7%) 0 4px,
-    transparent 4px 11px
-  );
-  animation: synk-selection-stripes-drift 28s linear infinite;
-  will-change: background-position;
+    rgb(255 255 255 / 22%) 0 3px,
+    rgb(255 255 255 / 6%) 3px 6px,
+    transparent 6px 12px
+  ) !important;
+  animation: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-selection-floor="true"] {
+    animation: synk-selection-stripes-drift 36s linear infinite;
+    will-change: background-position;
+  }
 }
 
 @media (max-width: 639px) {
@@ -140,11 +147,5 @@ body,
   main:has([data-unified-heatmap="true"]) p,
   main:has([data-unified-heatmap="true"]) span {
     overflow-wrap: anywhere;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  [data-selection-floor="true"] {
-    animation: none;
   }
 }
