@@ -38,9 +38,8 @@ button[data-slot-start][aria-pressed="true"] {
 }
 
 /*
- * The bottom availability marker must remain visibly striped even when the
- * selected quarter itself is green. Keep the texture in this last-loaded
- * stylesheet so later performance overrides cannot flatten it.
+ * The compact availability marker remains visibly striped. The full selected
+ * tile uses the matching striped layer defined in branding.css.
  */
 @keyframes synk-selection-floor-stripes-drift {
   from {
@@ -74,7 +73,7 @@ button[data-slot-start][aria-pressed="true"] {
 
 @media (prefers-reduced-motion: no-preference) {
   [data-selection-floor="true"]::before {
-    animation: synk-selection-floor-stripes-drift 32s linear infinite;
+    animation: synk-selection-floor-stripes-drift 36s linear infinite;
     will-change: transform;
   }
 }
@@ -104,10 +103,7 @@ button[data-slot-start][aria-pressed="true"] {
     color-mix(in oklab, var(--muted-foreground) 10%, transparent);
 }
 
-/*
- * Heatmap cells normally avoid per-cell shadows for smooth scrolling. A chosen
- * or recommendation-highlighted meeting window is the deliberate exception.
- */
+/* Heatmap cells normally avoid per-cell shadows for smooth scrolling. */
 button[style*="box-shadow"] {
   box-shadow: none !important;
 }
@@ -119,8 +115,8 @@ button[style*="box-shadow"]:focus-visible:not([aria-pressed="true"]):not(
   outline-offset: -2px;
 }
 
-button[style*="box-shadow"][aria-pressed="true"],
-button[style*="box-shadow"].brightness-125 {
+/* Selected availability keeps its existing green treatment. */
+button[style*="box-shadow"][aria-pressed="true"] {
   border-color: transparent !important;
   outline: 0 !important;
   background-color: oklch(0.72 0.19 145) !important;
@@ -130,6 +126,16 @@ button[style*="box-shadow"].brightness-125 {
     inset 0 0 16px oklch(0.93 0.12 145 / 0.32) !important;
   --tw-ring-offset-shadow: 0 0 #0000 !important;
   --tw-ring-shadow: 0 0 #0000 !important;
+}
+
+/*
+ * Hovering a suggested match only lightens the existing heatmap color. It must
+ * never recolor those cells green or introduce a green glow.
+ */
+button[style*="box-shadow"].brightness-125:not([aria-pressed="true"]) {
+  background-color: var(--synk-heatmap-bg) !important;
+  filter: brightness(1.12) !important;
+  box-shadow: none !important;
 }
 
 /* The timezone sentence no longer needs a decorative TZ badge. */
