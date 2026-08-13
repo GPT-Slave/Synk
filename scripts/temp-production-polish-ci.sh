@@ -24,4 +24,5 @@ done
 mkdir -p /tmp/pw /tmp/synk-polish
 npm install --prefix /tmp/pw playwright@1.54.2
 node /tmp/pw/node_modules/playwright/cli.js install chromium firefox
+sed -i 's/await context\.setViewportSize/await page.setViewportSize/' scripts/temp-production-polish-regression.cjs
 node scripts/temp-production-polish-regression.cjs
