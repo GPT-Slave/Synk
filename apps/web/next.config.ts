@@ -104,6 +104,6 @@ function safeOrigin(value: string | undefined, fallback: string) {
 
 function deploymentIdentifier() {
   const raw = process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.GITHUB_SHA;
-  const sanitized = raw?.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+  const sanitized = raw?.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 32);
   return sanitized || undefined;
 }
