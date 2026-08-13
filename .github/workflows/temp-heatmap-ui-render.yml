@@ -1,0 +1,25 @@
+name: Temporary heatmap UI render
+
+on:
+  push:
+    branches: [agent/heatmap-selection-ui-v2]
+
+jobs:
+  render-patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply focused UI patch locally
+        run: python scripts/temp-refine-heatmap-ui.py
+
+      - name: Stage patched source artifact
+        run: |
+          mkdir -p /tmp/heatmap-patch/apps/web/src/components/meetings
+          cp apps/web/src/components/meetings/interactive-availability-heatmap.tsx /tmp/heatmap-patch/apps/web/src/components/meetings/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: patched-heatmap-source
+          path: /tmp/heatmap-patch
