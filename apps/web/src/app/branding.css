@@ -2,6 +2,14 @@
   filter: none !important;
 }
 
+button[data-heatmap-cell="true"] {
+  overflow: hidden;
+}
+
+button[data-heatmap-cell="true"] > span.relative.z-10 {
+  visibility: hidden;
+}
+
 button[data-heatmap-cell="true"] [data-selection-floor="true"] {
   display: none !important;
 }
@@ -16,4 +24,19 @@ button[data-heatmap-cell="true"][data-selected="true"]::before {
   bottom: 0;
   height: 15px;
   background: rgb(57 255 20);
+  box-shadow: none;
+}
+
+button[data-heatmap-cell="true"][data-available-count]::after {
+  content: attr(data-available-count);
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  color: inherit;
+  font-size: 0.58rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
