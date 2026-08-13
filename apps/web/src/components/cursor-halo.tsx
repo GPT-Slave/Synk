@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-const HALO_SIZE = 72;
+const HALO_SIZE = 144;
 
 export function CursorHalo() {
   const haloRef = useRef<HTMLDivElement | null>(null);
@@ -47,9 +47,10 @@ export function CursorHalo() {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none fixed left-0 top-0 z-[9999] size-[72px] rounded-full opacity-0 transition-opacity duration-150 [background:radial-gradient(circle,rgba(96,165,250,0.22)_0%,rgba(56,189,248,0.09)_38%,transparent_72%)] blur-[5px] mix-blend-screen will-change-transform"
+      className="pointer-events-none fixed left-0 top-0 z-[9999] rounded-full opacity-0 transition-opacity duration-150 [background:radial-gradient(circle,rgba(96,165,250,0.22)_0%,rgba(56,189,248,0.09)_42%,transparent_76%)] blur-[8px] mix-blend-screen will-change-transform"
       data-cursor-halo="true"
       ref={haloRef}
+      style={{ height: HALO_SIZE, width: HALO_SIZE }}
     />
   );
 }

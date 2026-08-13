@@ -7,17 +7,20 @@ const apiOrigin = safeOrigin(
   process.env.NEXT_PUBLIC_API_URL,
   "http://localhost:4000",
 );
-const socketOrigin = safeOrigin(
+const socketOrigin = safeWebSocketOrigin(
   process.env.NEXT_PUBLIC_WS_URL,
-  apiOrigin.replace(/^http/, "ws"),
+  apiOrigin,
 );
+const connectSources = Array.from(
+  new Set(["'self'", apiOrigin, socketOrigin]),
+).join(" ");
 const contentSecurityPolicy = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${production ? "" : " 'unsafe-eval'"}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  `connect-src 'self' ${apiOrigin} ${socketOrigin}`,
+  `connect-src ${connectSources}`,
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -107,6 +110,24 @@ function safeOrigin(value: string | undefined, fallback: string) {
   } catch {
     return new URL(fallback).origin;
   }
+}
+
+function safeWebSocketOrigin(value: string | undefined, fallbackOrigin: string) {
+  try {
+    return websocketOrigin(value ?? fallbackOrigin);
+  } catch {
+    return websocketOrigin(fallbackOrigin);
+  }
+}
+
+function websocketOrigin(value: string) {
+  const url = new URL(value);
+  if (url.protocol === "https:") url.protocol = "wss:";
+  else if (url.protocol === "http:") url.protocol = "ws:";
+  if (url.protocol !== "ws:" && url.protocol !== "wss:") {
+    throw new Error("Unsupported WebSocket protocol");
+  }
+  return url.origin;
 }
 
 function deploymentIdentifier() {

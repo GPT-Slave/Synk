@@ -13,8 +13,7 @@ export interface Credentials {
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-export const SOCKET_URL =
-  process.env.NEXT_PUBLIC_WS_URL ?? API_URL.replace(/^http/, "ws");
+export const SOCKET_URL = websocketUrl(process.env.NEXT_PUBLIC_WS_URL ?? API_URL);
 
 export class ApiError extends Error {
   constructor(
@@ -65,16 +64,12 @@ async function requestOnce<T>(
       details = body;
       if (response.status === 403 && body.code === "CSRF_INVALID") {
         csrfToken = null;
-        if (mutating && retryCsrf) {
-          return requestOnce<T>(path, init, false);
-        }
+        if (mutating && retryCsrf) return requestOnce<T>(path, init, false);
       }
     } catch {
       // Keep the safe fallback for non-JSON errors.
     }
-    const retryAfterMs = retryAfterMilliseconds(
-      response.headers.get("Retry-After"),
-    );
+    const retryAfterMs = retryAfterMilliseconds(response.headers.get("Retry-After"));
     throw new ApiError(message, response.status, details, retryAfterMs);
   }
 
@@ -90,15 +85,10 @@ async function ensureCsrfToken(): Promise<string> {
   })
     .then(async (response) => {
       if (!response.ok) {
-        throw new ApiError(
-          "Unable to initialize a secure Synk session.",
-          response.status,
-        );
+        throw new ApiError("Unable to initialize a secure Synk session.", response.status);
       }
       const body = (await response.json()) as { token?: string };
-      if (!body.token) {
-        throw new ApiError("Synk did not return a security token.", 500);
-      }
+      if (!body.token) throw new ApiError("Synk did not return a security token.", 500);
       csrfToken = body.token;
       return body.token;
     })
@@ -108,17 +98,12 @@ async function ensureCsrfToken(): Promise<string> {
   return csrfPromise;
 }
 
-export async function authenticatedRequest<T>(
-  path: string,
-  init?: RequestInit,
-): Promise<T> {
+export async function authenticatedRequest<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     return await request<T>(path, init);
   } catch (error) {
     if (!(error instanceof ApiError) || error.status !== 401) throw error;
-    refreshPromise ??= request<SessionResponse>("/auth/refresh", {
-      method: "POST",
-    }).finally(() => {
+    refreshPromise ??= request<SessionResponse>("/auth/refresh", { method: "POST" }).finally(() => {
       refreshPromise = null;
     });
     await refreshPromise;
@@ -133,10 +118,7 @@ export async function getSession(): Promise<SessionResponse> {
     return await request<SessionResponse>("/auth/session");
   } catch (error) {
     if (!(error instanceof ApiError) || error.status !== 401) throw error;
-
-    refreshPromise ??= request<SessionResponse>("/auth/refresh", {
-      method: "POST",
-    }).finally(() => {
+    refreshPromise ??= request<SessionResponse>("/auth/refresh", { method: "POST" }).finally(() => {
       refreshPromise = null;
     });
     await refreshPromise;
@@ -145,17 +127,11 @@ export async function getSession(): Promise<SessionResponse> {
 }
 
 export function login(credentials: Credentials) {
-  return request<SessionResponse>("/auth/login", {
-    method: "POST",
-    body: JSON.stringify(credentials),
-  });
+  return request<SessionResponse>("/auth/login", { method: "POST", body: JSON.stringify(credentials) });
 }
 
 export function signup(credentials: Credentials) {
-  return request<SessionResponse>("/auth/signup", {
-    method: "POST",
-    body: JSON.stringify(credentials),
-  });
+  return request<SessionResponse>("/auth/signup", { method: "POST", body: JSON.stringify(credentials) });
 }
 
 export function logout() {
@@ -173,4 +149,18 @@ function retryAfterMilliseconds(value: string | null): number | undefined {
   const date = Date.parse(value);
   if (Number.isNaN(date)) return undefined;
   return Math.max(0, date - Date.now());
+}
+
+function websocketUrl(value: string) {
+  try {
+    const url = new URL(value);
+    if (url.protocol === "https:") url.protocol = "wss:";
+    else if (url.protocol === "http:") url.protocol = "ws:";
+    if (url.protocol === "ws:" || url.protocol === "wss:") {
+      return url.toString().replace(/\/$/, "");
+    }
+  } catch {
+    // Fall back to the configured API origin below.
+  }
+  return API_URL.replace(/^http/, "ws").replace(/\/$/, "");
 }

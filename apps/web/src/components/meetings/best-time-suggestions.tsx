@@ -4,7 +4,7 @@ import type {
   BestMatchDto,
   HeatmapParticipantDto,
 } from "@meet-planner/shared-types";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, CalendarCheck2, Sparkles, UsersRound } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { StatePanel } from "@/components/ui/state-panel";
@@ -155,14 +155,39 @@ export function BestTimeSuggestions({
                     total: match.totalParticipants,
                   })}
                 </p>
-                {revealed && (
-                  <p
-                    className="mt-2 text-xs leading-relaxed text-primary/80"
-                    data-match-participant-names="true"
-                  >
-                    {names.length ? names.join(", ") : t("No participants available")}
-                  </p>
-                )}
+                <AnimatePresence initial={false}>
+                  {revealed && (
+                    <motion.div
+                      animate={{ height: "auto", opacity: 1, y: 0 }}
+                      className="overflow-hidden"
+                      data-match-participant-reveal="true"
+                      exit={
+                        reduceMotion
+                          ? { opacity: 0 }
+                          : { height: 0, opacity: 0, y: -4 }
+                      }
+                      initial={
+                        reduceMotion
+                          ? false
+                          : { height: 0, opacity: 0, y: -4 }
+                      }
+                      transition={
+                        reduceMotion
+                          ? { duration: 0 }
+                          : { duration: 0.24, ease: [0.22, 1, 0.36, 1] }
+                      }
+                    >
+                      <p
+                        className="pt-2 text-xs leading-relaxed text-primary/80"
+                        data-match-participant-names="true"
+                      >
+                        {names.length
+                          ? names.join(", ")
+                          : t("No participants available")}
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
               <div className="shrink-0 text-end">
                 <p className="text-lg font-semibold text-primary">

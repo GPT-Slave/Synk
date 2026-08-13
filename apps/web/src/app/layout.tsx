@@ -19,6 +19,7 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  preload: false,
 });
 
 const siteIcon = "/logo_nobg.png?v=31f7d33";
@@ -45,21 +46,9 @@ export const metadata: Metadata = {
   applicationName: "Synk",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent" },
   icons: {
-    icon: [
-      {
-        url: siteIcon,
-        type: "image/png",
-        sizes: "499x499",
-      },
-    ],
+    icon: [{ url: siteIcon, type: "image/png", sizes: "499x499" }],
     shortcut: siteIcon,
-    apple: [
-      {
-        url: siteIcon,
-        type: "image/png",
-        sizes: "499x499",
-      },
-    ],
+    apple: [{ url: siteIcon, type: "image/png", sizes: "499x499" }],
   },
 };
 
