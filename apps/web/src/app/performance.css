@@ -185,6 +185,17 @@ p[class*="text-primary/65"] > span:first-child {
   display: none;
 }
 
+@media (max-width: 639px) {
+  /*
+   * Vertical finger motion remains native scrolling (and pinch zoom remains
+   * available), while horizontal motion over a quarter-hour tile stays in the
+   * pointer stream so Synk can use it for sweep selection.
+   */
+  button[data-heatmap-cell="true"] {
+    touch-action: pan-y pinch-zoom;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   button,
   [role="button"] {
