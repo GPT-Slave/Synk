@@ -1,18 +1,86 @@
 "use client";
 
+import { MoveHorizontal } from "lucide-react";
 import type { ComponentProps } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { InteractiveAvailabilityHeatmap as CoreHeatmap } from "@/components/meetings/interactive-availability-heatmap";
 import { useI18n } from "@/lib/i18n";
 
 const MOBILE_QUERY = "(max-width: 639px)";
 const TOOLTIP_SELECTOR = '[data-heatmap-tooltip="true"]';
+const AVAILABILITY_HINT_IDLE_MS = 10_000;
+const AVAILABILITY_HINT_COOLDOWN_MS = 60_000;
+const AVAILABILITY_HINT_VISIBLE_MS = 6_000;
+const AVAILABILITY_HINT_EXIT_MS = 300;
 
 type Props = ComponentProps<typeof CoreHeatmap>;
 
 export function InteractiveAvailabilityHeatmap(props: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const lastHintShownAtRef = useRef<number>();
+  const [hintMounted, setHintMounted] = useState(false);
+  const [hintVisible, setHintVisible] = useState(false);
   const { t } = useI18n();
+  const selectedSignature = Array.from(props.selected).sort().join("\u0000");
+  const canPromptForAvailability =
+    props.editable && !props.manualMeetingMode && props.selected.size === 0;
+
+  useEffect(() => {
+    let cancelled = false;
+    let showTimer: number | undefined;
+    let hideTimer: number | undefined;
+    let unmountTimer: number | undefined;
+    let enterFrame: number | undefined;
+
+    const lastSelectionActivityAt = Date.now();
+
+    setHintVisible(false);
+    setHintMounted(false);
+
+    function clearTimers() {
+      if (showTimer !== undefined) window.clearTimeout(showTimer);
+      if (hideTimer !== undefined) window.clearTimeout(hideTimer);
+      if (unmountTimer !== undefined) window.clearTimeout(unmountTimer);
+      if (enterFrame !== undefined) window.cancelAnimationFrame(enterFrame);
+    }
+
+    function scheduleHint(showAt: number) {
+      showTimer = window.setTimeout(() => {
+        if (cancelled) return;
+
+        const shownAt = Date.now();
+        lastHintShownAtRef.current = shownAt;
+        setHintMounted(true);
+        enterFrame = window.requestAnimationFrame(() => {
+          if (!cancelled) setHintVisible(true);
+        });
+
+        hideTimer = window.setTimeout(() => {
+          if (cancelled) return;
+          setHintVisible(false);
+          unmountTimer = window.setTimeout(() => {
+            if (cancelled) return;
+            setHintMounted(false);
+            scheduleHint(shownAt + AVAILABILITY_HINT_COOLDOWN_MS);
+          }, AVAILABILITY_HINT_EXIT_MS);
+        }, AVAILABILITY_HINT_VISIBLE_MS);
+      }, Math.max(0, showAt - Date.now()));
+    }
+
+    if (canPromptForAvailability) {
+      const nextAllowedAt = Math.max(
+        lastSelectionActivityAt + AVAILABILITY_HINT_IDLE_MS,
+        (lastHintShownAtRef.current ?? Number.NEGATIVE_INFINITY) +
+          AVAILABILITY_HINT_COOLDOWN_MS,
+      );
+      scheduleHint(nextAllowedAt);
+    }
+
+    return () => {
+      cancelled = true;
+      clearTimers();
+    };
+  }, [canPromptForAvailability, selectedSignature]);
 
   useEffect(() => {
     const currentRoot = rootRef.current;
@@ -141,6 +209,33 @@ export function InteractiveAvailabilityHeatmap(props: Props) {
         </div>
       )}
       <CoreHeatmap {...props} />
+
+      {hintMounted && (
+        <div
+          aria-live="polite"
+          className={`pointer-events-none fixed bottom-5 right-3 z-[70] w-[min(19rem,calc(100vw-1.5rem))] transform-gpu transition-[transform,opacity] duration-300 ease-out motion-reduce:translate-x-0 motion-reduce:transition-none sm:bottom-7 sm:right-6 ${
+            hintVisible
+              ? "translate-x-0 opacity-100"
+              : "translate-x-[calc(100%+2rem)] opacity-0"
+          }`}
+          data-availability-idle-hint="true"
+          role="status"
+        >
+          <div className="flex items-start gap-3 rounded-xl border border-sky-400/20 bg-[#07111f]/96 px-3.5 py-3 shadow-[0_14px_42px_rgba(0,0,0,0.38)]">
+            <span
+              aria-hidden="true"
+              className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg bg-sky-400/10 text-sky-300"
+            >
+              <MoveHorizontal className="size-4" />
+            </span>
+            <p className="text-xs leading-5 text-slate-200 sm:text-sm">
+              {t(
+                "Click or sweep across the tiles to mark your availability.",
+              )}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
