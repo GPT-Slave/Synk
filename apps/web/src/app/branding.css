@@ -14,38 +14,17 @@ button[data-heatmap-cell="true"] [data-selection-floor="true"] {
   display: none !important;
 }
 
-@keyframes synk-tile-availability-stripes-drift {
-  from {
-    background-position: 0 0;
-  }
-  to {
-    background-position: 42px 0;
-  }
-}
-
 button[data-heatmap-cell="true"][data-selected="true"]::before {
   content: "";
   pointer-events: none;
   position: absolute;
-  z-index: 1;
-  inset: 0;
-  border-radius: inherit;
-  background:
-    repeating-linear-gradient(
-      135deg,
-      rgb(255 255 255 / 30%) 0 3px,
-      rgb(255 255 255 / 8%) 3px 5px,
-      rgb(0 0 0 / 12%) 5px 7px,
-      transparent 7px 13px
-    ),
-    rgb(18 116 56);
+  z-index: 20;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 15px;
+  background: rgb(57 255 20);
   box-shadow: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  button[data-heatmap-cell="true"][data-selected="true"]::before {
-    animation: synk-tile-availability-stripes-drift 36s linear infinite;
-  }
 }
 
 button[data-heatmap-cell="true"][data-available-count]::after {
