@@ -1,0 +1,72 @@
+name: temporary availability hint visual review
+
+on:
+  push:
+    branches:
+      - agent/add-availability-idle-hint
+
+jobs:
+  visual-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Start Synk web app
+        run: |
+          pnpm --filter web exec next dev --webpack --hostname 127.0.0.1 --port 3000 > /tmp/synk-web.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3000/visual-review/availability-hint >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/synk-web.log
+          exit 1
+      - name: Validate timing and capture phone and desktop
+        run: |
+          set -euo pipefail
+          mkdir -p visual-artifacts
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME"
+          URL='http://127.0.0.1:3000/visual-review/availability-hint'
+
+          "$CHROME" --headless=new --no-sandbox --disable-gpu --hide-scrollbars \
+            --run-all-compositor-stages-before-draw --virtual-time-budget=9000 \
+            --dump-dom "$URL" > visual-artifacts/dom-9s.html
+          if grep -q 'data-availability-idle-hint="true"' visual-artifacts/dom-9s.html; then
+            echo 'Hint appeared before 10 seconds'
+            exit 1
+          fi
+
+          "$CHROME" --headless=new --no-sandbox --disable-gpu --hide-scrollbars \
+            --run-all-compositor-stages-before-draw --virtual-time-budget=11000 \
+            --dump-dom "$URL" > visual-artifacts/dom-11s.html
+          grep -q 'data-availability-idle-hint="true"' visual-artifacts/dom-11s.html
+
+          "$CHROME" --headless=new --no-sandbox --disable-gpu --hide-scrollbars \
+            --run-all-compositor-stages-before-draw --virtual-time-budget=72000 \
+            --dump-dom "$URL" > visual-artifacts/dom-72s.html
+          grep -q 'data-availability-idle-hint="true"' visual-artifacts/dom-72s.html
+
+          "$CHROME" --headless=new --no-sandbox --disable-gpu --hide-scrollbars \
+            --run-all-compositor-stages-before-draw --virtual-time-budget=11000 \
+            --window-size=390,844 \
+            --screenshot=visual-artifacts/phone-11s.png "$URL"
+
+          "$CHROME" --headless=new --no-sandbox --disable-gpu --hide-scrollbars \
+            --run-all-compositor-stages-before-draw --virtual-time-budget=11000 \
+            --window-size=1440,900 \
+            --screenshot=visual-artifacts/desktop-11s.png "$URL"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: availability-hint-visual-review
+          path: visual-artifacts
+          if-no-files-found: error
