@@ -1,7 +1,7 @@
 "use client";
 
 import { MoveHorizontal } from "lucide-react";
-import type { ComponentProps } from "react";
+import type { ComponentProps, PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useRef } from "react";
 import { InteractiveAvailabilityHeatmap as CoreHeatmap } from "@/components/meetings/interactive-availability-heatmap";
 import { useI18n } from "@/lib/i18n";
@@ -11,17 +11,92 @@ const TOOLTIP_SELECTOR = '[data-heatmap-tooltip="true"]';
 const AVAILABILITY_HINT_IDLE_MS = 10_000;
 const AVAILABILITY_HINT_COOLDOWN_MS = 60_000;
 const AVAILABILITY_HINT_VISIBLE_MS = 6_000;
+const TOUCH_AXIS_THRESHOLD_PX = 10;
+const TOUCH_AXIS_DOMINANCE = 1.15;
 
 type Props = ComponentProps<typeof CoreHeatmap>;
+type TouchAxisIntent = "pending" | "horizontal" | "vertical";
+
+interface TouchAxisGesture {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  intent: TouchAxisIntent;
+}
 
 export function InteractiveAvailabilityHeatmap(props: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const hintRef = useRef<HTMLDivElement>(null);
   const lastHintShownAtRef = useRef<number | undefined>(undefined);
+  const touchAxisGestureRef = useRef<TouchAxisGesture | undefined>(undefined);
   const { t } = useI18n();
   const selectedSignature = Array.from(props.selected).sort().join("\u0000");
   const canPromptForAvailability =
     props.editable && !props.manualMeetingMode && props.selected.size === 0;
+
+  function handlePointerDownCapture(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.pointerType !== "touch") return;
+
+    const target = event.target;
+    if (
+      !(target instanceof Element) ||
+      !target.closest('button[data-heatmap-cell="true"]')
+    ) {
+      touchAxisGestureRef.current = undefined;
+      return;
+    }
+
+    touchAxisGestureRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      intent: "pending",
+    };
+  }
+
+  function handlePointerMoveCapture(event: ReactPointerEvent<HTMLDivElement>) {
+    const gesture = touchAxisGestureRef.current;
+    if (
+      event.pointerType !== "touch" ||
+      !gesture ||
+      gesture.pointerId !== event.pointerId
+    ) {
+      return;
+    }
+
+    if (gesture.intent === "horizontal") return;
+    if (gesture.intent === "vertical") {
+      event.stopPropagation();
+      return;
+    }
+
+    const deltaX = Math.abs(event.clientX - gesture.startX);
+    const deltaY = Math.abs(event.clientY - gesture.startY);
+    if (Math.max(deltaX, deltaY) < TOUCH_AXIS_THRESHOLD_PX) return;
+
+    if (deltaX > deltaY * TOUCH_AXIS_DOMINANCE) {
+      gesture.intent = "horizontal";
+      return;
+    }
+
+    if (deltaY > deltaX * TOUCH_AXIS_DOMINANCE) {
+      gesture.intent = "vertical";
+    }
+
+    // Pending diagonal movement and confirmed vertical movement must never reach
+    // the core drag selector. The browser still receives the gesture normally,
+    // so a vertical pan can scroll the page without selecting timetable cells.
+    event.stopPropagation();
+  }
+
+  function clearTouchAxisGesture(event: ReactPointerEvent<HTMLDivElement>) {
+    if (
+      event.pointerType === "touch" &&
+      touchAxisGestureRef.current?.pointerId === event.pointerId
+    ) {
+      touchAxisGestureRef.current = undefined;
+    }
+  }
 
   useEffect(() => {
     const currentHint = hintRef.current;
@@ -178,7 +253,14 @@ export function InteractiveAvailabilityHeatmap(props: Props) {
   }, []);
 
   return (
-    <div data-heatmap-presentation="true" ref={rootRef}>
+    <div
+      data-heatmap-presentation="true"
+      onPointerCancelCapture={clearTouchAxisGesture}
+      onPointerDownCapture={handlePointerDownCapture}
+      onPointerMoveCapture={handlePointerMoveCapture}
+      onPointerUpCapture={clearTouchAxisGesture}
+      ref={rootRef}
+    >
       {!props.manualMeetingMode && (
         <div className="mb-2 flex justify-end">
           <div
