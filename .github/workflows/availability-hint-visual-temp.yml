@@ -62,9 +62,9 @@ jobs:
             --screenshot=visual-artifacts/phone-11s.png "$URL"
 
           "$CHROME" --headless=new --no-sandbox --disable-gpu --hide-scrollbars \
-            --run-all-compositor-stages-before-draw --virtual-time-budget=11000 \
+            --run-all-compositor-stages-before-draw --virtual-time-budget=13000 \
             --window-size=1440,900 \
-            --screenshot=visual-artifacts/desktop-11s.png "$URL"
+            --screenshot=visual-artifacts/desktop-13s.png "$URL"
       - uses: actions/upload-artifact@v4
         with:
           name: availability-hint-visual-review
