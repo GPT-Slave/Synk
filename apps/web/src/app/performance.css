@@ -27,6 +27,32 @@ label.fixed[class*="backdrop-blur"],
   will-change: auto !important;
 }
 
+/*
+ * Availability tiles use the individual scale property rather than transform,
+ * so the dense-grid performance guard above stays intact. The selected state is
+ * subtly raised, while the asymmetric easing gives selection a soft overshoot
+ * and deselection a quick shrink before settling back to its original size.
+ */
+button[data-heatmap-cell="true"] {
+  scale: 1;
+  transform-origin: center center;
+  transition-property: scale !important;
+  transition-duration: 220ms !important;
+  transition-timing-function: cubic-bezier(0.22, 1.55, 0.36, 1) !important;
+}
+
+button[data-heatmap-cell="true"][data-selected="true"] {
+  scale: 1.035;
+  transition-duration: 260ms !important;
+  transition-timing-function: cubic-bezier(0.16, 1.25, 0.3, 1) !important;
+}
+
+button[data-heatmap-cell="true"]:active {
+  scale: 0.955;
+  transition-duration: 75ms !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 1, 1) !important;
+}
+
 /* Selected participant availability is a borderless green signal. */
 button[data-slot-start][aria-pressed="true"] {
   border: 0 !important;
@@ -141,6 +167,11 @@ p[class*="text-primary/65"] > span:first-child {
   button,
   [role="button"] {
     transform: none !important;
+  }
+
+  button[data-heatmap-cell="true"] {
+    scale: 1 !important;
+    transition: none !important;
   }
 
   [data-availability-idle-hint="true"] {
