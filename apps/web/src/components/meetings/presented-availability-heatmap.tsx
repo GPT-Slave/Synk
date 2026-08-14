@@ -11,15 +11,13 @@ const TOOLTIP_SELECTOR = '[data-heatmap-tooltip="true"]';
 const AVAILABILITY_HINT_IDLE_MS = 10_000;
 const AVAILABILITY_HINT_COOLDOWN_MS = 60_000;
 const AVAILABILITY_HINT_VISIBLE_MS = 6_000;
-const AVAILABILITY_HINT_EXIT_MS = 300;
 
 type Props = ComponentProps<typeof CoreHeatmap>;
 
 export function InteractiveAvailabilityHeatmap(props: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
-  const lastHintShownAtRef = useRef<number>();
+  const lastHintShownAtRef = useRef<number | undefined>(undefined);
   const [hintMounted, setHintMounted] = useState(false);
-  const [hintVisible, setHintVisible] = useState(false);
   const { t } = useI18n();
   const selectedSignature = Array.from(props.selected).sort().join("\u0000");
   const canPromptForAvailability =
@@ -29,19 +27,13 @@ export function InteractiveAvailabilityHeatmap(props: Props) {
     let cancelled = false;
     let showTimer: number | undefined;
     let hideTimer: number | undefined;
-    let unmountTimer: number | undefined;
-    let enterFrame: number | undefined;
-
     const lastSelectionActivityAt = Date.now();
 
-    setHintVisible(false);
     setHintMounted(false);
 
     function clearTimers() {
       if (showTimer !== undefined) window.clearTimeout(showTimer);
       if (hideTimer !== undefined) window.clearTimeout(hideTimer);
-      if (unmountTimer !== undefined) window.clearTimeout(unmountTimer);
-      if (enterFrame !== undefined) window.cancelAnimationFrame(enterFrame);
     }
 
     function scheduleHint(showAt: number) {
@@ -51,18 +43,11 @@ export function InteractiveAvailabilityHeatmap(props: Props) {
         const shownAt = Date.now();
         lastHintShownAtRef.current = shownAt;
         setHintMounted(true);
-        enterFrame = window.requestAnimationFrame(() => {
-          if (!cancelled) setHintVisible(true);
-        });
 
         hideTimer = window.setTimeout(() => {
           if (cancelled) return;
-          setHintVisible(false);
-          unmountTimer = window.setTimeout(() => {
-            if (cancelled) return;
-            setHintMounted(false);
-            scheduleHint(shownAt + AVAILABILITY_HINT_COOLDOWN_MS);
-          }, AVAILABILITY_HINT_EXIT_MS);
+          setHintMounted(false);
+          scheduleHint(shownAt + AVAILABILITY_HINT_COOLDOWN_MS);
         }, AVAILABILITY_HINT_VISIBLE_MS);
       }, Math.max(0, showAt - Date.now()));
     }
@@ -213,11 +198,7 @@ export function InteractiveAvailabilityHeatmap(props: Props) {
       {hintMounted && (
         <div
           aria-live="polite"
-          className={`pointer-events-none fixed bottom-5 right-3 z-[70] w-[min(19rem,calc(100vw-1.5rem))] transform-gpu transition-[transform,opacity] duration-300 ease-out motion-reduce:translate-x-0 motion-reduce:transition-none sm:bottom-7 sm:right-6 ${
-            hintVisible
-              ? "translate-x-0 opacity-100"
-              : "translate-x-[calc(100%+2rem)] opacity-0"
-          }`}
+          className="pointer-events-none fixed bottom-20 right-3 z-[70] w-[min(19rem,calc(100vw-1.5rem))] sm:bottom-7 sm:right-6"
           data-availability-idle-hint="true"
           role="status"
         >
