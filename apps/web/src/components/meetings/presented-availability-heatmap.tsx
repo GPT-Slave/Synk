@@ -198,7 +198,7 @@ export function InteractiveAvailabilityHeatmap(props: Props) {
       {hintMounted && (
         <div
           aria-live="polite"
-          className="pointer-events-none fixed bottom-20 right-3 z-[70] w-[min(19rem,calc(100vw-1.5rem))] sm:bottom-7 sm:right-6"
+          className="pointer-events-none fixed bottom-20 right-3 z-[70] w-[min(19rem,calc(100vw-1.5rem))] sm:bottom-20 sm:right-6"
           data-availability-idle-hint="true"
           role="status"
         >
