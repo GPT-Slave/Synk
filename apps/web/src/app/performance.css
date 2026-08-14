@@ -37,20 +37,7 @@ button[data-slot-start][aria-pressed="true"] {
     inset 0 0 14px oklch(0.93 0.12 145 / 0.28) !important;
 }
 
-/*
- * The bottom availability marker must remain visibly striped even when the
- * selected quarter itself is green. Keep the texture in this last-loaded
- * stylesheet so later performance overrides cannot flatten it.
- */
-@keyframes synk-selection-floor-stripes-drift {
-  from {
-    transform: translate3d(-24px, 0, 0);
-  }
-  to {
-    transform: translate3d(24px, 0, 0);
-  }
-}
-
+/* Keep the compact availability marker simple and solid. */
 [data-selection-floor="true"] {
   height: 6px !important;
   overflow: hidden;
@@ -60,23 +47,36 @@ button[data-slot-start][aria-pressed="true"] {
 }
 
 [data-selection-floor="true"]::before {
-  position: absolute;
-  inset: -5px -32px;
-  content: "";
-  background: repeating-linear-gradient(
-    135deg,
-    rgb(255 255 255 / 42%) 0 2px,
-    rgb(255 255 255 / 10%) 2px 4px,
-    rgb(0 0 0 / 18%) 4px 6px,
-    transparent 6px 11px
-  );
+  content: none !important;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  [data-selection-floor="true"]::before {
-    animation: synk-selection-floor-stripes-drift 32s linear infinite;
-    will-change: transform;
+@keyframes synk-availability-hint-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(calc(100% + 2rem), 0, 0);
   }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes synk-availability-hint-exit {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(calc(100% + 2rem), 0, 0);
+  }
+}
+
+[data-availability-idle-hint="true"] {
+  animation:
+    synk-availability-hint-enter 300ms cubic-bezier(0.16, 1, 0.3, 1) both,
+    synk-availability-hint-exit 250ms ease-in 5.75s forwards;
+  will-change: transform, opacity;
 }
 
 /* A mobile inspection label is dismissed as soon as any page/track scrolls. */
@@ -141,5 +141,9 @@ p[class*="text-primary/65"] > span:first-child {
   button,
   [role="button"] {
     transform: none !important;
+  }
+
+  [data-availability-idle-hint="true"] {
+    animation: none !important;
   }
 }
