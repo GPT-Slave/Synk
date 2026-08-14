@@ -37,20 +37,7 @@ button[data-slot-start][aria-pressed="true"] {
     inset 0 0 14px oklch(0.93 0.12 145 / 0.28) !important;
 }
 
-/*
- * The bottom availability marker must remain visibly striped even when the
- * selected quarter itself is green. Keep the texture in this last-loaded
- * stylesheet so later performance overrides cannot flatten it.
- */
-@keyframes synk-selection-floor-stripes-drift {
-  from {
-    transform: translate3d(-24px, 0, 0);
-  }
-  to {
-    transform: translate3d(24px, 0, 0);
-  }
-}
-
+/* Keep the compact availability marker simple and solid. */
 [data-selection-floor="true"] {
   height: 6px !important;
   overflow: hidden;
@@ -60,23 +47,7 @@ button[data-slot-start][aria-pressed="true"] {
 }
 
 [data-selection-floor="true"]::before {
-  position: absolute;
-  inset: -5px -32px;
-  content: "";
-  background: repeating-linear-gradient(
-    135deg,
-    rgb(255 255 255 / 42%) 0 2px,
-    rgb(255 255 255 / 10%) 2px 4px,
-    rgb(0 0 0 / 18%) 4px 6px,
-    transparent 6px 11px
-  );
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  [data-selection-floor="true"]::before {
-    animation: synk-selection-floor-stripes-drift 32s linear infinite;
-    will-change: transform;
-  }
+  content: none !important;
 }
 
 /* A mobile inspection label is dismissed as soon as any page/track scrolls. */
