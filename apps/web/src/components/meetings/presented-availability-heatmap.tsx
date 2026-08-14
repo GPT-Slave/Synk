@@ -24,15 +24,16 @@ export function InteractiveAvailabilityHeatmap(props: Props) {
     props.editable && !props.manualMeetingMode && props.selected.size === 0;
 
   useEffect(() => {
-    const hint = hintRef.current;
-    if (!hint) return;
+    const currentHint = hintRef.current;
+    if (!currentHint) return;
+    const hintElement: HTMLDivElement = currentHint;
 
     let cancelled = false;
     let showTimer: number | undefined;
     let hideTimer: number | undefined;
     const lastSelectionActivityAt = Date.now();
 
-    hint.hidden = true;
+    hintElement.hidden = true;
 
     function clearTimers() {
       if (showTimer !== undefined) window.clearTimeout(showTimer);
@@ -45,11 +46,11 @@ export function InteractiveAvailabilityHeatmap(props: Props) {
 
         const shownAt = Date.now();
         lastHintShownAtRef.current = shownAt;
-        hint.hidden = false;
+        hintElement.hidden = false;
 
         hideTimer = window.setTimeout(() => {
           if (cancelled) return;
-          hint.hidden = true;
+          hintElement.hidden = true;
           scheduleHint(shownAt + AVAILABILITY_HINT_COOLDOWN_MS);
         }, AVAILABILITY_HINT_VISIBLE_MS);
       }, Math.max(0, showAt - Date.now()));
@@ -67,7 +68,7 @@ export function InteractiveAvailabilityHeatmap(props: Props) {
     return () => {
       cancelled = true;
       clearTimers();
-      hint.hidden = true;
+      hintElement.hidden = true;
     };
   }, [canPromptForAvailability, selectedSignature]);
 
