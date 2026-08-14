@@ -50,6 +50,35 @@ button[data-slot-start][aria-pressed="true"] {
   content: none !important;
 }
 
+@keyframes synk-availability-hint-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(calc(100% + 2rem), 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes synk-availability-hint-exit {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(calc(100% + 2rem), 0, 0);
+  }
+}
+
+[data-availability-idle-hint="true"] {
+  animation:
+    synk-availability-hint-enter 300ms cubic-bezier(0.16, 1, 0.3, 1) both,
+    synk-availability-hint-exit 250ms ease-in 5.75s forwards;
+  will-change: transform, opacity;
+}
+
 /* A mobile inspection label is dismissed as soon as any page/track scrolls. */
 [data-heatmap-presentation="true"][data-mobile-tooltip-dismissed="true"]
   [data-heatmap-tooltip="true"] {
@@ -112,5 +141,9 @@ p[class*="text-primary/65"] > span:first-child {
   button,
   [role="button"] {
     transform: none !important;
+  }
+
+  [data-availability-idle-hint="true"] {
+    animation: none !important;
   }
 }
